@@ -52,7 +52,9 @@ Declared divergences from janus:
   no longer reports `redis` or `postgres`: limix has no database.
 - No plugin machinery (`plugins/`, `plugin-index.ts`, `plugin-manifests.spec.ts`):
   limix is not a plugin marketplace.
-- No `check:type-counts` step: no package holds `@ts-expect-error` fixtures yet.
+- No `check:type-counts` step: the type tests (`@ts-expect-error` cases in
+  `define.spec.ts`) are few enough to read; the count tooling comes back if they
+  grow.
 - No peer-floor tooling (`run-on-peer-floor`, `run-in-floor-project`,
   `newest-peers`, `test-retry`) and no `nightly.yml`: the floor matrices exist
   for packages with many peers and drivers.
@@ -64,6 +66,10 @@ Declared divergences from janus:
 - No `typecheck:tsc` script: limix typechecks with `bun check` alone.
 - No "generated code is committed" CI step: no package generates code.
 - No `format` or `lint` root scripts: `fix` covers both.
+- npm access is `public` (owner, 2026-11-26): `publishConfig.access`, the
+  changeset `access` and `accessProblems` in `scripts/artifacts/manifest.ts`
+  (with its spec and the publish-registries fixtures) say `public` where
+  janus says `restricted`.
 - A change to a private package needs no changeset (changesets ignores private
   packages, and `check-changesets` refuses one naming it).
 
