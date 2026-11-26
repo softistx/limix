@@ -19,6 +19,19 @@ bun add @softistx/limix
 does (`"moduleResolution": "bundler"`, which Bun and every bundler use): the
 declarations import without extensions, so `nodenext` is not supported.
 
+## Usage
+
+| Export | What it is |
+| --- | --- |
+| `.` | The package entry: `LIMIX_FORMAT_VERSION` |
+| `./package.json` | The package manifest |
+
+```ts
+import { LIMIX_FORMAT_VERSION } from '@softistx/limix'
+
+console.log(LIMIX_FORMAT_VERSION) // 1
+```
+
 ## Documentation
 
 See [docs/](docs/README.md): the [roadmap](docs/roadmap.md) and

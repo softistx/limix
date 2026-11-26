@@ -5,9 +5,9 @@ dates here, and the version something shipped in is the only number.
 
 ## Now
 
-- **Policy engine for REST and GraphQL** — the core: a rules format, their
-  evaluation, a relations port, coverage of your operations and signed remote
-  rules.
+- **Policy engine for REST and GraphQL** — the core is in progress: a rules
+  format, their evaluation, a relations port, coverage of your operations and
+  signed remote rules. The only shipped surface today is the format version.
 
 ## Next
 
@@ -27,7 +27,8 @@ dates here, and the version something shipped in is the only number.
 
 ## Not planned
 
-Nothing yet.
+- **Ory and Keto adapters** — relations go through the relations port; janus is
+  the first adapter.
 
 ## Shipped
 
