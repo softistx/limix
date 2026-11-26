@@ -20,8 +20,15 @@ export function staleRest(
 	if (operations.length === 0) return [];
 	const used = new Set<CompiledRestRoute>();
 	for (const operation of operations) {
-		for (const routes of ruleSetsForMethod(policy, operation.method.toUpperCase())) {
-			const hit = findRoute(routes, { route: operation.path }, policy.global.basePath);
+		for (const routes of ruleSetsForMethod(
+			policy,
+			operation.method.toUpperCase(),
+		)) {
+			const hit = findRoute(
+				routes,
+				{ route: operation.path },
+				policy.global.basePath,
+			);
 			if (hit) used.add(hit.route);
 		}
 	}
@@ -54,7 +61,8 @@ export function staleGraphql(
 	for (const [type, fields] of Object.entries(policy.graphql ?? {})) {
 		if (!judged.has(type)) continue;
 		for (const field of Object.keys(fields)) {
-			if (operations.some((op) => op.type === type && op.field === field)) continue;
+			if (operations.some((op) => op.type === type && op.field === field))
+				continue;
 			stale.push({ kind: 'graphql', type, field, label: `${type}.${field}` });
 		}
 	}

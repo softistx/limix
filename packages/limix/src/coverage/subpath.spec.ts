@@ -48,7 +48,12 @@ describe('the ./coverage subpath', () => {
 	});
 
 	it('does not reach the evaluators, the sources or the rules parser', () => {
-		for (const heavy of ['rest.ts', 'field.ts', 'policy-source.ts', 'load.ts']) {
+		for (const heavy of [
+			'rest.ts',
+			'field.ts',
+			'policy-source.ts',
+			'load.ts',
+		]) {
 			expect(names.map((name) => name.split('/')[1])).not.toContain(heavy);
 		}
 	});

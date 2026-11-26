@@ -163,9 +163,7 @@ describe('coverage: GraphQL', () => {
 		// Only a root field is refused by unmatched: deny.
 		expect(report.operations[2]?.unmatched).toBe('deny');
 		expect(report.operations[4]?.unmatched).toBe('allow');
-		expect(report.stale.map((rule) => rule.label)).toEqual([
-			'Mutation.retire',
-		]);
+		expect(report.stale.map((rule) => rule.label)).toEqual(['Mutation.retire']);
 	});
 
 	it('honours a renamed root through the root flag', () => {
@@ -227,8 +225,7 @@ describe('coverage: both transports', () => {
 	});
 
 	it('throws on a value that is not an operation', () => {
-		const bad = (value: unknown) =>
-			coverage(policy, [value as Operation]);
+		const bad = (value: unknown) => coverage(policy, [value as Operation]);
 		for (const value of [
 			null,
 			'GET /a',

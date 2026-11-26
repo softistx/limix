@@ -74,8 +74,14 @@ export function coverage(
 			: graphqlStatus(policy, operation)),
 	}));
 	const stale = [
-		...staleRest(policy, operations.filter((op) => op.kind === 'rest')),
-		...staleGraphql(policy, operations.filter((op) => op.kind === 'graphql')),
+		...staleRest(
+			policy,
+			operations.filter((op) => op.kind === 'rest'),
+		),
+		...staleGraphql(
+			policy,
+			operations.filter((op) => op.kind === 'graphql'),
+		),
 	];
 	const count = (status: CoverageStatus) =>
 		entries.filter((entry) => entry.status === status).length;
@@ -103,7 +109,9 @@ function restStatus(policy: CompiledPolicy, operation: RestOperation): Verdict {
 	// The last set is the handler's: without a rule there, the request falls to
 	// `unmatched`, whatever the earlier sets hold (a HEAD-only rule).
 	if (!matches[matches.length - 1]) return uncovered(policy.global.unmatched);
-	const everyPublic = matches.every((match) => !match || match.route.rule.public);
+	const everyPublic = matches.every(
+		(match) => !match || match.route.rule.public,
+	);
 	return { status: everyPublic ? 'public' : 'covered' };
 }
 
@@ -112,7 +120,8 @@ function graphqlStatus(
 	operation: GraphqlOperation,
 ): Verdict {
 	const entry = graphqlEntry(policy, operation.type, operation.field);
-	if (!entry) return uncovered(operation.root ? policy.global.unmatched : 'allow');
+	if (!entry)
+		return uncovered(operation.root ? policy.global.unmatched : 'allow');
 	return { status: entry.rule.public ? 'public' : 'covered' };
 }
 
