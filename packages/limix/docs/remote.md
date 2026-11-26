@@ -70,6 +70,36 @@ key fetch are made with `redirect: 'error'`: a 3xx is refused (`FETCH_FAILED`
 or `HTTP_STATUS`), so `Authorization: Bearer <authToken>` never follows a
 redirect to another origin or to `http:`.
 
+## Verifying a token you hold
+
+`verifyRules(jws, jwks, options)` runs the checks a pull makes (asymmetric
+`alg`, `typ`, `aud`, `iss`, `iat` and `exp` required, `schema`, the rules
+compiled with `conditions`) against a key set you already hold, without a
+network. It is what `limix-publish check` uses
+([`@softistx/limix-publish`](https://github.com/softistx/limix/blob/develop/packages/limix-publish/README.md)), so a publisher's
+check and its readers agree. A token past its `exp` is returned with
+`expired: true`; a refusal is a `RemotePolicyError` (`SIGNATURE`, `CLAIMS` or
+`RULES_REFUSED`), and a key set that is not a valid JWKS is `SIGNATURE`.
+
+Options: `audience` (required), `issuer`, `typ` (default `DEFAULT_TYP`,
+`limix-rules+jwt`), `conditions` (default none: a rule naming a condition is
+refused) and `now` (milliseconds, default `Date.now`). `ALGORITHMS`, exported
+beside it, lists the four algorithms a token may use.
+
+```ts
+import { verifyRules } from '@softistx/limix/remote'
+
+// Schematic: `token` is the compact JWS, `jwks` the publisher's key set.
+declare const token: string
+declare const jwks: { keys: object[] }
+
+const { ver, exp, expired, policy } = await verifyRules(token, jwks, {
+  audience: 'billing-api',
+  issuer: 'https://policy.example.com', // optional
+  conditions: { workingHours: () => true }, // the names the rules' `when` may use
+})
+```
+
 ## Polling and the last good copy
 
 A pull sends `If-None-Match` with the held ETag. A 304 keeps the rules and

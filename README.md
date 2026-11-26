@@ -8,6 +8,7 @@ Work in progress, nothing published yet.
 | Package | What it is |
 | --- | --- |
 | [`@softistx/limix-janus`](packages/limix-janus/README.md) | The `RelationChecker` adapter over janus permissions |
+| [`@softistx/limix-publish`](packages/limix-publish/README.md) | The emitter: signs rules as a JWS, serves them and their JWKS (API and CLI) |
 | [`@softistx/limix`](packages/limix/README.md) | The core: rules format, evaluation, relations port, coverage, remote client |
 
 See the [package page](packages/limix/README.md) and its

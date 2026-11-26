@@ -18,12 +18,15 @@ dates here, and the version something shipped in is the only number.
   limix's own, `loadRules` reads with `Bun.file` and `Bun.YAML`, and the
   `./node` subpath is now `./bun`. `jose` stays until a framework-free JWS
   package can replace it in `./remote`.
+- **Rule publisher** — sign a rules file and serve the keys that verify it
+  (`@softistx/limix-publish`: `signRules`, `jwksOf`, the endpoints and the
+  `limix-publish` command); `verifyRules` in `@softistx/limix/remote` is the
+  check the command shares with `remotePolicy`.
 - **Janus relations** — relations checked through janus (`@softistx/limix-janus`:
   `janusRelations`, `checkRulesAgainstModel`).
 
 ## Next
 
-- **Rule publisher** — sign a rules file and serve the keys that verify it.
 - **graxia integration** — rules on GraphQL fields in a graxia API (`@softistx/limix-graxia`).
 - **alxia integration** — rules on HTTP routes, tenants and refusals in an alxia API.
 - **Migration from @softistx/security** — a guide from the `policy` part of
