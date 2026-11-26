@@ -11,10 +11,11 @@ dates here, and the version something shipped in is the only number.
   (`@softistx/limix/coverage`: covered, public, uncovered and stale rules over
   a neutral list that integrations supply). Signed remote rules are still
   coming.
+- **Janus relations** — relations checked through janus (`@softistx/limix-janus`:
+  `janusRelations`, `checkRulesAgainstModel`).
 
 ## Next
 
-- **Janus relations** — relations checked through janus (`@softistx/limix-janus`).
 - **Rule publisher** — sign a rules file and serve the keys that verify it.
 - **graxia integration** — rules on GraphQL fields in a graxia API (`@softistx/limix-graxia`).
 - **alxia integration** — rules on HTTP routes, tenants and refusals in an alxia API.

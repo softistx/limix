@@ -120,7 +120,7 @@ evaluateRest(policy, {
 - `route` is a route pattern your framework already matched. It is tried
   first, and may be written with or without `global.basePath`. It must be the
   spelling of the rules file (`/documents/:id`, not the framework's
-  `/documents/{id}`); coverage checks that spelling (planned, see the roadmap).
+  `/documents/{id}`); coverage checks that spelling.
   When it names no rule and `path` is given, `path` is matched before
   `global.unmatched` applies. Pass `params` yourself with `route`.
 - `path` is matched against the compiled table, first pattern in document
@@ -148,7 +148,7 @@ evaluateField(policy, {
 ```
 
 Call it from a resolver or a schema wrapper; wrapping a schema is the job of
-`@softistx/limix-graxia` (planned, see the roadmap). Only a root field that no
+`@softistx/limix-graxia` (still planned, see the roadmap). Only a root field that no
 rule names falls under `global.unmatched`: a field of another type with no rule
 is let through, since every field of every returned type would otherwise need
 a rule. `root` says whether the type is an operation root; it defaults to the
