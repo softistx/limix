@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'bun:test';
+import {
+	anonymous,
+	policyOf,
+	recordingChecker,
+	user,
+} from './evaluation.fixtures';
 import { evaluateField } from './field';
-import { anonymous, policyOf, recordingChecker, user } from './fixtures';
 import type { Decision } from './refusal';
 
 const policy = policyOf(

@@ -148,12 +148,17 @@ of rungs, checked in order; the first that fails denies. Each rung has:
   `{ relation, type, from }`: the caller must hold `relation` on an object of
   `type`, whose id is read from `from`.
 - `onDeny`: `NOT_FOUND` (the default) or `FORBIDDEN`.
-- `message`: an i18n key for the denial.
+- `code`: the refusal's code, in place of the default one of the answer
+  (`auth.errors.not-found`, `auth.errors.forbidden`). Put a custom code under
+  `auth.errors.`: `@softistx/alxia-access` reads no other prefix (but
+  `tenancy.errors.`).
 
 `from` is `param.<name>`, `query.<name>` or `json.<path>` on REST, and
 `args.<path>` or `source.<path>` on GraphQL. The other transport's spelling is
 refused. When absent it is `DEFAULT_FROM.rest` (`param.id`) on REST and
-`DEFAULT_FROM.graphql` (`args.id`) on GraphQL; an absent `onDeny` is
+`DEFAULT_FROM.graphql` (`args.id`) on GraphQL. A REST `param.<name>` must be a
+parameter the route's pattern captures, default included: `compilePolicy`
+refuses the rest. An absent `onDeny` is
 `DEFAULT_ON_DENY` (`NOT_FOUND`). Both constants are exported:
 
 ```ts
@@ -205,7 +210,7 @@ const policy = compilePolicy(rules, {
 ```
 
 A condition receives `{ claims, request, args, source, info }` (REST fills
-`request`; GraphQL fills the others) and returns a boolean or a promise of one.
+`request` and `info`; GraphQL fills `args`, `source` and `info`) and returns a boolean or a promise of one.
 A name that is not registered throws at `compilePolicy`.
 
 ### `authenticated` and `public`
@@ -223,6 +228,7 @@ admits every caller, so it cannot be combined with `roles`, `permissions`,
 | `keto` | `relations` |
 | `namespace` of a relation term | `type` |
 | `id` of a relation term | `from` |
+| `message` of a relation rung | `code`: it is the refusal's code |
 | `expression` | `when: [name]` naming a condition registered in code |
 | `authorities` | `roles`, in DNF (outer OR, inner AND) |
 | `$domain` in a role name | removed: per-tenant roles are not in 1.0 |

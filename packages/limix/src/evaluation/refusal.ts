@@ -42,7 +42,9 @@ export const ALLOW: Decision = { allow: true };
 
 export const CODE_UNAUTHENTICATED = 'auth.errors.unauthenticated';
 export const CODE_FORBIDDEN = 'auth.errors.forbidden';
-export const CODE_NOT_FOUND = 'errors.not-found';
+/** Under `auth.errors.` because `@softistx/alxia-access`'s `refusalOf` reads no other prefix but `tenancy.errors.`. */
+export const CODE_NOT_FOUND = 'auth.errors.not-found';
+/** Not under `auth.errors.`: an integration (limix-alxia) maps it to its own 503. */
 export const CODE_UNAVAILABLE = 'limix.errors.unavailable';
 
 export function refuse(refusal: LimixRefusal): Decision {
@@ -52,18 +54,28 @@ export function refuse(refusal: LimixRefusal): Decision {
 export const unauthenticated = () =>
 	refuse(new LimixRefusal(CODE_UNAUTHENTICATED, 401));
 
-export const forbidden = () => refuse(new LimixRefusal(CODE_FORBIDDEN, 403));
+export const forbidden = (reason?: string) =>
+	refuse(
+		new LimixRefusal(
+			CODE_FORBIDDEN,
+			403,
+			reason === undefined ? {} : { reason },
+		),
+	);
 
 /** No policy held, or a rule that cannot be answered (no relation checker). */
 export const unavailable = (reason: string) =>
 	refuse(new LimixRefusal(CODE_UNAVAILABLE, 503, { reason }));
 
-/** What a failed rung answers: its `message` as the code when it named one. */
+/**
+ * What a failed rung answers: its `code` when it named one. A custom code must
+ * sit under `auth.errors.` for `@softistx/alxia-access`'s `refusalOf` to read it.
+ */
 export function denied(
 	onDeny: 'NOT_FOUND' | 'FORBIDDEN',
-	message: string | undefined,
+	code: string | undefined,
 ): Decision {
 	return onDeny === 'FORBIDDEN'
-		? refuse(new LimixRefusal(message ?? CODE_FORBIDDEN, 403))
-		: refuse(new LimixRefusal(message ?? CODE_NOT_FOUND, 404));
+		? refuse(new LimixRefusal(code ?? CODE_FORBIDDEN, 403))
+		: refuse(new LimixRefusal(code ?? CODE_NOT_FOUND, 404));
 }

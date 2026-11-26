@@ -5,7 +5,7 @@ import {
 	ALLOW,
 	type Decision,
 	denied,
-	unauthenticated,
+	forbidden,
 	unavailable,
 } from './refusal';
 import type { RelationChecker, RelationQuery } from './relations';
@@ -20,7 +20,7 @@ interface Term {
 export interface Rung {
 	require: readonly (readonly Term[])[];
 	onDeny?: 'NOT_FOUND' | 'FORBIDDEN' | undefined;
-	message?: string | undefined;
+	code?: string | undefined;
 }
 
 /** What a rule is evaluated against: the caller, the roots ids are read from, the port. */
@@ -54,12 +54,12 @@ export async function runRungs(
 			label: 'the caller has no subject to ask the relations about',
 			passed: false,
 		});
-		return unauthenticated();
+		return forbidden('no-subject');
 	}
 	for (const [index, rung] of rungs.entries()) {
 		const result = await runRung(rung, index, claims.subject, relations, env);
 		steps.push(result.step);
-		if (!result.passed) return denied(rung.onDeny ?? 'NOT_FOUND', rung.message);
+		if (!result.passed) return denied(rung.onDeny ?? 'NOT_FOUND', rung.code);
 	}
 	return ALLOW;
 }

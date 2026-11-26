@@ -3,7 +3,7 @@
 A role says what a caller is. A relation says what a caller may do to **one
 object**: "may this user edit this document?". The rules name the relation and
 where the object's id is in the request; your code answers through the
-`RelationChecker` port. Janus is the first adapter (`@softistx/limix-janus`);
+`RelationChecker` port. Janus is the first adapter (`@softistx/limix-janus`, planned, see the roadmap);
 anything that can answer a boolean works.
 
 ## In the rules
@@ -27,14 +27,15 @@ graphql:
 ```
 
 A rung is `require` (disjunctive normal form: outer OR, inner AND), `onDeny`
-and `message`. Rungs run in order and the first that fails answers:
+and `code`. Rungs run in order and the first that fails answers:
 
-- `onDeny: NOT_FOUND` (the default) answers 404 with `errors.not-found`: the
+- `onDeny: NOT_FOUND` (the default) answers 404 with `auth.errors.not-found`: the
   same answer as for an id that does not exist, so a caller cannot tell the
   two apart.
 - `onDeny: FORBIDDEN` answers 403 with `auth.errors.forbidden`, for a second
   rung on an object the caller can already see.
-- `message` replaces the `code` of either answer.
+- `code` replaces the code of either answer. Put it under `auth.errors.` for
+  `@softistx/alxia-access` to read it.
 
 The 404-then-403 ladder is two rungs: "can you see it?", then "may you edit it?".
 
@@ -87,7 +88,7 @@ A term's `from` names it; it defaults to `DEFAULT_FROM` (`param.id` on REST,
 
 ```ts
 // PUT /bookmarks  { "bookmarkId": "b1" }   from: json.bookmarkId
-evaluateRest(policy, { method: 'PUT', path: '/bookmarks', claims, relations,
+await evaluateRest(policy, { method: 'PUT', path: '/bookmarks', claims, relations,
   request: { json: { bookmarkId: 'b1' } } })
 ```
 
@@ -96,7 +97,9 @@ evaluateRest(policy, { method: 'PUT', path: '/bookmarks', claims, relations,
 - An id is a non-empty string. A path that resolves none (missing, empty, not a
   string) makes that term not hold, which denies the rung (with its `onDeny`)
   without calling the checker.
-- A rule with relations and a caller with no `claims.subject` answers 401.
+- A rule with relations and a signed-in caller with no `claims.subject` answers
+  403 `auth.errors.forbidden` with `params.reason: 'no-subject'`; an anonymous
+  one answers 401.
 - A rule with relations and no `relations` passed answers
   `limix.errors.unavailable` (503): it fails closed.
 - A checker that throws makes the evaluation throw; one that answers the wrong

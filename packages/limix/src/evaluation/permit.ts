@@ -18,15 +18,33 @@ export function floorStep(
 	} satisfies Step;
 }
 
+/** The strings of a claim that should be a list; anything else holds nothing. */
+function stringsOf(value: unknown): string[] {
+	return Array.isArray(value)
+		? value.filter((item): item is string => typeof item === 'string')
+		: [];
+}
+
+/** Fail closed: a `roles` claim that is not a list holds no role. */
 export function holdsRole(claims: Claims): (role: string) => boolean {
-	const roles = new Set(claims.roles ?? []);
+	const roles = new Set(stringsOf(claims.roles));
 	return (role) => roles.has(role);
 }
 
-/** In `scope`, and in `permissions` too when the caller carries that list. */
+/**
+ * In `scope` (a string, else nothing holds), and in `permissions` too when that
+ * claim is present (a non-list holds nothing).
+ */
 export function holdsPermission(claims: Claims): (name: string) => boolean {
-	const scope = new Set((claims.scope ?? '').split(' ').filter(Boolean));
-	const held = claims.permissions ? new Set(claims.permissions) : undefined;
+	const scope = new Set(
+		typeof claims.scope === 'string'
+			? claims.scope.split(' ').filter(Boolean)
+			: [],
+	);
+	const held =
+		claims.permissions === undefined
+			? undefined
+			: new Set(stringsOf(claims.permissions));
 	return (name) => scope.has(name) && (held === undefined || held.has(name));
 }
 

@@ -24,8 +24,10 @@ export interface RouteMatch {
 
 /**
  * The first route of `routes` that fits, in document order: the one whose
- * pattern is `pattern` (an already-matched route, written with or without the
- * `global.basePath`), else the first whose matcher takes `path`.
+ * pattern is `route` (an already-matched route, written as in the rules file,
+ * with or without the `global.basePath`), else, when `route` misses or is not
+ * given, the first whose matcher takes `path`. A `route` that is not spelled as
+ * in the rules file therefore falls back to `path` rather than to `unmatched`.
  */
 export function findRoute(
 	routes: readonly CompiledRestRoute[],
@@ -39,7 +41,7 @@ export function findRoute(
 				candidate.pattern === pattern ||
 				candidate.pattern === `${basePath ?? ''}${pattern}`,
 		);
-		return route && { route, params: {} };
+		if (route) return { route, params: {} };
 	}
 	for (const route of routes) {
 		const result = path === undefined ? false : route.matcher(path);

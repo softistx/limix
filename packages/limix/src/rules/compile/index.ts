@@ -1,7 +1,12 @@
-import { match } from 'path-to-regexp';
+import { match, parse, type Token } from 'path-to-regexp';
 import { formatPath, RulesError, type RulesIssue } from '../error';
 import type { Rules } from '../schema';
-import { checkContradictions, resolveConditions } from './check';
+import {
+	checkContradictions,
+	checkParams,
+	resolveConditions,
+	usesRelations,
+} from './check';
 import type {
 	CompiledGraphqlEntry,
 	CompiledPolicy,
@@ -37,8 +42,10 @@ export function compilePolicy(
 			? `${rules.global.basePath}${basePattern}`
 			: basePattern;
 		let matcher: CompiledRestRoute['matcher'];
+		let names: ReadonlySet<string>;
 		try {
 			matcher = match(pattern, { decode: decodeURIComponent });
+			names = paramNames(parse(pattern).tokens);
 		} catch (error) {
 			issues.push({
 				path: formatPath(['rest', basePattern]),
@@ -50,6 +57,7 @@ export function compilePolicy(
 			if (!rule) continue;
 			const where = formatPath(['rest', basePattern, method]);
 			checkContradictions(rule, where, issues);
+			checkParams(rule, where, names, issues);
 			const route: CompiledRestRoute = {
 				pattern,
 				matcher,
@@ -90,6 +98,23 @@ export function compilePolicy(
 	return {
 		global: rules.global,
 		restRoutesByMethod,
+		usesRelations: [
+			...restRoutesByMethod.values(),
+			...Object.values(graphql ?? {}).map((fields) => Object.values(fields)),
+		].some((entries) => entries.some((entry) => usesRelations(entry.rule))),
 		...(graphql ? { graphql } : {}),
 	};
+}
+
+/** The names a REST pattern captures, groups included. */
+function paramNames(tokens: readonly Token[]): ReadonlySet<string> {
+	const names = new Set<string>();
+	for (const token of tokens) {
+		if (token.type === 'group') {
+			for (const name of paramNames(token.tokens)) names.add(name);
+		} else if (token.type === 'param' || token.type === 'wildcard') {
+			names.add(token.name);
+		}
+	}
+	return names;
 }

@@ -1,6 +1,6 @@
 import { type CompiledPolicy, DEFAULT_FROM } from '../rules';
 import type { Claims } from './claims';
-import { heldPolicy, NO_POLICY, type PolicyInput } from './held';
+import { heldPolicy, noPolicy, type PolicyInput } from './held';
 import { ALLOW, type Decision, forbidden, unauthenticated } from './refusal';
 import type { RelationChecker } from './relations';
 import { findRoute, ruleSetsForMethod } from './rest-routes';
@@ -35,7 +35,7 @@ export async function decideRest(
 	call: RestInput,
 ): Promise<Explanation> {
 	const policy = heldPolicy(input);
-	if (!policy) return NO_POLICY;
+	if (!policy) return noPolicy();
 	if (call.route === undefined && call.path === undefined) {
 		throw new TypeError('evaluateRest: pass the `route` or the `path`');
 	}

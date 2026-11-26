@@ -1,6 +1,6 @@
 import { DEFAULT_FROM } from '../rules';
 import type { Claims } from './claims';
-import { heldPolicy, NO_POLICY, type PolicyInput } from './held';
+import { heldPolicy, noPolicy, type PolicyInput } from './held';
 import { ALLOW, type Decision, forbidden, unauthenticated } from './refusal';
 import type { RelationChecker } from './relations';
 import { applyRule } from './rule';
@@ -16,6 +16,12 @@ export interface FieldInput {
 	/** The type the field is on: `Query`, `Mutation`, `Subscription` or any other type name. */
 	type: string;
 	field: string;
+	/**
+	 * Whether the type is an operation root, so `global.unmatched` applies to it.
+	 * Defaults to the type being named `Query`, `Mutation` or `Subscription`: an
+	 * integration whose schema renames a root sets it from the schema.
+	 */
+	root?: boolean | undefined;
 	claims: Claims;
 	args?: Readonly<Record<string, unknown>> | undefined;
 	/** The resolver's parent value; ids can be read from `source.`. */
@@ -34,7 +40,7 @@ export async function decideField(
 	call: FieldInput,
 ): Promise<Explanation> {
 	const policy = heldPolicy(input);
-	if (!policy) return NO_POLICY;
+	if (!policy) return noPolicy();
 	const where = `${call.type}.${call.field}`;
 	const steps: Step[] = [];
 	const fields = hasOwn(policy.graphql, call.type)
@@ -42,7 +48,7 @@ export async function decideField(
 		: undefined;
 	const entry = hasOwn(fields, call.field) ? fields?.[call.field] : undefined;
 	if (!entry) {
-		const root = ROOT_TYPES.has(call.type);
+		const root = call.root ?? ROOT_TYPES.has(call.type);
 		const open = !root || policy.global.unmatched !== 'deny';
 		steps.push({
 			kind: 'unmatched',

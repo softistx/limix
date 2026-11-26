@@ -16,6 +16,11 @@ const REMOVED_KEYS: Readonly<Record<string, string>> = {
 	providers: 'removed: it was never enforced',
 };
 
+/** What a relation rung used to call its keys. */
+export const RELATION_RUNG_HINTS: Readonly<Record<string, string>> = {
+	message: "renamed `code`: it is the refusal's code",
+};
+
 /** What a relation term used to call its keys. */
 export const RELATION_TERM_HINTS: Readonly<Record<string, string>> = {
 	namespace: 'renamed: use type',

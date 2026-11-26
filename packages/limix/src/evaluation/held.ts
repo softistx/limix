@@ -11,8 +11,8 @@ export function heldPolicy(input: PolicyInput): CompiledPolicy | null {
 	return isPolicySource(input) ? input.current() : input;
 }
 
-/** Fail closed: no policy held refuses everything. */
-export const NO_POLICY: Explanation = {
+/** Fail closed: no policy held refuses everything. Fresh on each call, so no caller can change the next answer. */
+export const noPolicy = (): Explanation => ({
 	decision: unavailable('no-policy'),
 	steps: [
 		{
@@ -21,4 +21,4 @@ export const NO_POLICY: Explanation = {
 			passed: false,
 		},
 	],
-};
+});

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { anonymous, policyOf, user } from './fixtures';
+import { anonymous, policyOf, user } from './evaluation.fixtures';
 import { type Decision, isLimixRefusal } from './refusal';
 import { evaluateRest } from './rest';
 

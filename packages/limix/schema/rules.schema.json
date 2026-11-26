@@ -266,8 +266,8 @@
 						}
 					]
 				},
-				"message": {
-					"description": "The i18n key the denial carries.",
+				"code": {
+					"description": "The refusal's code, replacing the default one of the answer. Put it under \"auth.errors.\" for @softistx/alxia-access to read it.",
 					"allOf": [
 						{
 							"$ref": "#/definitions/__schema26"
@@ -454,8 +454,8 @@
 						}
 					]
 				},
-				"message": {
-					"description": "The i18n key the denial carries.",
+				"code": {
+					"description": "The refusal's code, replacing the default one of the answer. Put it under \"auth.errors.\" for @softistx/alxia-access to read it.",
 					"allOf": [
 						{
 							"$ref": "#/definitions/__schema44"

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
+import { policyOf, recordingChecker, user } from './evaluation.fixtures';
 import { explain } from './explain';
 import { evaluateField } from './field';
-import { policyOf, recordingChecker, user } from './fixtures';
 import { evaluateRest } from './rest';
 
 const policy = policyOf(

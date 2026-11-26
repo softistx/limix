@@ -1,4 +1,4 @@
-export { type Claims, isAuthenticated, type Subject } from './claims';
+export type { Claims, Subject } from './claims';
 export { explain } from './explain';
 export { evaluateField, type FieldInput } from './field';
 export type { PolicyInput } from './held';

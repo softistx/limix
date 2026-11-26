@@ -4,6 +4,9 @@ A compiled policy answers one question: may this caller reach this REST route
 or this GraphQL field? `evaluateRest` and `evaluateField` answer it with a
 `Decision`; `explain` answers it again and shows its work.
 
+> The snippets of these guides are schematic: where one uses a name it does not
+> define (`claims`, `relations`, `info`, `source`, `body`), read it as yours.
+
 ```ts
 import { compilePolicy, evaluateRest, loadRules } from '@softistx/limix'
 
@@ -37,9 +40,9 @@ evaluators never read a header or a token.
 | --- | --- |
 | `authenticated` | Whether the credential named a caller. Required |
 | `subject` | `{ type, id }`, the identity relations are asked about (as in janus) |
-| `roles` | What `roles` terms read |
-| `permissions` | What `permissions` terms read |
-| `scope` | Space-separated scopes. When present, a permission must also be one of its tokens |
+| `roles` | What `roles` terms read. A value that is not a list holds no role |
+| `permissions` | What `permissions` terms read, together with `scope` |
+| `scope` | Space-separated scopes. A permission must be a token of `scope`, and also in `permissions` when that list is present; without `scope` no permission holds |
 | any other key | Free; a `when` condition reads it from `claims` |
 
 An anonymous caller is `{ authenticated: false }`.
@@ -56,13 +59,16 @@ A `LimixRefusal` is a neutral object, with no HTTP framework in it:
 
 | `code` | `status` | When |
 | --- | --- | --- |
-| `auth.errors.unauthenticated` | 401 | The rule is not `public` and the caller is not signed in; or an unnamed route under `unmatched: deny` for an anonymous caller; or a relation rung and the caller has no `subject` |
-| `auth.errors.forbidden` | 403 | `roles`, `permissions` or `when` failed; an unnamed route under `unmatched: deny` for a signed-in caller; a `FORBIDDEN` rung |
-| `errors.not-found` | 404 | A relation rung failed and answers `NOT_FOUND` (the default) |
+| `auth.errors.unauthenticated` | 401 | The rule is not `public` and the caller is not signed in; or an unnamed route under `unmatched: deny` for an anonymous caller |
+| `auth.errors.forbidden` | 403 | `roles`, `permissions` or `when` failed; an unnamed route under `unmatched: deny` for a signed-in caller; a `FORBIDDEN` rung; a signed-in caller with no `subject` on a rule with relations (`params.reason: 'no-subject'`) |
+| `auth.errors.not-found` | 404 | A relation rung failed and answers `NOT_FOUND` (the default) |
 | `limix.errors.unavailable` | 503 | The source holds no policy, or the rule declares relations and no `RelationChecker` was given. `params.reason` is `no-policy` or `no-relation-checker` |
 
-A relation rung that names a `message` answers with it as the `code`, in place
-of `errors.not-found` or `auth.errors.forbidden`.
+A relation rung that names a `code` answers with it, in place of
+`auth.errors.not-found` or `auth.errors.forbidden`. `@softistx/alxia-access`'s
+`refusalOf` reads only codes under `auth.errors.` or `tenancy.errors.`, so a
+custom code must sit under `auth.errors.` for it to be read; `limix.errors.unavailable`
+is not, and the alxia integration maps it to its own 503.
 
 `LimixRefusal` extends `Error` and carries the registered symbol
 `Symbol.for('limix.refusal')`. An integration that must not import the class
@@ -109,12 +115,15 @@ evaluateRest(policy, {
 })
 ```
 
-- `route` is a route pattern your framework already matched. It wins over
-  `path`, and may be written with or without `global.basePath`. Pass `params`
-  yourself with it.
+- `route` is a route pattern your framework already matched. It is tried
+  first, and may be written with or without `global.basePath`. It must be the
+  spelling of the rules file (`/documents/:id`, not the framework's
+  `/documents/{id}`); coverage checks that spelling (planned, see the roadmap).
+  When it names no rule and `path` is given, `path` is matched before
+  `global.unmatched` applies. Pass `params` yourself with `route`.
 - `path` is matched against the compiled table, first pattern in document
   order; what it captures is merged under `request.params` (yours win).
-- Neither given throws `evaluateRest: pass the \`route\` or the \`path\``.
+- Neither given throws `evaluateRest: pass the \`route\` or the \`path\``, unless the source holds no policy: that answers 503 first.
 - `HEAD` faces its own rules and then the `GET` ones: both must allow.
 - A route no rule names follows `global.unmatched`: `allow` lets it through,
   `deny` answers 401 to an anonymous caller and 403 to a signed-in one.
@@ -132,14 +141,18 @@ evaluateField(policy, {
   source,                           // the parent value, for `source.` paths
   info,                             // handed to `when` conditions
   relations,
+  root: true,                       // optional, see below
 })
 ```
 
 Call it from a resolver or a schema wrapper; wrapping a schema is the job of
-`@softistx/limix-graxia`. Only a root field (`Query`, `Mutation`,
-`Subscription`) that no rule names falls under `global.unmatched`: a field of
-another type with no rule is let through, since every field of every returned
-type would otherwise need a rule. Conditions receive
+`@softistx/limix-graxia` (planned, see the roadmap). Only a root field that no
+rule names falls under `global.unmatched`: a field of another type with no rule
+is let through, since every field of every returned type would otherwise need
+a rule. `root` says whether the type is an operation root; it defaults to the
+type being named `Query`, `Mutation` or `Subscription`. A schema that renames
+its roots (`schema { query: RootQuery }`) makes the integration read them from
+the schema and pass `root: true`, or `unmatched: deny` would not cover them. Conditions receive
 `{ claims, args, source, info }`.
 
 ## Sources
@@ -157,7 +170,19 @@ live.swap(policy)                     // hot swap; swap(null) withdraws it
 A source that holds no policy answers every call with `limix.errors.unavailable`
 (503): it fails closed. `isPolicySource` tells a source from a policy.
 `outageReporter(report)` calls `report` once per withdrawal rather than once per
-request, for a log line (`OUTAGE_MESSAGE`).
+request, for a log line: call the function it returns with `source.current()`
+before each evaluation. `OUTAGE_MESSAGE` is the line it is meant to log.
+
+```ts
+import { OUTAGE_MESSAGE, outageReporter } from '@softistx/limix'
+
+const watch = outageReporter(() => logger.error(OUTAGE_MESSAGE))
+// per request: watch(live.current())
+```
+
+Integrations should throw at setup when `policy.usesRelations` is true and no
+`RelationChecker` was given, rather than answer 503 to every request that
+reaches such a rule.
 
 ## Explain
 

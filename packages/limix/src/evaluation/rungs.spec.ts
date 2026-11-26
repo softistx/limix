@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'bun:test';
-import { anonymous, policyOf, recordingChecker, user } from './fixtures';
+import {
+	anonymous,
+	policyOf,
+	recordingChecker,
+	user,
+} from './evaluation.fixtures';
 import { evaluateRest } from './rest';
 
 const policy = policyOf({
@@ -20,7 +25,7 @@ const policy = policyOf({
 					{
 						require: [[{ relation: 'own', type: 'note' }]],
 						onDeny: 'FORBIDDEN',
-						message: 'notes.errors.not-owner',
+						code: 'notes.errors.not-owner',
 					},
 				],
 			},
@@ -96,7 +101,7 @@ describe('relation rungs', () => {
 		const decision = await put(checker);
 		if (decision.allow) throw new Error('expected a refusal');
 		expect(decision.refusal.status).toBe(404);
-		expect(decision.refusal.code).toBe('errors.not-found');
+		expect(decision.refusal.code).toBe('auth.errors.not-found');
 		expect(calls).toHaveLength(1);
 	});
 
@@ -202,7 +207,7 @@ describe('a rung that cannot be answered', () => {
 		expect(decision.refusal.status).toBe(503);
 	});
 
-	it('answers 401 for a signed-in caller without a subject', async () => {
+	it('answers 403 no-subject for a signed-in caller without a subject', async () => {
 		const { checker } = recordingChecker();
 		const decision = await evaluateRest(policy, {
 			method: 'PUT',
@@ -211,7 +216,8 @@ describe('a rung that cannot be answered', () => {
 			relations: checker,
 		});
 		if (decision.allow) throw new Error('expected a refusal');
-		expect(decision.refusal.status).toBe(401);
+		expect(decision.refusal.status).toBe(403);
+		expect(decision.refusal.params).toEqual({ reason: 'no-subject' });
 	});
 
 	it('throws when the checker answers the wrong number of booleans', async () => {

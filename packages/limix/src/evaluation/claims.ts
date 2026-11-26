@@ -13,14 +13,18 @@ export interface Claims {
 	readonly authenticated: boolean;
 	/** The `{ type, id }` the relations port is asked about. */
 	readonly subject?: Subject;
-	/** Read by `roles`: a role holds when it is in this list. */
+	/** Read by `roles`: a role holds when it is in this list; a value that is not a list holds nothing. */
 	readonly roles?: readonly string[];
-	/** Read by `permissions`: a permission holds when it is in this list. */
+	/**
+	 * Read by `permissions`, together with `scope`: a permission must be a token
+	 * of `scope`, and also in this list when it is present. A value that is not a
+	 * list holds nothing.
+	 */
 	readonly permissions?: readonly string[];
 	/**
-	 * Space-separated OAuth scopes. When present, a permission must also be one
-	 * of its tokens: the scope is what the token was granted, `permissions`
-	 * what the caller still holds.
+	 * Space-separated OAuth scopes. A permission must be a token of `scope`, and
+	 * also in `permissions` when that list is present; without `scope` (or with
+	 * one that is not a string) no permission holds.
 	 */
 	readonly scope?: string;
 	/** Anything else the issuer sent; a `when` condition can read it. */
