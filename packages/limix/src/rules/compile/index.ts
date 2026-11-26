@@ -7,7 +7,6 @@ import {
 	usesRelations,
 } from './check';
 import { compileMatcher } from './matcher';
-import { paramNames, parsePattern } from './pattern';
 import type {
 	CompiledGraphqlEntry,
 	CompiledPolicy,
@@ -66,8 +65,9 @@ function compileRest(
 		let matcher: CompiledRestRoute['matcher'];
 		let names: ReadonlySet<string>;
 		try {
-			matcher = compileMatcher(pattern);
-			names = paramNames(parsePattern(pattern));
+			const compiled = compileMatcher(pattern);
+			matcher = compiled;
+			names = compiled.names;
 		} catch (error) {
 			issues.push({
 				path: formatPath(['rest', basePattern]),

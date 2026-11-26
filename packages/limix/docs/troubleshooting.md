@@ -155,26 +155,48 @@ and decide the tenant in a condition (`when: [name]`) or a relation.
 ## invalid path pattern: <reason>
 
 At `rest['<pattern>']`: the path pattern does not parse. The reason names the
-problem and the index of the character, and ends with the pattern. The messages
-(from limix 0.x; they replace the `path-to-regexp` ones, which ended with a
-`git.new` link):
+problem and the index of the character, and ends with the pattern. Each reason
+has its own entry below. `compilePolicy` skips that route and reports every bad
+pattern with the other issues, so fix them together.
 
-- `Missing parameter name at index N, write :name (for example /:id) or escape the : with a backslash`
-  (also for `*`): a bare `:` or `*`. Name it (`/:id`, `/*path`), or write `\:`
-  to match a colon.
-- `Unexpected ( at index N, regular expressions are not supported, escape it with a backslash to match it literally`
-  (also `)`, `[`, `]`, `+`, `?`, `!` and a stray `}`): the syntax has no regular
-  expressions or modifiers; an optional part is a group, `{/:id}`.
-- `Unexpected end at index N, expected }`: a `{` never closed.
-- `Unterminated quote at index N` and `Unexpected end after \ at index N`: a
-  `:"name` without its closing quote, or a pattern ending in a backslash.
-- `Missing text before "b" param, put a literal character between two captures`
-  (also `wildcard`): `/:a:b` has no text to tell where `a` ends.
-- `Too many path combinations, use fewer optional groups`: more than 256
-  combinations of optional groups.
+### Missing parameter name at index N, write :name (for example /:id) or escape the : with a backslash
 
-`compilePolicy` skips that route and reports every bad pattern with
-the other issues, so fix them together.
+A bare `:` or `*` (the message reads `*name` and `/*path` for a `*`). Name it
+(`/:id`, `/*path`), or write `\:` to match a colon.
+
+### Unexpected ( at index N, regular expressions are not supported, escape it with a backslash to match it literally
+
+Also `)`, `[`, `]`, `+`, `?` and `!`. The syntax has no regular expressions or
+modifiers; an optional part is a group, `{/:id}`. Escape the character
+(`\(`) to match it literally.
+
+### Unexpected } at index N with no { open, escape it with a backslash to match it literally
+
+A `}` closes nothing. Remove it, add the `{` it belongs to, or write `\}` to
+match a brace.
+
+### Unexpected end at index N, expected }
+
+A `{` was never closed: `/a{/:id`. Add the `}`, or write `\{` to match a brace.
+
+### Unterminated quote at index N
+
+A quoted name without its closing quote: `/:"a-b`. Close it (`/:"a-b"`).
+
+### Unexpected end after \ at index N
+
+The pattern ends with a backslash, which escapes the next character. Remove it,
+or write `\\` to match a backslash.
+
+### Missing text before "<name>" param, put a literal character between two captures
+
+Also `wildcard`. `/:a:b` has no text to tell where `a` ends. Put a literal
+between them (`/:a-:b`, `/:a/:b`).
+
+### Too many path combinations, use fewer optional groups
+
+More than 256 combinations of optional groups. Use fewer groups, or split the
+route in two.
 
 ## Bun is not defined
 
@@ -183,14 +205,25 @@ anywhere, but the first call throws `ReferenceError: Bun is not defined` in
 Node, Deno, a browser or an edge runtime: the subpath reads files with
 `Bun.file` and parses YAML with `Bun.YAML`, so it runs on Bun only. Elsewhere,
 read the file yourself and pass the value to `parseRules`; keep the last good
-remote copy with your own `PolicyStore`:
+remote copy with your own `PolicyStore`. A YAML file needs a parser you
+install (or your runtime's own); limix ships none outside Bun:
 
 ```ts
 import { readFile } from 'node:fs/promises'
 import { parseRules } from '@softistx/limix'
 
-// YAML: use a parser you install (or the runtime's own); JSON needs none.
+// JSON needs no parser; for YAML, parse the text with the parser you installed.
 const rules = parseRules(JSON.parse(await readFile('rules.json', 'utf8')), 'rules.json')
+```
+
+## Cannot find module '@softistx/limix/node' or its corresponding type declarations
+
+Also the runtime's `Package subpath './node' is not defined by exports`. The
+`./node` subpath was renamed `./bun`, because it runs on Bun only. Import from
+`@softistx/limix/bun` (Bun only; elsewhere see [Bun is not defined](#bun-is-not-defined)):
+
+```ts
+import { loadRules, filePolicyStore } from '@softistx/limix/bun'
 ```
 
 ## unsupported extension `<ext>`: use .yaml, .yml or .json

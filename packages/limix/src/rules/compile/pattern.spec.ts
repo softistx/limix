@@ -66,6 +66,12 @@ describe('a pattern that does not parse', () => {
 		expect(message('/a/*')).toContain('write *name');
 	});
 
+	it('gives a stray } its own message', () => {
+		expect(message('/a}')).toBe(
+			'Unexpected } at index 2 with no { open, escape it with a backslash to match it literally: /a}',
+		);
+	});
+
 	it('refuses regular-expression syntax and says to escape it', () => {
 		expect(message('/b/(')).toBe(
 			'Unexpected ( at index 3, regular expressions are not supported, escape it with a backslash to match it literally: /b/(',

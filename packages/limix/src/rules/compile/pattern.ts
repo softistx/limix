@@ -1,4 +1,8 @@
 /**
+ * Port of path-to-regexp v8.4.2 (https://github.com/pillarjs/path-to-regexp),
+ * Copyright (c) 2014 Blake Embrey, MIT licence; see LICENSE.
+ */
+/**
  * The syntax of a REST path pattern: literal text, `:name` (one segment),
  * `*name` (the rest of the path, slashes included), `{...}` (an optional
  * group) and `\` (the next character, literally). A name is an identifier or
@@ -20,7 +24,7 @@ export class PatternError extends Error {
 
 const ID_START = /^[$_\p{ID_Start}]$/u;
 const ID_CONTINUE = /^(?:[$\p{ID_Continue}]|\u200c|\u200d)$/u;
-const REGEXP_SYNTAX = new Set(['(', ')', '[', ']', '+', '?', '!', '}']);
+const REGEXP_SYNTAX = new Set(['(', ')', '[', ']', '+', '?', '!']);
 
 const isIdStart = (char: string | undefined) =>
 	char !== undefined && ID_START.test(char);
@@ -100,6 +104,11 @@ function readUntil(
 		} else if (char === '{') {
 			flush();
 			tokens.push({ type: 'group', tokens: readUntil(cursor, '}', pattern) });
+		} else if (char === '}') {
+			throw new PatternError(
+				`Unexpected } at index ${cursor.index - 1} with no { open, escape it with a backslash to match it literally`,
+				pattern,
+			);
 		} else if (REGEXP_SYNTAX.has(char)) {
 			throw new PatternError(
 				`Unexpected ${char} at index ${cursor.index - 1}, regular expressions are not supported, escape it with a backslash to match it literally`,

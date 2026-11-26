@@ -1,3 +1,7 @@
+/**
+ * Port of path-to-regexp v8.4.2 (https://github.com/pillarjs/path-to-regexp),
+ * Copyright (c) 2014 Blake Embrey, MIT licence; see LICENSE.
+ */
 import { PatternError, type PatternToken, parsePattern } from './pattern';
 
 /** What a matcher hands back for a path it takes. */
@@ -117,9 +121,12 @@ function sequenceSource(
  * Compiles a pattern to one case-insensitive regular expression: a trailing
  * slash is optional, a parameter takes one segment, a wildcard the rest, and
  * each capture is percent-decoded (a wildcard as a list of segments). A
- * pattern that does not parse throws a `PatternError`.
+ * pattern that does not parse throws a `PatternError`. `names` lists the
+ * parameter names the pattern captures.
  */
-export function compileMatcher(pattern: string): RouteMatcher {
+export function compileMatcher(
+	pattern: string,
+): RouteMatcher & { names: ReadonlySet<string> } {
 	const keys: Capture[] = [];
 	const alternatives: string[] = [];
 	flatten(parsePattern(pattern), 0, [], (sequence) => {
@@ -132,7 +139,7 @@ export function compileMatcher(pattern: string): RouteMatcher {
 		alternatives.push(sequenceSource(sequence, keys, pattern));
 	});
 	const regexp = new RegExp(`^(?:${alternatives.join('|')})(?:\\/$)?$`, 'i');
-	return (path) => {
+	const match: RouteMatcher = (path) => {
 		const found = regexp.exec(path);
 		if (!found) return false;
 		const params: MatchResult['params'] = Object.create(null);
@@ -147,4 +154,5 @@ export function compileMatcher(pattern: string): RouteMatcher {
 		}
 		return { path: found[0], params };
 	};
+	return Object.assign(match, { names: new Set(keys.map((key) => key.name)) });
 }

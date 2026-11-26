@@ -121,7 +121,11 @@ import { parseRules } from '@softistx/limix'
 import { loadRules } from '@softistx/limix/bun'
 
 const fromFile = await loadRules('rules.yaml')
-// Anywhere but Bun: read the file and parse it with your runtime's YAML (or JSON) parser.
+// Anywhere but Bun: read the file and parse it yourself (JSON needs no parser;
+// for YAML, use your runtime's YAML parser or one you install).
+import { readFile } from 'node:fs/promises'
+const portable = parseRules(JSON.parse(await readFile('rules.json', 'utf8')), 'rules.json')
+// The same on Bun only (Bun.file and Bun.YAML):
 const fromText = parseRules(Bun.YAML.parse(await Bun.file('rules.yaml').text()), 'rules.yaml')
 ```
 

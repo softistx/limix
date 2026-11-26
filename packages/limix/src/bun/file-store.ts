@@ -1,4 +1,4 @@
-import { rename, rm } from 'node:fs/promises';
+import { chmod, rename, rm } from 'node:fs/promises';
 import type { PolicyStore, StoredPolicy } from '../remote/types';
 
 /**
@@ -31,6 +31,8 @@ export function filePolicyStore(path: string): PolicyStore {
 			try {
 				// Bun.write creates the missing folders on the way.
 				await Bun.write(temp, JSON.stringify(value), { mode: 0o600 });
+				// Bun.write ignores `mode` (the file comes out 0o644 or 0o664), so set it.
+				await chmod(temp, 0o600);
 				// Renames run one at a time, so an abandoned older write never
 				// renames over a newer one.
 				const step = renames.then(async () => {

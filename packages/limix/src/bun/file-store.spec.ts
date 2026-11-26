@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
-import { mkdir, mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { StoredPolicy } from '../remote/types';
@@ -35,6 +35,20 @@ describe('filePolicyStore', () => {
 			expect((await store.read())?.etag).toBe('"2"');
 			expect(await readdir(join(dir, 'nested'))).toEqual(['policy.json']);
 			expect(JSON.parse(await readFile(path, 'utf8')).jws).toBe('a.b.c');
+		},
+		SLOW_FS.timeout,
+	);
+
+	it.skipIf(process.platform === 'win32')(
+		'writes the policy readable by its owner only (0o600)',
+		async () => {
+			const path = join(root, 'mode', 'policy.json');
+			await filePolicyStore(path).write({
+				jws: 'a.b.c',
+				jwks: { keys: [] },
+				etag: '"1"',
+			});
+			expect((await stat(path)).mode & 0o777).toBe(0o600);
 		},
 		SLOW_FS.timeout,
 	);
