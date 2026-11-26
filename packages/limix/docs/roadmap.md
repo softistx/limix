@@ -7,8 +7,10 @@ dates here, and the version something shipped in is the only number.
 
 - **The rules format and evaluation** — in: parse, load, `definePolicy`, compile,
   the JSON schema, then `evaluateRest`, `evaluateField`, `explain`, the
-  `RelationChecker` port and policy sources. Coverage of your operations and
-  signed remote rules are still coming.
+  `RelationChecker` port and policy sources, then coverage of your operations
+  (`@softistx/limix/coverage`: covered, public, uncovered and stale rules over
+  a neutral list that integrations supply). Signed remote rules are still
+  coming.
 
 ## Next
 

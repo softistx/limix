@@ -271,3 +271,25 @@ in the same order; a backend that dedupes must expand its answers back.
 Both are functions: `current()` returns the compiled policy or `null`,
 `subscribe(listener)` returns the unsubscribe function. For a fixed or
 hand-swapped policy use `staticSource` or `mutableSource`.
+
+## coverage: operation <n> must be { kind: 'rest', method, path } or { kind: 'graphql', type, field, root }
+
+`coverage` was given an entry that is not an `Operation`: a string such as
+`'GET /things'` (the list is objects now), a REST entry without `method` or
+`path`, or a GraphQL one without `type`, `field` or a boolean `root`. `<n>` is
+its index in your list.
+
+```ts
+coverage(policy, [
+  { kind: 'rest', method: 'GET', path: '/things/:id' },
+  { kind: 'graphql', type: 'Query', field: 'me', root: true },
+])
+```
+
+## an operation is uncovered and its rule stale, though they look the same
+
+The operation's `path` is not spelled as the rules file spells it, so no rule
+matches it and the rule matches no operation. Typical: an OpenAPI path
+(`/things/{id}`) against a rule on `/things/:id`, or another parameter name
+(`/things/:thingId`). Convert the path to the rules-file pattern when you build
+the list. A `global.basePath` may be in front or not.

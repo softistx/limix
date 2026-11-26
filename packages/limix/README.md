@@ -5,7 +5,7 @@ reach a route or a field, written in YAML or JSON or through a typed builder,
 with relations checked through a port and coverage over your operations.
 
 > **Nothing published yet.** The rules format (parse, load, build, compile) and
-> evaluation (REST, GraphQL fields, relations, explain) are in. See the [roadmap](docs/roadmap.md).
+> evaluation (REST, GraphQL fields, relations, explain) and coverage are in. See the [roadmap](docs/roadmap.md).
 
 ## Install
 
@@ -38,6 +38,8 @@ declarations import without extensions, so `nodenext` is not supported.
 | `LIMIX_FORMAT_VERSION` | The format version, `1` |
 | `DEFAULT_FROM`, `DEFAULT_ON_DENY` | What a relation term reads when it names no `from` (`param.id` on REST, `args.id` on GraphQL) and how a rung answers when it names no `onDeny` (`NOT_FOUND`) |
 | types `Claims`, `Subject`, `Decision`, `RelationChecker`, `RelationQuery`, `PolicyInput`, `PolicySource`, `MutableSource`, `Explanation`, `Step`, `StepKind`, `TermStep`, `RestInput`, `RestRequest`, `FieldInput`, `Rules`, `RulesIssue`, `CompileOptions`, `Condition`, `ConditionContext`, `CompiledPolicy`, `CompiledRestRoute`, `CompiledGraphqlEntry` | The shapes the functions take and return |
+| `coverage(policy, operations)` from `@softistx/limix/coverage` | Which operations the rules cover, leave public or leave to `global.unmatched`, and which rules are stale; runs in a browser or an edge runtime |
+| types `Operation`, `RestOperation`, `GraphqlOperation`, `CoverageReport`, `OperationCoverage`, `CoverageStatus`, `CoverageSummary`, `StaleRule` from `@softistx/limix/coverage` | The shapes coverage takes and returns |
 | `@softistx/limix/rules.schema.json` | The JSON schema of a rules document, for editor completion |
 | `@softistx/limix/package.json` | The package manifest |
 
@@ -205,8 +207,32 @@ A refusal's `code` is under `auth.errors.` (and `limix.errors.unavailable` for
 a 503), the prefix `@softistx/alxia-access` reads. See
 [evaluation](docs/evaluation.md) and [relations](docs/relations.md).
 
+## Coverage
+
+Does the rules file name every operation of your API, and nothing that no
+longer exists? `coverage` takes the compiled policy and a list of operations
+(an integration builds it from the schema or the routes) and reports, per
+operation, `covered`, `public` or `uncovered` (with what `global.unmatched`
+does to it), plus the `stale` rules. It lives on its own subpath, free of Node,
+so it also runs in a browser:
+
+```ts
+import { coverage } from '@softistx/limix/coverage'
+
+const report = coverage(policy, [
+  { kind: 'rest', method: 'GET', path: '/documents/:id' },
+  { kind: 'graphql', type: 'Query', field: 'me', root: true },
+])
+
+if (report.summary.uncovered > 0 || report.stale.length > 0) process.exit(1)
+```
+
+A REST `path` is the pattern as the rules file spells it. See
+[coverage](docs/coverage.md).
+
 ## Documentation
 
 See [docs/](docs/README.md): the [rules format](docs/rules.md),
-[evaluation](docs/evaluation.md), [relations](docs/relations.md), the
+[evaluation](docs/evaluation.md), [relations](docs/relations.md),
+[coverage](docs/coverage.md), the
 [roadmap](docs/roadmap.md) and [troubleshooting](docs/troubleshooting.md).
