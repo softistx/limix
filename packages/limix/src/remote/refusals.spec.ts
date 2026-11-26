@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import { codes, make, settled, track } from './harness.fixtures';
 import type { createPublisher } from './publisher.fixtures';
-import { AUDIENCE, rulesFor, T0 } from './publisher.fixtures';
+import { AUDIENCE, ISSUER, rulesFor, T0 } from './publisher.fixtures';
 
 describe('remotePolicy: refusals keep the last known good', () => {
 	const refused = async (
@@ -85,14 +85,22 @@ describe('remotePolicy: refusals keep the last known good', () => {
 		expect(codes(errors)).toEqual(['STALE_VERSION']);
 		expect(policy.version()).toBe(5);
 	});
-	it('rules the format refuses (a removed key) are RULES_REFUSED', () =>
-		refused(async (p) => {
-			p.state.body = await p.sign({
-				ver: 2,
-				rules: { rest: { '/x': { GET: { expression: { value: 'true' } } } } },
-			});
-			p.state.etag = '"r"';
-		}, 'RULES_REFUSED'));
+	it('rules the format refuses (a removed key) are RULES_REFUSED', async () => {
+		const { policy, publisher, errors } = await make();
+		track(policy);
+		await settled(policy);
+		publisher.state.body = await publisher.sign({
+			ver: 2,
+			rules: { rest: { '/x': { GET: { expression: { value: 'true' } } } } },
+		});
+		publisher.state.etag = '"r"';
+		expect(await policy.refresh()).toBe(false);
+		expect(codes(errors)).toEqual(['RULES_REFUSED']);
+		expect(errors[0]?.message).toStartWith(
+			'Invalid rules in the pulled rules:',
+		);
+		expect(policy.version()).toBe(1);
+	});
 	it('a non-2xx status is HTTP_STATUS', () =>
 		refused(async (p) => {
 			p.state.status = 503;
@@ -185,6 +193,47 @@ describe('remotePolicy: refusals keep the last known good', () => {
 			for (const init of seen) expect(init.redirect).toBe('error');
 			expect(codes(errors)[0]).toBe('FETCH_FAILED');
 			expect(errors[0]?.message).toContain('redirect');
+			expect(policy.current()).toBeNull();
+		});
+
+		const refusing = (inner: typeof fetch, seen: RequestInit[], path: string) =>
+			(async (input: RequestInfo | URL, init?: RequestInit) => {
+				seen.push({ ...init });
+				if (init?.redirect === 'error' && String(input).endsWith(path)) {
+					throw new TypeError('fetch failed', {
+						cause: new Error('unexpected redirect'),
+					});
+				}
+				return inner(input, init);
+			}) as typeof fetch;
+
+		it('asks for no redirect when discovering the key set from an issuer', async () => {
+			const seen: RequestInit[] = [];
+			const { policy, errors } = await make({
+				jwksUri: undefined,
+				issuer: ISSUER,
+				wrapFetch: (inner: typeof fetch) =>
+					refusing(inner, seen, '/.well-known/openid-configuration'),
+			});
+			track(policy);
+			await policy.refresh();
+			expect(seen.length).toBeGreaterThan(0);
+			for (const init of seen) expect(init.redirect).toBe('error');
+			expect(codes(errors)[0]).toBe('FETCH_FAILED');
+			expect(errors[0]?.message).toContain('discovery failed');
+			expect(policy.current()).toBeNull();
+		});
+
+		it('asks for no redirect when fetching the key set', async () => {
+			const seen: RequestInit[] = [];
+			const { policy, errors } = await make({
+				wrapFetch: (inner: typeof fetch) => refusing(inner, seen, '/jwks'),
+			});
+			track(policy);
+			await policy.refresh();
+			expect(seen.length).toBeGreaterThan(1);
+			for (const init of seen) expect(init.redirect).toBe('error');
+			expect(errors.length).toBeGreaterThan(0);
 			expect(policy.current()).toBeNull();
 		});
 

@@ -428,19 +428,26 @@ URL and the network; the next tick retries.
 
 ## <url> answered a redirect, which is refused so the bearer token is never sent elsewhere
 
-`FETCH_FAILED` (or `HTTP_STATUS` with `<url> answered 302, a redirect, ...`
-when a runtime hands back the 3xx instead of failing): the policy server, the
-issuer's discovery document or the key set answered with a redirect. Pulls are
+`FETCH_FAILED`: the policy server, the issuer's discovery document or the key
+set answered with a redirect, and the runtime refused to follow it. Pulls are
 made with `redirect: 'error'`, so `Authorization: Bearer <authToken>` can never
 follow a redirect to another origin or to `http:`. Point `rulesUrl`, `jwksUri`
 and `issuer` at the final URLs.
+
+## <url> answered <status>, a redirect, which is refused so the bearer token is never sent elsewhere
+
+`HTTP_STATUS`: the same refusal, when the runtime hands back the 3xx (for
+example `https://pub.example/rules answered 302, a redirect, ...`) instead of
+failing the fetch. The policy never follows it, so
+`Authorization: Bearer <authToken>` stays on the origin you configured. Point
+`rulesUrl` at the final URL.
 
 ## <url> answered <status>
 
 `HTTP_STATUS`: the policy server answered something other than 200 or 304. 401
 and 403: check `authToken`. 404: check `rulesUrl`. 5xx: the publisher is down;
 the last good copy keeps serving. A 3xx is a redirect, which is refused (see
-above).
+the two headings above).
 
 ## <url> answered 304 to a request without If-None-Match
 
