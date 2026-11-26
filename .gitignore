@@ -12,6 +12,7 @@ logs
 
 # coverage
 coverage
+!/packages/*/src/coverage/
 *.lcov
 
 # caches

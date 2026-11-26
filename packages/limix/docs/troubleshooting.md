@@ -161,7 +161,7 @@ the other issues, so fix them together.
 
 ## unsupported extension `<ext>`: use .yaml, .yml or .json
 
-`loadRules` picks the parser by file extension. Rename the file, or read it
+`loadRules` (`@softistx/limix/node`) picks the parser by file extension. Rename the file, or read it
 yourself and pass the value to `parseRules`.
 
 ## not readable: <reason>
@@ -258,6 +258,23 @@ treat it as a denial.
 as `route`, or the request pathname as `path`. A source that holds no
 policy answers 503 before this check is reached.
 
+## evaluateRest: pass the `claims`
+
+`evaluateRest` and `explain` of a REST request were given no `claims`, or one that is not an object (a JS caller; the
+types forbid it). A missing caller is not treated as anonymous: that would let a
+forgotten argument read as "not signed in". Pass `claims: {}` for an anonymous
+caller, or the verified claims.
+
+```ts
+await evaluateRest(policy, { method: 'GET', route: '/things', claims: {} })
+```
+
+## evaluateField: pass the `claims`
+
+The same for `evaluateField` and `explain` of a GraphQL field: `claims` is
+missing or not an object, and it throws before anything is evaluated. Pass
+`claims: {}` for an anonymous caller.
+
 ## limix: the RelationChecker answered N for M queries; it must return one boolean per query, in order
 
 Your `RelationChecker.check` returned an array of another length than the
@@ -271,3 +288,50 @@ in the same order; a backend that dedupes must expand its answers back.
 Both are functions: `current()` returns the compiled policy or `null`,
 `subscribe(listener)` returns the unsubscribe function. For a fixed or
 hand-swapped policy use `staticSource` or `mutableSource`.
+
+## coverage: operation <n> must be { kind: 'rest', method, path } or { kind: 'graphql', type, field, root }
+
+`coverage` was given an entry that is not an `Operation`: a string such as
+`'GET /things'` (the list is objects now), a REST entry without `method` or
+`path`, or a GraphQL one without `type`, `field` or a boolean `root`. `<n>` is
+its index in your list.
+
+```ts
+coverage(policy, [
+  { kind: 'rest', method: 'GET', path: '/things/:id' },
+  { kind: 'graphql', type: 'Query', field: 'me', root: true },
+])
+```
+
+## coverage: `operations` must be an array
+
+`coverage(policy, operations)` was given something other than an array: the
+list is the second argument, and `undefined` (a list an integration failed to
+build), a single operation or an object is refused before anything is read.
+
+```ts
+coverage(policy, [{ kind: 'rest', method: 'GET', path: '/things/:id' }])
+```
+
+## an operation is reported `match: 'pattern'`
+
+Not an error: a rule's matcher takes this spelling of the path, not its own
+pattern, as `evaluateRest` does for a request with that path. That is all it
+guarantees: an operation with a wildcard (`/files/*path`) or an optional group
+with a parameter is never covered this way, and shows `uncovered` unless a rule
+spells it exactly. The operation's `path`
+is spelled another way than the rule (`/things/{id}` or `/things/:thingId`
+against `/things/:id`). Spell it as the rules file does (`rulesPathOf` from
+`@softistx/limix/coverage` converts an OpenAPI path), or gate the build on
+`summary.byPattern` to keep the spellings in line. The rule is used, never
+stale.
+
+## `loadRules` is not exported by `@softistx/limix`
+
+`loadRules` moved to `@softistx/limix/node`: it reads the disk with `node:fs`,
+and the main entry imports no `node:` module so it runs in a browser or an edge
+runtime. Change the import:
+
+```ts
+import { loadRules } from '@softistx/limix/node'
+```

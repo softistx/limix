@@ -1,16 +1,12 @@
 import { DEFAULT_FROM } from '../rules';
 import { type Claims, isAuthenticated } from './claims';
+import { graphqlEntry } from './graphql-entry';
 import { heldPolicy, noPolicy, type PolicyInput } from './held';
 import { ALLOW, type Decision, forbidden, unauthenticated } from './refusal';
 import type { RelationChecker } from './relations';
+import { ROOT_TYPES } from './roots';
 import { applyRule } from './rule';
 import type { Explanation, Step } from './steps';
-
-const ROOT_TYPES: ReadonlySet<string> = new Set([
-	'Query',
-	'Mutation',
-	'Subscription',
-]);
 
 export interface FieldInput {
 	/** The type the field is on: `Query`, `Mutation`, `Subscription` or any other type name. */
@@ -31,22 +27,19 @@ export interface FieldInput {
 	relations?: RelationChecker | undefined;
 }
 
-const hasOwn = (value: object | undefined, key: string) =>
-	value !== undefined && Object.hasOwn(value, key);
-
 /** Every step of one field's evaluation: what `evaluateField` reduces to its decision. */
 export async function decideField(
 	input: PolicyInput,
 	call: FieldInput,
 ): Promise<Explanation> {
+	if (typeof call.claims !== 'object' || call.claims === null) {
+		throw new TypeError('evaluateField: pass the `claims`');
+	}
 	const policy = heldPolicy(input);
 	if (!policy) return noPolicy();
 	const where = `${call.type}.${call.field}`;
 	const steps: Step[] = [];
-	const fields = hasOwn(policy.graphql, call.type)
-		? policy.graphql?.[call.type]
-		: undefined;
-	const entry = hasOwn(fields, call.field) ? fields?.[call.field] : undefined;
+	const entry = graphqlEntry(policy, call.type, call.field);
 	if (!entry) {
 		const root = call.root ?? ROOT_TYPES.has(call.type);
 		const open = !root || policy.global.unmatched !== 'deny';

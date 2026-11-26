@@ -41,6 +41,9 @@ export async function decideRest(
 	input: PolicyInput,
 	call: RestInput,
 ): Promise<Explanation> {
+	if (typeof call.claims !== 'object' || call.claims === null) {
+		throw new TypeError('evaluateRest: pass the `claims`');
+	}
 	const policy = heldPolicy(input);
 	if (!policy) return noPolicy();
 	// A JS caller may pass `null` or a number: anything but a string is no
