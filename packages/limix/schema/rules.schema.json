@@ -230,7 +230,7 @@
 			"type": ["boolean", "null"]
 		},
 		"__schema18": {
-			"description": "Lets anonymous callers reach the rule. Only for routes that carry their own credential. Cannot be combined with `authenticated: true` `roles`, `permissions`, `when` or `relations`.",
+			"description": "Lets anonymous callers reach the rule. Only for routes that carry their own credential. Cannot be combined with `authenticated: true`, `roles`, `permissions`, `when` or `relations`.",
 			"allOf": [
 				{
 					"$ref": "#/definitions/__schema19"

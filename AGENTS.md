@@ -89,7 +89,7 @@ Declared divergences from janus:
   resumes, and never builds: run `bun run build` first. Nothing publishes while
   every package is `"private": true`.
 - **`verify:artifacts`** packs each package and loads the tarball. It refuses a
-  package whose `publishConfig` is not npmjs with `access: "restricted"`, a build exiting 0 whose artifact does
+  package whose `publishConfig` is not `{ registry: npmjs, access: "restricted" }`, a build exiting 0 whose artifact does
   not load, declarations that no longer compile, an import not declared as a
   dependency or peer, a runtime dependency that only types need, and duplicate
   classes (the highest packaging risk: two copies of a class break `instanceof`).

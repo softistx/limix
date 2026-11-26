@@ -142,7 +142,7 @@ export const entryShape = {
 		.nullish()
 		.describe(
 			'Lets anonymous callers reach the rule. Only for routes that carry ' +
-				'their own credential. Cannot be combined with `authenticated: true` ' +
+				'their own credential. Cannot be combined with `authenticated: true`, ' +
 				'`roles`, `permissions`, `when` or `relations`.',
 		),
 };
