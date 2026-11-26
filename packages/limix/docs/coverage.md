@@ -6,7 +6,7 @@ the operations your API exposes, it says which a rule covers, which are public,
 which no rule names, and which rules name nothing that exists.
 
 It lives on its own subpath, `@softistx/limix/coverage`, which imports no
-`node:` module and no package: it runs in a browser (a rules editor) or an edge
+`node:` module and no package but `path-to-regexp`: it runs in a browser (a rules editor) or an edge
 runtime as well as in CI. The main entry `@softistx/limix` imports no `node:`
 module either; only `loadRules`, on `@softistx/limix/node`, reads the disk. A
 spec of the repository follows the source imports of both entries and fails on
@@ -45,6 +45,21 @@ from an OpenAPI path, or `/documents/:docId` against a rule on `:id`) is still
 reached, as a request would be: the rule's matcher takes it, the entry reads
 `match: 'pattern'`, and the rule is used, never stale. Bring such spellings into
 line: `rulesPathOf` converts an OpenAPI path.
+
+`match: 'pattern'` says only that the rule's matcher takes that one spelling of
+the path, as `evaluateRest` would for a request with it. It does not promise
+more: an operation path holding a wildcard (`/files/*path`) or an optional group
+with a parameter (`/things{/:id}`) stands for several request shapes, so a
+matcher hit is never claimed for it. It is `uncovered` unless a rule spells it
+exactly (a rule `GET /files/:name` does not cover `GET /files/*path`; the rule is
+stale when no other operation uses it). Single-segment parameters
+(`/things/:thingId`) stay allowed as pattern hits.
+
+`rulesPathOf` converts only whole `{name}` segments. An operation from
+`rulesPathOf('/things/{id}.json')` stays `/things/{id}.json`, so a rule written
+with the in-segment suffix (`/things/:id.json`) beside `/things/:id` can be
+reported stale: the operation is reached by the `/things/:id` rule's matcher,
+not by the suffixed one. Spell that operation as the rule does.
 
 ```ts
 import { rulesPathOf } from '@softistx/limix/coverage'

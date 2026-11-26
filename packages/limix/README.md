@@ -226,7 +226,7 @@ longer exists? `coverage` takes the compiled policy and a list of operations
 operation, `covered`, `public` or `uncovered` (with what `global.unmatched`
 does to it), plus the `stale` rules. It lives on its own subpath, free of Node,
 so it also runs in a browser (a spec of the repository proves, on the source,
-that neither it nor the main entry imports a `node:` module):
+that neither it nor the main entry imports a `node:` module; the subpath imports `path-to-regexp` only):
 
 ```ts
 import { compilePolicy, definePolicy } from '@softistx/limix'
@@ -252,17 +252,27 @@ const report = coverage(policy, [
 // { total: 2, covered: 1, public: 0, uncovered: 1, refused: 1, open: 0,
 //   byPattern: 0, stale: 0 }
 
-// The CI gate: fail on what the guard would refuse, on a stale rule, and on a
-// rule reached only through its matcher (a spelling to bring into line).
-// A GraphQL field that is not a root is open by design and does not fail.
-if (report.summary.refused > 0 || report.stale.length > 0 || report.summary.byPattern >  {
-  process.exit(1)
-}
+// The CI gate (the same as docs/coverage.md): fail on a REST operation or a
+// root GraphQL field no rule names, on a stale rule, and on a rule reached only
+// through its matcher. A GraphQL field that is not a root is open by design.
+const uncovered = report.operations.filter(
+  (entry) =>
+    entry.status === 'uncovered' &&
+    (entry.operation.kind === 'rest' || entry.operation.root),
+)
+const spelled = report.operations.filter((entry) => entry.match === 'pattern')
+for (const entry of uncovered) console.error(`uncovered (${entry.unmatched}): ${entry.label}`)
+for (const entry of spelled) console.error(`spelled differently from its rule: ${entry.label}`)
+for (const rule of report.stale) console.error(`stale: ${rule.label}`)
+if (uncovered.length + spelled.length + report.stale.length > 0) process.exit(1)
 ```
 
 A REST `path` is best the pattern as the rules file spells it (`rulesPathOf`
 converts an OpenAPI `{id}` path); another spelling is reached through the rule's
-matcher and reported `match: 'pattern'`. See
+matcher and reported `match: 'pattern'`, which the gate fails on. An operation
+holding a wildcard (`/files/*path`) or an optional group with a parameter is
+never claimed by a matcher hit: it is `uncovered` unless a rule spells it
+exactly. See
 [coverage](docs/coverage.md).
 
 ## Documentation
