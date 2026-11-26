@@ -343,7 +343,13 @@ set's URL), `issuer` (the key set's URL is discovered from its
 `/.well-known/openid-configuration`), or both:
 
 ```ts
-remotePolicy({ rulesUrl, audience, jwksUri: 'https://policy.example.com/jwks' })
+import { remotePolicy } from '@softistx/limix/remote'
+
+remotePolicy({
+  rulesUrl: 'https://policy.example.com/rules',
+  audience: 'billing-api',
+  jwksUri: 'https://policy.example.com/jwks',
+})
 ```
 
 ## remotePolicy: `rulesUrl` must be https (http only for localhost, 127.0.0.1 or ::1), got <scheme>//<host>
@@ -356,91 +362,271 @@ is the option.
 ## remotePolicy: `timeoutMs` must be an integer from 1 to 2147483647, got <value>
 
 `timeoutMs` and `intervalMs` take whole milliseconds, above 0 and at most
-2147483647 (a larger timer delay overflows to 1 ms).
-`maxStaleMs` must be a number above 0, or `Infinity` to never refuse; `0`, a
-negative number and `NaN` are refused rather than failing open.
+2147483647 (a larger timer delay overflows to 1 ms). The name in the message is
+the option. See also the entry for `maxStaleMs` below.
 
-## FETCH_FAILED
+## remotePolicy: `maxStaleMs` must be a number above 0 (or Infinity), got <v>
 
-A `RemotePolicyError` with this `code`: the pull never got an answer (network
-down, DNS, a timeout after `timeoutMs`, the `authToken` function threw, the
-issuer's discovery document names another issuer or has no `jwks_uri`). The last
-good copy keeps serving. Check the URL, the network and `timeoutMs`; the next
-tick retries.
+`maxStaleMs` is how many milliseconds past its `exp` a copy still serves. Give a
+number above 0, or `Infinity` to never refuse; `0`, a negative number, `NaN` and
+a string are refused at construction rather than failing open. The error is a
+`RemotePolicyConfigError`:
 
-## HTTP_STATUS: `<url>` answered <status>
+```ts
+import { RemotePolicyConfigError, remotePolicy } from '@softistx/limix/remote'
 
-The policy server answered something other than 200 or 304 (or a 304 to a
-request that had no `If-None-Match`). The last good copy keeps serving. 401 and
-403: check `authToken`.
+try {
+  remotePolicy({
+    rulesUrl: 'https://policy.example.com/rules',
+    audience: 'billing-api',
+    jwksUri: 'https://policy.example.com/jwks',
+    maxStaleMs: 0,
+  })
+} catch (error) {
+  if (error instanceof RemotePolicyConfigError) console.error(error.message)
+}
+```
 
-## SIGNATURE
+Every `RemotePolicyError` below reaches `onError` (and the logger) with the
+message shown in its heading; its `code` is the second column of the table in
+[remote rules](remote.md#options). The last good copy keeps serving after each
+of them unless the entry says otherwise.
 
-The token was refused as a token: a bad or tampered signature, a key the key set
-does not hold, a malformed body, or an algorithm outside RS256, PS256, ES256 and
-EdDSA (HS256 is refused even when the key set advertises an `oct` key). Check
-that the publisher signs with a key listed at `jwksUri`.
+## signature verification failed
 
-## CLAIMS: `typ`, `aud`, `iss`, `exp` and `schema`
+`RemotePolicyError` with code `SIGNATURE`: the token's signature does not match
+the key it names. Either it was tampered with, or the publisher signed with a
+key that is not the one listed at `jwksUri`. Check that the key set you pull is
+the publisher's current one.
 
-`CLAIMS` is a token that is signed but not acceptable. The message names the
-claim:
+## no applicable key found in the JSON Web Key Set
 
-- `unexpected "typ" JWT header value`: the token's `typ` is not the `typ`
-  option (default `limix-rules+jwt`). Align the publisher or the option.
-- `unexpected "aud" claim value` or `unexpected "iss" claim value`: set
-  `audience` and `issuer` to what the publisher signs.
-- `"exp" claim timestamp check failed`, or `missing required "exp" claim`:
-  the token is expired, or has no `exp`; `iat` and `exp` are both required.
-- `` `schema` is <value>, this build reads the rules format 1 ``: the publisher
-  wrote another format version than `LIMIX_FORMAT_VERSION`. Upgrade
-  `@softistx/limix`, or publish format 1. Leave `schema` out to skip the check.
-- `` `ver` must be a positive integer `` and `` `rules` must be an object ``.
-- `ver <n> is already held with different rules: the publisher must bump ver`:
-  the same `ver` carried other rules. Bump `ver` whenever the rules change.
+`SIGNATURE`: no key of the set fits the token's `kid` and `alg`. When the key
+set's URL was discovered, the source discovers again once before refusing, in
+case the issuer moved it. Otherwise the publisher signed with a key it has not
+published yet (publish the new key first, then sign with it), or `jwksUri`
+points at the wrong set.
 
-The last good copy keeps serving.
+## Invalid Compact JWS
 
-## STALE_VERSION: ver <n> is lower than the held ver <m>
+`SIGNATURE`: the body is not a compact JWS (three dot-separated parts), for
+instance an HTML error page served with a 200, a JSON document, or a token cut
+short. An algorithm outside RS256, PS256, ES256 and EdDSA is refused as
+`SIGNATURE` too, HS256 included, even when the key set advertises an `oct` key.
+Open `rulesUrl` and check it returns the token alone.
 
-A rollback: the pulled token's `ver` is below the held one (or below the highest
-`ver` ever accepted live, which survives a withdrawal). The publisher served an
-older document, or its `ver` went down. Publish a higher `ver`; the held rules
-keep serving.
+## could not reach <url>: <reason>
 
-## RULES_REFUSED: Invalid rules in the pulled rules: N issues
+`FETCH_FAILED`: the request never got an answer (network down, DNS, a TLS
+error, a timeout after `timeoutMs`). The reason follows the colon. Check the
+URL and the network; the next tick retries.
 
-The token verified, but its `rules` claim failed `parseRules` or
+## the token function threw
+
+`FETCH_FAILED`: the `authToken` function threw, rejected or outlived
+`timeoutMs`, so no request was made. The original error is the `cause`.
+
+## <url> answered a redirect, which is refused so the bearer token is never sent elsewhere
+
+`FETCH_FAILED` (or `HTTP_STATUS` with `<url> answered 302, a redirect, ...`
+when a runtime hands back the 3xx instead of failing): the policy server, the
+issuer's discovery document or the key set answered with a redirect. Pulls are
+made with `redirect: 'error'`, so `Authorization: Bearer <authToken>` can never
+follow a redirect to another origin or to `http:`. Point `rulesUrl`, `jwksUri`
+and `issuer` at the final URLs.
+
+## <url> answered <status>
+
+`HTTP_STATUS`: the policy server answered something other than 200 or 304. 401
+and 403: check `authToken`. 404: check `rulesUrl`. 5xx: the publisher is down;
+the last good copy keeps serving. A 3xx is a redirect, which is refused (see
+above).
+
+## <url> answered 304 to a request without If-None-Match
+
+`HTTP_STATUS`: the server said "not modified" when the pull had no ETag to
+compare, which is the case while the held copy came from the store and is still
+provisional, or when none is held. A 304 confirms nothing then, so it is
+refused and the copy is re-verified on the next pull. Make the server answer 304
+only to a request that carries `If-None-Match`.
+
+## <url> has no jwks_uri
+
+`FETCH_FAILED` (the message starts with `discovery failed: `): the issuer's
+`/.well-known/openid-configuration` document has no `jwks_uri`. Add it, or pass
+`jwksUri` and skip discovery. The same prefix carries the other discovery
+faults: `<url> answered <status>`, and
+`<url> names issuer <other>, not <issuer>` when the document names another
+issuer than the `issuer` option.
+
+## `iat` is required
+
+`CLAIMS`: the token has no numeric `iat`. Both `iat` and `exp` are required.
+
+## `ver` must be a positive integer
+
+`CLAIMS`: the `ver` claim is missing, not an integer or below 1.
+
+## `rules` must be an object
+
+`CLAIMS`: the `rules` claim is missing or not a JSON object.
+
+## unexpected "typ" JWT header value
+
+`CLAIMS`: the token's `typ` header is not the `typ` option (default
+`limix-rules+jwt`). A `rules+jwt` token is refused. Align the publisher or the
+option; `DEFAULT_TYP` is exported from `@softistx/limix/remote`.
+
+## unexpected "aud" claim value
+
+`CLAIMS`: the token's `aud` does not contain the `audience` option. Set
+`audience` to what the publisher signs.
+
+## unexpected "iss" claim value
+
+`CLAIMS`: `issuer` is set and the token's `iss` differs. Set `issuer` to what
+the publisher signs, or leave it out and give `jwksUri` alone.
+
+## "exp" claim timestamp check failed
+
+`CLAIMS`: the token is expired. `missing required "exp" claim` is the same
+refusal for a token with no `exp`. Both `iat` and `exp` are required; check the
+publisher's clock and the token's lifetime.
+
+## "nbf" claim timestamp check failed
+
+`CLAIMS`: the token's `nbf` (not before) is later than this machine's clock on a
+live pull. Check both clocks; the next pull retries.
+
+## "nbf" claim is in the future
+
+`CLAIMS`: the same for a stored copy read at start, whose `nbf` is later than
+the clock. It is reported as `the stored policy was not used: "nbf" claim is in
+the future` and ignored.
+
+## "iat" claim timestamp check failed
+
+`CLAIMS`: the token's `iat` is later than this machine's clock. The publisher's
+clock is ahead, or yours is behind. Fix the skew.
+
+## `schema` is <value>, this build reads the rules format 1
+
+`CLAIMS`: the publisher wrote a `schema` claim other than the number
+`LIMIX_FORMAT_VERSION` (`1`); a string such as `'v1'` is refused. Upgrade
+`@softistx/limix`, or publish format 1. Leave `schema` out to skip the check.
+
+## ver <n> is already held with different rules: the publisher must bump ver
+
+`CLAIMS`: the same `ver` carried other rules than the held copy. Bump `ver`
+whenever the rules change; a re-signing of identical rules is accepted.
+
+## ver <n> was held with different rules before its withdrawal: the publisher must bump ver
+
+`CLAIMS`: the held copy expired and was withdrawn, and the token now served is
+at the same `ver` as the highest one accepted live but carries other rules. The
+floor remembers the rules that set it. Bump `ver`.
+
+## ver <n> is lower than the held ver <m>
+
+`STALE_VERSION`: a rollback. The pulled token's `ver` is below the held one (or
+below the highest `ver` ever accepted live, which survives a withdrawal). The
+publisher served an older document, or its `ver` went down. Publish a higher
+`ver`; the held rules keep serving.
+
+## Invalid rules in the pulled rules: N issues
+
+`RULES_REFUSED`: the token verified, but its `rules` claim failed `parseRules` or
 `compilePolicy`: a `RulesError`, with one line per issue as in
-[Invalid rules](#invalid-rules-n-issues). The last good copy keeps serving. A
-`when` naming a condition the service did not register arrives here as
-`unknown condition <name>`: add it to the `conditions` option.
+[Invalid rules](#invalid-rules-n-issues). The first line says "in the pulled
+rules" whichever step refused. A `when` naming a condition the service did not
+register arrives here as `unknown condition <name>`: add it to the `conditions`
+option.
 
-## STORE
+## the stored policy was not used: <reason>
 
-The `store` failed, and serving goes on without it: the stored copy was
-unreadable, not valid for the options (`the stored policy was not used: ...`),
-holds a key not in `trustedKeys`, was issued in the future, is beyond
-`maxStaleMs` past its expiry, or is refused by the live keys; or a write
-failed or outlived `timeoutMs` (`could not write the policy store: ...`). A hung
-`store.read()` is bounded by `timeoutMs`. Check the file's folder and rights.
+`STORE`: the store could not be read, or its copy is not valid for the options.
+`<reason>` is the cause: a read error, a hung `store.read()` bounded by
+`timeoutMs`, `<path> is not a stored policy` from `filePolicyStore`, a token that
+fails any check above (wrong `audience`, `typ`, a signature the stored key set
+does not verify). The service starts with nothing held until the first pull.
 
-## EXPIRED: the held policy is <n>s past its expiry, beyond maxStaleMs: withdrawn
+## <path> is not a stored policy
 
-The publisher has been away so long that the held copy is more than `maxStaleMs`
-(default 24 h) past its `exp`. The source withdraws it: subscribers hear `null`
-and every request is refused with `limix.errors.unavailable` until a pull
-succeeds. Restore the publisher; raise `maxStaleMs` only if serving older rules
-is acceptable.
+`filePolicyStore` read a file that is not JSON of the shape `{ jws, jwks, etag? }`.
+It is reported as `the stored policy was not used: <path> is not a stored policy`
+and ignored; the next accepted pull overwrites it. Delete the file if something
+else wrote it, and keep the path to this store alone.
 
-## TOO_LARGE: `<url>` is larger than 1048576 bytes
+## could not write the policy store: <reason>
 
-The rules, key set or discovery response is over 1 MiB and was refused before
-being read whole. Split the rules, or check the URL does not point at something
-else.
+`STORE`: `store.write` failed or outlived `timeoutMs` after an accepted policy.
+The policy still serves; only a restart would lack it. Check the file's folder
+and rights, or the store's connection.
 
-## `filePolicyStore` is not exported by `@softistx/limix/remote`
+## the stored key set holds a key that is not in trustedKeys
 
+`STORE`: `trustedKeys` is set and the stored key set holds a key whose JWK
+thumbprint (RFC 7638) is not listed, so the copy is ignored. Add the thumbprint
+(a warning names it when the live key set holds an unlisted key) or clear the
+stored copy. `trustedKeys` only pins what a stored copy may carry; live pulls
+are verified against the publisher's key set.
+
+## the stored policy was issued in the future
+
+`STORE`: the stored token's `iat` is more than 60 s ahead of this machine's
+clock. The clock was wrong when it was stored or is now; the copy is ignored.
+
+## the stored policy is <n>s past its expiry, beyond maxStaleMs
+
+`STORE`: the stored copy expired more than `maxStaleMs` ago, so it is not
+served at start. Raise `maxStaleMs` only if serving older rules is acceptable;
+otherwise wait for the first pull.
+
+## the stored policy is refused by the live keys: <reason>
+
+`STORE`: the stored copy served provisionally, then the live key set refused it
+(`<reason>` is the refusal, e.g. `signature verification failed`). It is dropped,
+so the service holds nothing until a pull succeeds. The store held a token the
+publisher's keys do not vouch for, or keys rotated while the service was down.
+
+## the held policy is <n>s past its expiry, beyond maxStaleMs: withdrawn
+
+`EXPIRED`: the publisher has been away so long that the held copy is more than
+`maxStaleMs` (default 24 h) past its `exp`. The source withdraws it: subscribers
+hear `null` and every request is refused with `limix.errors.unavailable` until a
+pull succeeds. Restore the publisher; raise `maxStaleMs` only if serving older
+rules is acceptable.
+
+## <url> is larger than 1048576 bytes
+
+`TOO_LARGE`: the rules, key set or discovery response is over 1 MiB and was
+refused before being read whole. Split the rules, or check the URL does not
+point at something else.
+
+## Handling a `RemotePolicyError`
+
+Every failure above is a `RemotePolicyError` whose `code` is one of the codes
+named in the entries; match on the class and the code, not the message:
+
+```ts
+import { remotePolicy } from '@softistx/limix/remote'
+
+// Schematic: `alertSecurity` stands for your own code.
+declare function alertSecurity(message: string): void
+
+const policy = remotePolicy({
+  rulesUrl: 'https://policy.example.com/rules',
+  audience: 'billing-api',
+  jwksUri: 'https://policy.example.com/jwks',
+  onError: (error) => {
+    if (error.code === 'SIGNATURE') alertSecurity(error.message)
+  },
+})
+```
+
+## Module '"@softistx/limix/remote"' has no exported member 'filePolicyStore'
+
+TypeScript's text for `import { filePolicyStore } from '@softistx/limix/remote'`.
 The file store reads the disk with `node:fs`, so it lives on
 `@softistx/limix/node`; `remote` stays free of Node:
 

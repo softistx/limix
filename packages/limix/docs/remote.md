@@ -6,7 +6,9 @@ evaluators take directly. A new `ver` applies to the next request with no
 restart; a publisher outage keeps the last good copy serving.
 
 It uses the global `fetch` and [`jose`](https://github.com/panva/jose) only, so
-it runs in Node, Bun, a browser or an edge runtime. The one Node-only part, a
+it runs in Node, Bun, a browser or an edge runtime. The floor is
+`AbortSignal.any`: Node 20.3 or later, Bun, Deno, Cloudflare Workers, Chrome
+116, Firefox 124 and Safari 17.4. The one Node-only part, a
 file that keeps the last good copy across a restart, is `filePolicyStore` in
 `@softistx/limix/node`.
 
@@ -63,6 +65,11 @@ discovery is skipped while `iss` is still checked. `rulesUrl`, `jwksUri` and
 `issuer` must be `https:`; `http:` is accepted only for `localhost`,
 `127.0.0.1` and `::1`.
 
+Live pulls are always verified against that key set. A pull, a discovery and a
+key fetch are made with `redirect: 'error'`: a 3xx is refused (`FETCH_FAILED`
+or `HTTP_STATUS`), so `Authorization: Bearer <authToken>` never follows a
+redirect to another origin or to `http:`.
+
 ## Polling and the last good copy
 
 A pull sends `If-None-Match` with the held ETag. A 304 keeps the rules and
@@ -85,7 +92,14 @@ hear `null`. A pull longer than `timeoutMs` (default 10 s), a hung `authToken`
 function and a hung key fetch are aborted; a response larger than 1 MiB is
 refused (`TOO_LARGE`). `stop()` clears the timer and aborts the pull in flight.
 
+Schematic: `getServiceToken` and `metrics` stand for your own code.
+
 ```ts
+import { remotePolicy } from '@softistx/limix/remote'
+
+declare function getServiceToken(): Promise<string>
+declare const metrics: { increment(name: string, tags: object): void }
+
 const policy = remotePolicy({
   rulesUrl: 'https://policy.example.com/rules',
   audience: 'billing-api',
@@ -114,6 +128,14 @@ store) `await policy.ready` can wait forever. Bound it to refuse to start
 rather than answer 503:
 
 ```ts
+import { remotePolicy } from '@softistx/limix/remote'
+
+const policy = remotePolicy({
+  rulesUrl: 'https://policy.example.com/rules',
+  audience: 'billing-api',
+  issuer: 'https://policy.example.com',
+})
+
 const held = await Promise.race([
   policy.ready.then(() => true),
   new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 15_000)),
@@ -141,7 +163,7 @@ them offline and holds the policy before any network call, then pulls. After
 every accepted change it writes the token and the key set that verified it.
 `filePolicyStore` writes with mode `0600`; keep the file where only the service
 reads it. Any `PolicyStore` (`read()` and `write(value)`) works, a Redis key for
-instance.
+instance (see [a custom store](#a-custom-store)).
 
 The store is trusted like the code, since it carries its own key set. What
 bounds the damage:
@@ -149,7 +171,7 @@ bounds the damage:
 - A restored copy is provisional: it serves, but sets no `ver` floor and is
   never confirmed by a 304. Once the live keys load it is verified against
   them: accepted, its `ver` becomes the floor; refused, it is dropped (`STORE`).
-- `trustedKeys` (JWK thumbprints) pins the keys a stored key set may hold; a
+- `trustedKeys` (JWK thumbprints) pins only the keys a stored key set may hold, never the live verification, which uses the publisher's key set; a
   stored copy with any other key is ignored (`STORE`). Set it when you know the
   publisher's keys.
 - `maxStaleMs` (default 24 h) bounds how far past `exp` a copy is served, at
@@ -160,6 +182,43 @@ bounds the damage:
 The `ver` floor comes only from live-verified tokens and survives a withdrawal,
 so after a copy expires an older, still-unexpired token is refused as
 `STALE_VERSION`.
+
+### A custom store
+
+A `PolicyStore` has `read()`, which gives back what was written or `null`, and
+`write(value)`. A `StoredPolicy` is `{ jws, jwks, etag? }`: the compact token,
+the key set that verified it and the ETag, when the publisher sent one. The
+client below is schematic; any Redis library with `get` and `set` fits.
+
+```ts
+import {
+  remotePolicy,
+  type PolicyStore,
+  type StoredPolicy,
+} from '@softistx/limix/remote'
+
+declare const redis: {
+  get(key: string): Promise<string | null>
+  set(key: string, value: string): Promise<unknown>
+}
+
+const store: PolicyStore = {
+  async read() {
+    const text = await redis.get('limix:policy')
+    return text ? (JSON.parse(text) as StoredPolicy) : null
+  },
+  async write(value) {
+    await redis.set('limix:policy', JSON.stringify(value))
+  },
+}
+
+const policy = remotePolicy({
+  rulesUrl: 'https://policy.example.com/rules',
+  audience: 'billing-api',
+  issuer: 'https://policy.example.com',
+  store,
+})
+```
 
 ## Options
 
@@ -185,6 +244,41 @@ a `code`: `FETCH_FAILED`, `HTTP_STATUS`, `SIGNATURE`, `CLAIMS`, `STALE_VERSION`,
 `RULES_REFUSED`, `STORE`, `EXPIRED` or `TOO_LARGE`; see
 [troubleshooting](troubleshooting.md).
 
+## Errors
+
+A failed pull is a `RemotePolicyError`; a refused option is a
+`RemotePolicyConfigError` (a `TypeError`), thrown by `remotePolicy()` at
+construction, for instance when neither `jwksUri` nor `issuer` is given.
+`DEFAULT_TYP` is the default `typ`, `'limix-rules+jwt'`.
+
+```ts
+import {
+  DEFAULT_TYP,
+  RemotePolicyConfigError,
+  RemotePolicyError,
+  remotePolicy,
+} from '@softistx/limix/remote'
+
+try {
+  const policy = remotePolicy({
+    rulesUrl: 'https://policy.example.com/rules',
+    audience: 'billing-api',
+    jwksUri: 'https://policy.example.com/jwks',
+    typ: DEFAULT_TYP,
+    onError: (error) => {
+      if (error instanceof RemotePolicyError && error.code === 'SIGNATURE') {
+        console.error('the publisher signed with an unknown key', error.message)
+      }
+    },
+  })
+  const changed = await policy.refresh() // never throws
+  console.log(changed)
+} catch (error) {
+  if (error instanceof RemotePolicyConfigError) console.error(error.message)
+  else throw error
+}
+```
+
 ## Testing without a network
 
 Pass `fetch` and sign with `jose`; the package's own specs do exactly that
@@ -192,6 +286,14 @@ Pass `fetch` and sign with `jose`; the package's own specs do exactly that
 
 ```ts
 import { exportJWK, generateKeyPair, SignJWT } from 'jose'
+import { remotePolicy } from '@softistx/limix/remote'
+
+// Schematic: the rules document the publisher would sign.
+const rules = {
+  limix: 1,
+  global: { unmatched: 'deny' },
+  rest: { '/invoices': { GET: { public: true } } },
+}
 
 const { publicKey, privateKey } = await generateKeyPair('ES256')
 const jwks = { keys: [{ ...(await exportJWK(publicKey)), kid: 'k1', alg: 'ES256' }] }
@@ -205,8 +307,10 @@ const policy = remotePolicy({
   rulesUrl: 'https://policy.test/rules',
   jwksUri: 'https://policy.test/jwks',
   audience: 'billing-api',
-  fetch: async (input) =>
-    String(input).endsWith('/jwks') ? Response.json(jwks) : new Response(jws),
+  fetch: (async (input: RequestInfo | URL) =>
+    String(input).endsWith('/jwks')
+      ? Response.json(jwks)
+      : new Response(jws)) as typeof fetch,
 })
 await policy.refresh()
 ```

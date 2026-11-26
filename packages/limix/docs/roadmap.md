@@ -11,7 +11,7 @@ dates here, and the version something shipped in is the only number.
   (`@softistx/limix/coverage`: covered, public, uncovered and stale rules over
   a neutral list that integrations supply), then signed remote rules
   (`@softistx/limix/remote`: `remotePolicy` pulls a signed JWS, verifies it
-  against a JWKS or pinned keys, hot-swaps it and keeps the last good copy
+  against the publisher's JWKS, hot-swaps it and keeps the last good copy
   through an outage; `filePolicyStore` in `@softistx/limix/node`).
 - **Janus relations** — relations checked through janus (`@softistx/limix-janus`:
   `janusRelations`, `checkRulesAgainstModel`).
@@ -34,6 +34,8 @@ dates here, and the version something shipped in is the only number.
   operation.
 - **Rules editor** — a type-safe editor for rules, built on `@softistx/material`.
 - **Restricted profile** — a stricter profile for rules.
+- **Live key pinning** — verify live pulls against a local key set.
+- **A bounded `ready`** — a ready promise that rejects after a timeout.
 - **Gateway trust proof** — a proof a gateway has already decided.
 - **Rule set per tenant** — one rule set for each tenant.
 

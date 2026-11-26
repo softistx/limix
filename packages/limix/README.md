@@ -5,8 +5,9 @@ reach a route or a field, written in YAML or JSON or through a typed builder,
 with relations checked through a port, coverage over your operations and signed
 rules pulled from a policy server.
 
-> **Nothing published yet.** The rules format (parse, load, build, compile) and
-> evaluation (REST, GraphQL fields, relations, explain) coverage and the remote client are in. See the [roadmap](docs/roadmap.md).
+> **Nothing published yet.** The rules format (parse, load, build, compile),
+> evaluation (REST, GraphQL fields, relations, explain), coverage and the remote
+> client are in. See the [roadmap](docs/roadmap.md).
 
 ## Install
 
@@ -49,7 +50,7 @@ declarations import without extensions, so `nodenext` is not supported.
 | `LIMIX_FORMAT_VERSION` | The format version, `1` |
 | `DEFAULT_FROM`, `DEFAULT_ON_DENY` | What a relation term reads when it names no `from` (`param.id` on REST, `args.id` on GraphQL) and how a rung answers when it names no `onDeny` (`NOT_FOUND`) |
 | types `Claims`, `Subject`, `Decision`, `RelationChecker`, `RelationQuery`, `PolicyInput`, `PolicySource`, `MutableSource`, `Explanation`, `Step`, `StepKind`, `TermStep`, `RestInput`, `RestRequest`, `FieldInput`, `Rules`, `RulesIssue`, `CompileOptions`, `Condition`, `ConditionContext`, `CompiledPolicy`, `CompiledRestRoute`, `CompiledGraphqlEntry` | The shapes the functions take and return |
-| `remotePolicy(options)` from `@softistx/limix/remote` | A `PolicySource` that pulls rules signed as a JWS, verifies them against a JWKS or pinned keys, hot-swaps them and keeps the last good copy through an outage (`ready`, `refresh()`, `stop()`, `age()`, `version()`) |
+| `remotePolicy(options)` from `@softistx/limix/remote` | A `PolicySource` that pulls rules signed as a JWS, verifies them against the publisher's JWKS (`jwksUri`, or the issuer's discovery), hot-swaps them and keeps the last good copy through an outage (`ready`, `refresh()`, `stop()`, `age()`, `version()`) |
 | `RemotePolicyError`, `RemotePolicyConfigError`, `DEFAULT_TYP` from `@softistx/limix/remote` | The failure of a pull (`code`: `FETCH_FAILED`, `HTTP_STATUS`, `SIGNATURE`, `CLAIMS`, `STALE_VERSION`, `RULES_REFUSED`, `STORE`, `EXPIRED`, `TOO_LARGE`), a refused option, and the default `typ` `limix-rules+jwt` |
 | `filePolicyStore(path)` from `@softistx/limix/node` | A `PolicyStore` over one JSON file, so a restart serves the last good copy before the first pull |
 | types `RemotePolicy`, `RemotePolicyOptions`, `RemotePolicyLogger`, `PolicyStore`, `StoredPolicy`, `RemotePolicyErrorCode` from `@softistx/limix/remote` | The shapes the remote client takes and returns |
@@ -293,9 +294,15 @@ last good copy up to `maxStaleMs`, then refuses with `limix.errors.unavailable`.
 It uses the global `fetch` and `jose` only, so it runs in a browser or an edge
 runtime:
 
+Give `jwksUri` or `issuer` (or both): without one, `remotePolicy` throws a
+`RemotePolicyConfigError` at construction.
+
 ```ts
 import { evaluateRest } from '@softistx/limix'
 import { remotePolicy } from '@softistx/limix/remote'
+import { filePolicyStore } from '@softistx/limix/node'
+
+const claims = { authenticated: true, shift: 'day' }
 
 const policy = remotePolicy({
   rulesUrl: 'https://policy.example.com/rules',
@@ -303,14 +310,16 @@ const policy = remotePolicy({
   issuer: 'https://policy.example.com',
   conditions: { workingHours: ({ claims }) => claims['shift'] === 'day' },
   onError: (error) => console.error(error.code, error.message),
+  // Optional: serve the last good copy straight after a restart.
+  store: filePolicyStore('./policy.json'),
 })
 
 const decision = await evaluateRest(policy, { method: 'GET', path: '/invoices', claims })
 ```
 
-To serve the last good copy straight after a restart, add
-`store: filePolicyStore('./policy.json')` (from `@softistx/limix/node`). See
-[remote](docs/remote.md).
+`trustedKeys` only pins the keys a stored copy may carry; live pulls are always
+verified against the publisher's key set. Pulls refuse redirects, so the bearer
+token never follows one. See [remote](docs/remote.md).
 
 ## Documentation
 
