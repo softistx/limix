@@ -1,0 +1,217 @@
+# Rules
+
+A rules document says who may reach each REST route and each GraphQL field. You
+write it as YAML or JSON, or in code with `definePolicy`; both give the same
+structure, validated the same way.
+
+```yaml
+# yaml-language-server: $schema=node_modules/@softistx/limix/schema/rules.schema.json
+limix: 1
+global:
+  unmatched: deny
+rest:
+  /documents/:id:
+    PUT:
+      permissions: [[documents:write]]
+graphql:
+  Mutation:
+    publishDocument:
+      roles: [[editor], [admin]]
+```
+
+```ts
+import { definePolicy } from '@softistx/limix'
+
+export const rules = definePolicy({
+  limix: 1,
+  global: { unmatched: 'deny' },
+  rest: { '/documents/:id': { PUT: { permissions: [['documents:write']] } } },
+  graphql: { Mutation: { publishDocument: { roles: [['editor'], ['admin']] } } },
+})
+```
+
+## Reading and checking rules
+
+| Function | What it does |
+| --- | --- |
+| `parseRules(input)` | Validates a value, returns `Rules`, throws a `RulesError` listing every issue with its path |
+| `loadRules(path)` | Reads a `.yaml`, `.yml` or `.json` file, then `parseRules` |
+| `definePolicy(rules)` | Writes the document in code: the identity at run time, a compile error on a typo |
+| `compilePolicy(rules, { conditions })` | Precompiles the route table and the field table into a `CompiledPolicy` |
+
+```ts
+import { compilePolicy, loadRules } from '@softistx/limix'
+
+const rules = await loadRules('rules.yaml')
+const policy = compilePolicy(rules, {
+  conditions: { workingHours: ({ claims }) => claims['shift'] === 'day' },
+})
+```
+
+A `RulesError` lists every issue, not the first:
+
+```
+Invalid rules in rules.yaml: 2 issues
+  global.unmatched: Invalid option: expected one of "allow"|"deny"
+  rest['/documents'].GET.keto: `keto` is removed: use relations
+```
+
+`error.issues` holds the same as `{ path, message }` pairs.
+
+## The document
+
+| Key | Meaning |
+| --- | --- |
+| `limix` | The format version. Always `1`. Required |
+| `global` | Settings for the whole document. Required |
+| `rest` | Rules by path pattern, then HTTP method |
+| `graphql` | Rules by type name, then field name |
+| `x-...` | Free keys for YAML anchors; dropped when parsing |
+
+Any other top-level key throws.
+
+### `global`
+
+- `unmatched` (required): `allow` or `deny`. What a REST path, or a GraphQL root
+  field, that no rule names is answered. `deny` makes the file the exhaustive
+  list of what the service exposes. It is required so that leaving a door open
+  is written down.
+- `basePath`: a prefix put before every REST pattern, e.g. `/api`.
+
+### REST rules
+
+Keyed by path pattern (path-to-regexp syntax), then by method (`GET`, `POST`,
+`PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`, `CONNECT`, `TRACE`, `QUERY`). The
+first pattern that matches, in document order, is used.
+
+### GraphQL rules
+
+Keyed by type name, then field name. `Query`, `Mutation` and `Subscription`
+cover root fields; any other type name guards fields of that type.
+
+## Terms of a rule
+
+A rule may carry any of these. Every list of alternatives is in disjunctive
+normal form: the outer list is OR, each inner list is AND.
+
+### `roles`
+
+`[['admin'], ['editor', 'reviewer']]` reads "admin, or editor and reviewer". A
+role holds when it is in `claims.roles`.
+
+```yaml
+roles: [[admin], [editor, reviewer]]
+```
+
+```ts
+{ roles: [['admin'], ['editor', 'reviewer']] }
+```
+
+### `permissions`
+
+Same nesting as `roles`. A permission holds when it is a token of
+`claims.scope` (space separated) and, when the caller carries a
+`claims.permissions` list, is also in that list.
+
+```yaml
+permissions: [[documents:write], [documents:admin, audit:read]]
+```
+
+```ts
+{ permissions: [['documents:write'], ['documents:admin', 'audit:read']] }
+```
+
+An empty list or an empty alternative is refused.
+
+### `relations`
+
+Per-object checks, answered later through a relations port. The value is a list
+of rungs, checked in order; the first that fails denies. Each rung has:
+
+- `require`: alternatives of terms, same nesting as `roles`. A term is
+  `{ relation, type, from }`: the caller must hold `relation` on an object of
+  `type`, whose id is read from `from`.
+- `onDeny`: `NOT_FOUND` (the default) or `FORBIDDEN`.
+- `message`: an i18n key for the denial.
+
+`from` is `param.<name>`, `query.<name>` or `json.<path>` on REST, and
+`args.<path>` or `source.<path>` on GraphQL. The other transport's spelling is
+refused. When absent it is `param.id` on REST and `args.id` on GraphQL.
+
+The caller is the subject of every check, as `{ type, id }` like in janus; it
+comes from the request when rules are evaluated, so a rule names the object
+only.
+
+```yaml
+relations:
+  - require: [[{ relation: view, type: document, from: param.id }]]
+  - require: [[{ relation: edit, type: document, from: param.id }]]
+    onDeny: FORBIDDEN
+```
+
+```ts
+{
+  relations: [
+    { require: [[{ relation: 'view', type: 'document', from: 'param.id' }]] },
+    {
+      require: [[{ relation: 'edit', type: 'document', from: 'param.id' }]],
+      onDeny: 'FORBIDDEN',
+    },
+  ],
+}
+```
+
+A stranger gets 404 on the first rung, a viewer who tries to write gets 403 on
+the second.
+
+### `when`
+
+A list of condition names; every one must hold. A condition is a function you
+register in code, so a rules file, which may come from elsewhere, carries no
+code.
+
+```yaml
+when: [workingHours]
+```
+
+```ts
+const policy = compilePolicy(rules, {
+  conditions: {
+    workingHours: ({ claims }) => claims['shift'] === 'day',
+  },
+})
+```
+
+A condition receives `{ claims, request, args, source, info }` (REST fills
+`request`; GraphQL fills the others) and returns a boolean or a promise of one.
+A name that is not registered throws at `compilePolicy`.
+
+### `authenticated` and `public`
+
+`authenticated: true` says the rule needs a signed-in caller and nothing more.
+`public: true` lets anonymous callers through. They cannot be combined, and
+`public` cannot be combined with `relations`: `compilePolicy` throws.
+
+## What was removed from `@softistx/security` 5
+
+| Was | Now |
+| --- | --- |
+| `keto` | `relations` |
+| `namespace` of a relation term | `type` |
+| `id` of a relation term | `from` |
+| `expression` | `when: [name]` naming a condition registered in code |
+| `authorities` | `roles`, in DNF (outer OR, inner AND) |
+| `cors`, `rateLimit`, `global.providers` | removed: never enforced |
+| `global.unmatched` optional | required |
+| no version key | `limix: 1` |
+
+Each removed key fails with a message saying what to write instead; see
+[troubleshooting](troubleshooting.md).
+
+## Editor completion
+
+The package ships `schema/rules.schema.json`, generated from the same schemas
+that validate. Point your editor at it with the first line of the YAML file
+(`# yaml-language-server: $schema=...`), or import it as
+`@softistx/limix/rules.schema.json`. In this repository, `bun run schema:gen`
+regenerates it and a spec fails when the committed file drifts.

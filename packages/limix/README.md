@@ -4,8 +4,8 @@ A policy engine for REST and GraphQL: rules that decide whether a caller may
 reach a route or a field, written in YAML or JSON or through a typed builder,
 with relations checked through a port and coverage over your operations.
 
-> **Nothing published yet.** This package is a skeleton: it exports one
-> constant, the version of the rules format. See the [roadmap](docs/roadmap.md).
+> **Nothing published yet.** The rules format (parse, load, build, compile) is
+> in; evaluation is not. See the [roadmap](docs/roadmap.md).
 
 ## Install
 
@@ -23,16 +23,45 @@ declarations import without extensions, so `nodenext` is not supported.
 
 | Export | What it is |
 | --- | --- |
-| `.` | The package entry: `LIMIX_FORMAT_VERSION` |
+| `.` | `parseRules`, `loadRules`, `definePolicy`, `compilePolicy`, `LIMIX_FORMAT_VERSION`, types `Rules`, `CompiledPolicy`, `Condition`, `RulesError` |
+| `./rules.schema.json` | The JSON schema of a rules document, for editor completion |
 | `./package.json` | The package manifest |
 
-```ts
-import { LIMIX_FORMAT_VERSION } from '@softistx/limix'
+Write rules in YAML:
 
-console.log(LIMIX_FORMAT_VERSION) // 1
+```yaml
+# yaml-language-server: $schema=node_modules/@softistx/limix/schema/rules.schema.json
+limix: 1
+global:
+  unmatched: deny
+rest:
+  /documents/:id:
+    PUT:
+      permissions: [[documents:write]]
+      when: [workingHours]
 ```
+
+or in code, where a typo fails to compile:
+
+```ts
+import { compilePolicy, definePolicy, loadRules } from '@softistx/limix'
+
+const typed = definePolicy({
+  limix: 1,
+  global: { unmatched: 'deny' },
+  rest: { '/documents/:id': { PUT: { permissions: [['documents:write']], when: ['workingHours'] } } },
+})
+
+const rules = await loadRules('rules.yaml') // the same structure
+const policy = compilePolicy(rules, {
+  conditions: { workingHours: ({ claims }) => claims['shift'] === 'day' },
+})
+```
+
+Invalid rules throw a `RulesError` listing every issue with its path. The
+format is described in [docs/rules.md](docs/rules.md).
 
 ## Documentation
 
-See [docs/](docs/README.md): the [roadmap](docs/roadmap.md) and
-[troubleshooting](docs/troubleshooting.md).
+See [docs/](docs/README.md): the [rules format](docs/rules.md), the
+[roadmap](docs/roadmap.md) and [troubleshooting](docs/troubleshooting.md).
