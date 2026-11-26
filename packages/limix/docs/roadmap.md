@@ -5,9 +5,10 @@ dates here, and the version something shipped in is the only number.
 
 ## Now
 
-- **The rules format** — in: parse, load, `definePolicy`, compile and the JSON
-  schema. Evaluation, coverage of your operations, relations and signed remote
-  rules are still coming.
+- **The rules format and evaluation** — in: parse, load, `definePolicy`, compile,
+  the JSON schema, then `evaluateRest`, `evaluateField`, `explain`, the
+  `RelationChecker` port and policy sources. Coverage of your operations and
+  signed remote rules are still coming.
 
 ## Next
 

@@ -166,3 +166,54 @@ try {
   throw error
 }
 ```
+
+## auth.errors.unauthenticated
+
+A refusal with status 401. The rule is not `public` and `claims.authenticated`
+is not `true`; or no rule names the route and `global.unmatched` is `deny`; or
+a rule with relations got a caller without `claims.subject`. Pass
+`{ authenticated: true, subject: { type, id } }` for a signed-in caller, or mark
+the rule `public: true`. `explain` shows which stage refused.
+
+## auth.errors.forbidden
+
+A refusal with status 403. The caller is signed in but `roles`, `permissions` or
+a `when` condition failed, a `FORBIDDEN` relation rung refused, or no rule names
+the route and `global.unmatched` is `deny`. Run `explain` with the same input:
+the step with `passed: false` is the one. A `when` predicate that throws also
+lands here; its message is in the step's `note`.
+
+## errors.not-found
+
+A refusal with status 404. A relation rung that answers `NOT_FOUND` (the
+default) failed: the caller does not hold the relation on the object, or the
+`from` path resolved no id. Write `onDeny: FORBIDDEN` on the rung to answer 403
+instead, or give the rung a `message` to change the code.
+
+## limix.errors.unavailable
+
+A refusal with status 503. `params.reason` says why.
+
+- `no-policy`: the `PolicySource` you passed holds no policy yet (a
+  `mutableSource()` nobody called `swap` on, or one that was withdrawn).
+  Swap a compiled policy in; until then every request is refused.
+- `no-relation-checker`: the matched rule declares `relations` and the call
+  passed no `relations`. Pass your `RelationChecker`.
+
+## evaluateRest: pass the `route` or the `path`
+
+`evaluateRest` and `explain` were given neither. Pass the matched route pattern
+as `route`, or the request pathname as `path`.
+
+## limix: the RelationChecker answered N for M queries; it must return one boolean per query, in order
+
+Your `RelationChecker.check` returned an array of another length than the
+`queries` it received. Return exactly `queries.map(...)`, one boolean per query
+in the same order; a backend that dedupes must expand its answers back.
+
+## policySource: `current` and `subscribe` must both be functions
+
+`policySource({ current, subscribe })` was given an object missing one of them.
+Both are functions: `current()` returns the compiled policy or `null`,
+`subscribe(listener)` returns the unsubscribe function. For a fixed or
+hand-swapped policy use `staticSource` or `mutableSource`.

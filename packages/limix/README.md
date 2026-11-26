@@ -4,8 +4,8 @@ A policy engine for REST and GraphQL: rules that decide whether a caller may
 reach a route or a field, written in YAML or JSON or through a typed builder,
 with relations checked through a port and coverage over your operations.
 
-> **Nothing published yet.** The rules format (parse, load, build, compile) is
-> in; evaluation is not. See the [roadmap](docs/roadmap.md).
+> **Nothing published yet.** The rules format (parse, load, build, compile) and
+> evaluation (REST, GraphQL fields, relations, explain) are in. See the [roadmap](docs/roadmap.md).
 
 ## Install
 
@@ -27,10 +27,15 @@ declarations import without extensions, so `nodenext` is not supported.
 | `loadRules(path)` | Reads a `.yaml`, `.yml` or `.json` file, then `parseRules` |
 | `definePolicy(rules)` | Writes the document in code; a typo fails to compile |
 | `compilePolicy(rules, { conditions })` | Precompiles the route and field tables into a `CompiledPolicy` |
+| `evaluateRest(policy, input)` | Decides a REST request (`method`, `route` or `path`, `claims`, `request`, `relations`): `{ allow: true }` or `{ allow: false, refusal }` |
+| `evaluateField(policy, input)` | The same for one GraphQL field (`type`, `field`, `claims`, `args`, `source`) |
+| `explain(policy, input)` | The same evaluation, with every step, for a simulator |
+| `staticSource(policy)`, `mutableSource(initial?)`, `isPolicySource` | Where an evaluator gets its policy; an empty source refuses with `limix.errors.unavailable` |
+| `LimixRefusal`, `isLimixRefusal` | The neutral refusal `{ code, status, params }` and its guard |
 | `RulesError` | Thrown for invalid rules; `error.issues` lists every issue |
 | `LIMIX_FORMAT_VERSION` | The format version, `1` |
 | `DEFAULT_FROM`, `DEFAULT_ON_DENY` | What a relation term reads when it names no `from` (`param.id` on REST, `args.id` on GraphQL) and how a rung answers when it names no `onDeny` (`NOT_FOUND`) |
-| types `Rules`, `RulesIssue`, `CompileOptions`, `Condition`, `ConditionContext`, `CompiledPolicy`, `CompiledRestRoute`, `CompiledGraphqlEntry` | The shapes the functions take and return |
+| types `Claims`, `Decision`, `RelationChecker`, `RelationQuery`, `PolicySource`, `Explanation`, `Step`, `RestInput`, `FieldInput`, `Rules`, `RulesIssue`, `CompileOptions`, `Condition`, `ConditionContext`, `CompiledPolicy`, `CompiledRestRoute`, `CompiledGraphqlEntry` | The shapes the functions take and return |
 | `@softistx/limix/rules.schema.json` | The JSON schema of a rules document, for editor completion |
 | `@softistx/limix/package.json` | The package manifest |
 
@@ -104,7 +109,39 @@ import schema from '@softistx/limix/rules.schema.json' with { type: 'json' }
 
 The format is described in [docs/rules.md](docs/rules.md).
 
+## Evaluating
+
+Hand the compiled policy, the caller's claims and the request to an evaluator.
+It answers with a decision and never throws for a refusal; a refusal is a
+neutral `{ code, status, params }`, with no HTTP framework in it:
+
+```ts
+import { evaluateRest, type RelationChecker } from '@softistx/limix'
+
+const relations: RelationChecker = {
+  check: async (queries) => queries.map(() => true), // your backend
+}
+
+const decision = await evaluateRest(policy, {
+  method: 'PUT',
+  route: '/documents/:id',
+  claims: { authenticated: true, subject: { type: 'user', id: 'u1' }, roles: ['editor'] },
+  request: { params: { id: '42' } },
+  relations,
+})
+
+if (!decision.allow) console.log(decision.refusal.status, decision.refusal.code)
+```
+
+The ladder is 401, then 403 (`roles`, `permissions`, `when`), then each
+relation rung's own answer (404 by default); the `RelationChecker` is called
+once per rung with every query of that rung. A GraphQL field goes through
+`evaluateField(policy, { type, field, claims, args, relations })`, and
+`explain` takes the same input and returns the `steps` it went through. See
+[evaluation](docs/evaluation.md) and [relations](docs/relations.md).
+
 ## Documentation
 
-See [docs/](docs/README.md): the [rules format](docs/rules.md), the
+See [docs/](docs/README.md): the [rules format](docs/rules.md),
+[evaluation](docs/evaluation.md), [relations](docs/relations.md), the
 [roadmap](docs/roadmap.md) and [troubleshooting](docs/troubleshooting.md).
