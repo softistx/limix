@@ -12,6 +12,7 @@ import type {
 	CompiledPolicy,
 	CompiledRestRoute,
 	CompileOptions,
+	Condition,
 } from './types';
 
 export type {
@@ -35,7 +36,27 @@ export function compilePolicy(
 	const registry = options.conditions ?? {};
 	const issues: RulesIssue[] = [];
 
-	// The document is keyed path -> method; dispatch wants method -> routes.
+	const restRoutesByMethod = compileRest(rules, registry, issues);
+	const graphql = compileGraphql(rules, registry, issues);
+
+	if (issues.length) throw new RulesError(issues);
+	return {
+		global: rules.global,
+		restRoutesByMethod,
+		usesRelations: [
+			...restRoutesByMethod.values(),
+			...Object.values(graphql ?? {}).map((fields) => Object.values(fields)),
+		].some((entries) => entries.some((entry) => usesRelations(entry.rule))),
+		...(graphql ? { graphql } : {}),
+	};
+}
+
+/** The REST table, keyed path -> method in the document, method -> routes for dispatch. */
+function compileRest(
+	rules: Rules,
+	registry: Readonly<Record<string, Condition>>,
+	issues: RulesIssue[],
+): Map<string, CompiledRestRoute[]> {
 	const restRoutesByMethod = new Map<string, CompiledRestRoute[]>();
 	for (const [basePattern, methods] of Object.entries(rules.rest ?? {})) {
 		const pattern = rules.global.basePath
@@ -76,34 +97,30 @@ export function compilePolicy(
 			else restRoutesByMethod.set(method, [route]);
 		}
 	}
+	return restRoutesByMethod;
+}
 
-	let graphql: CompiledPolicy['graphql'];
-	if (rules.graphql) {
-		graphql = {};
-		for (const [type, fields] of Object.entries(rules.graphql)) {
-			const compiled: Record<string, CompiledGraphqlEntry> = {};
-			for (const [field, rule] of Object.entries(fields ?? {})) {
-				const where = formatPath(['graphql', type, field]);
-				checkContradictions(rule, where, issues);
-				compiled[field] = {
-					rule,
-					conditions: resolveConditions(rule, where, registry, issues),
-				};
-			}
-			graphql[type] = compiled;
+/** The GraphQL table, or `undefined` when the document has no `graphql` block. */
+function compileGraphql(
+	rules: Rules,
+	registry: Readonly<Record<string, Condition>>,
+	issues: RulesIssue[],
+): CompiledPolicy['graphql'] {
+	if (!rules.graphql) return undefined;
+	const graphql: NonNullable<CompiledPolicy['graphql']> = {};
+	for (const [type, fields] of Object.entries(rules.graphql)) {
+		const compiled: Record<string, CompiledGraphqlEntry> = {};
+		for (const [field, rule] of Object.entries(fields ?? {})) {
+			const where = formatPath(['graphql', type, field]);
+			checkContradictions(rule, where, issues);
+			compiled[field] = {
+				rule,
+				conditions: resolveConditions(rule, where, registry, issues),
+			};
 		}
+		graphql[type] = compiled;
 	}
-
-	if (issues.length) throw new RulesError(issues);
-	return {
-		global: rules.global,
-		restRoutesByMethod,
-		usesRelations: [
-			...restRoutesByMethod.values(),
-			...Object.values(graphql ?? {}).map((fields) => Object.values(fields)),
-		].some((entries) => entries.some((entry) => usesRelations(entry.rule))),
-		...(graphql ? { graphql } : {}),
-	};
+	return graphql;
 }
 
 /** The names a REST pattern captures, groups included. */
