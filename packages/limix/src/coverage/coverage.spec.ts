@@ -185,3 +185,72 @@ describe('coverage: REST', () => {
 		expect(report.stale).toEqual([]);
 	});
 });
+
+describe('coverage: operations a pattern hit leaves partly open', () => {
+	const files = policyOf({
+		global: { unmatched: 'deny' },
+		rest: {
+			'/files/:name': { GET: { authenticated: true } },
+			'/things/:id': { GET: { authenticated: true } },
+		},
+	});
+
+	it('refuses a wildcard or an optional group, keeps a single parameter', () => {
+		const report = coverage(files, [
+			rest('GET', '/files/*path'),
+			rest('GET', '/things{/:id}'),
+			rest('GET', '/things/:thingId'),
+		]);
+		expect(statuses(report)).toEqual([
+			'GET /files/*path uncovered',
+			'GET /things{/:id} uncovered',
+			'GET /things/:thingId covered',
+		]);
+		expect(report.operations[2]?.match).toBe('pattern');
+		expect(report.operations[0]?.unmatched).toBe('deny');
+	});
+
+	it('leaves the rule stale only when no other operation uses it', () => {
+		const alone = coverage(files, [
+			rest('GET', '/files/*path'),
+			rest('GET', '/things/:id'),
+		]);
+		expect(alone.stale.map((rule) => rule.label)).toEqual(['GET /files/:name']);
+		const shared = coverage(files, [
+			rest('GET', '/files/*path'),
+			rest('GET', '/files/:name'),
+			rest('GET', '/things/:id'),
+		]);
+		expect(shared.stale).toEqual([]);
+	});
+
+	it('agrees with evaluateRest on a concrete request path', async () => {
+		// Under `allow`, a request no rule names is let through: an anonymous
+		// caller is refused exactly where coverage says covered.
+		const open = policyOf({
+			global: { unmatched: 'allow' },
+			rest: {
+				'/files/:name': { GET: { authenticated: true } },
+				'/things/:id': { GET: { authenticated: true } },
+			},
+		});
+		const cases = [
+			{ operation: '/files/*path', request: '/files/a/b' },
+			{ operation: '/things/:thingId', request: '/things/42' },
+		];
+		const report = coverage(
+			open,
+			cases.map(({ operation }) => rest('GET', operation)),
+		);
+		for (const [index, { request }] of cases.entries()) {
+			const decision = await evaluateRest(open, {
+				method: 'GET',
+				path: request,
+				claims: {},
+			});
+			expect(report.operations[index]?.status === 'covered').toBe(
+				!decision.allow,
+			);
+		}
+	});
+});

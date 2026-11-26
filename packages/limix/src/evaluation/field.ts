@@ -32,6 +32,9 @@ export async function decideField(
 	input: PolicyInput,
 	call: FieldInput,
 ): Promise<Explanation> {
+	if (typeof call.claims !== 'object' || call.claims === null) {
+		throw new TypeError('evaluateField: pass the `claims`');
+	}
 	const policy = heldPolicy(input);
 	if (!policy) return noPolicy();
 	const where = `${call.type}.${call.field}`;

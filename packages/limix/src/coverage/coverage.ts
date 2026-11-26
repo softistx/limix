@@ -23,7 +23,12 @@ export interface OperationCoverage {
 	 * On `covered` and `public` REST entries: `exact` when the rule's own
 	 * pattern names the path, `pattern` when its matcher took it (another
 	 * spelling, such as `/things/{id}` or `/things/:docId` for `/things/:id`).
-	 * A `pattern` hit is enforced, but worth bringing into line.
+	 * A `pattern` hit means the rule's matcher takes this path spelling, as
+	 * `evaluateRest` would for a request with that path; it says nothing about
+	 * other request paths, so bring the spelling into line. An operation path
+	 * holding a wildcard (`*name`) or an optional group with a parameter is
+	 * never reported through a `pattern` hit: it is `uncovered` unless a rule
+	 * spells it exactly.
 	 */
 	match?: 'exact' | 'pattern';
 	/**

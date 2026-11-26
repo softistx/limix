@@ -41,11 +41,11 @@ describe('the ./coverage subpath', () => {
 		expect(names).toContain('evaluation/graphql-entry.ts');
 	});
 
-	it('imports no node: or bun module, and no package at all', () => {
+	it('imports no node: or bun module, and no package but path-to-regexp', () => {
 		const bare = [...graph.values()]
 			.flatMap(runtimeImports)
 			.filter((specifier) => !specifier.startsWith('.'));
-		expect(bare).toEqual([]);
+		expect([...new Set(bare)]).toEqual(['path-to-regexp']);
 	});
 
 	it('does not reach the evaluators, the sources or the rules parser', () => {

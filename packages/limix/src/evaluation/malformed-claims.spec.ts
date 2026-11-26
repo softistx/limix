@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import { policyOf, user } from './evaluation.fixtures';
+import { explain } from './explain';
+import { evaluateField } from './field';
 import { evaluateRest } from './rest';
 
 const policy = policyOf({
@@ -65,5 +67,31 @@ describe('malformed claims fail closed', () => {
 			claims: user(),
 		};
 		expect(input.method).toBe('GET');
+	});
+});
+
+describe('missing claims', () => {
+	const gate = policyOf({
+		global: { unmatched: 'deny' },
+		rest: { '/a': { GET: { public: true } } },
+		graphql: { Query: { a: { public: true } } },
+	});
+	const none = [undefined, null, 'x', 3] as never[];
+
+	it('throws a clear TypeError, not a raw one', async () => {
+		for (const claims of none) {
+			await expect(
+				evaluateRest(gate, { method: 'GET', route: '/a', claims }),
+			).rejects.toThrow('evaluateRest: pass the `claims`');
+			await expect(
+				explain(gate, { method: 'GET', route: '/a', claims }),
+			).rejects.toThrow('evaluateRest: pass the `claims`');
+			await expect(
+				evaluateField(gate, { type: 'Query', field: 'a', claims }),
+			).rejects.toThrow('evaluateField: pass the `claims`');
+			await expect(
+				explain(gate, { type: 'Query', field: 'a', claims }),
+			).rejects.toThrow('evaluateField: pass the `claims`');
+		}
 	});
 });
