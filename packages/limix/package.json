@@ -42,7 +42,7 @@
 	},
 	"scripts": {
 		"build": "bun run ../../build.ts",
-		"test": "bun test src",
+		"test": "bun test ./src/",
 		"typecheck": "bun check",
 		"schema:gen": "bun run scripts/generate-schema.ts && biome check --write schema/rules.schema.json"
 	},

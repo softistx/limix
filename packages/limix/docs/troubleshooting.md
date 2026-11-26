@@ -67,6 +67,12 @@ when: [ownsDocument]
 Delete the key. `rateLimit` and `global.providers` carry the same message and
 the same fix: they did nothing in `@softistx/security` 5.
 
+## `message` is renamed `code`: it is the refusal's code
+
+On a relation rung, `message` is now `code`: the code of the refusal the rung
+answers with. Rename it. Put a custom code under `auth.errors.`, since
+`@softistx/alxia-access` reads no other prefix (but `tenancy.errors.`).
+
 ## `namespace` is renamed: use type
 
 In a relation term, `namespace` is now `type`. Rename it.
@@ -85,6 +91,20 @@ changing `from`.
 
 The GraphQL variant: a relation term on a GraphQL field reads its id from the
 field's `args` or its `source`. Rewrite `param.id` as `args.id`.
+
+## `param.<name>` names no parameter of the pattern: it captures <names>
+
+A REST relation term reads `param.<name>`, and the route's pattern captures no
+parameter of that name (the message lists what it does capture, or `none`).
+This includes the default: a term with no `from` reads `param.id`, so a pattern
+without `:id` needs a `from`. Fix the name, or the pattern:
+
+```yaml
+/documents/:documentId:
+  PUT:
+    relations:
+      - require: [[{ relation: edit, type: document, from: param.documentId }]]
+```
 
 ## Invalid input: expected string, received number
 
@@ -155,7 +175,7 @@ the parser's. Fix the syntax.
 missing (`ENOENT`) or unreadable (`EACCES`): the `RulesError` is for what the
 file says, not for reaching it. Check the path (it is resolved from the
 process's working directory) and the permissions, or catch the error where you
-call `loadRules`:
+call `loadRules` (schematic: `rules` is yours):
 
 ```ts
 try {
@@ -166,3 +186,88 @@ try {
   throw error
 }
 ```
+
+## auth.errors.unauthenticated
+
+A refusal with status 401. The rule is not `public` and `claims.authenticated`
+is not `true`; or no rule names the route and `global.unmatched` is `deny`. Pass `{ authenticated: true, subject: { type, id } }` for a signed-in caller, or
+mark the rule `public: true`. `explain` shows which stage refused.
+
+## auth.errors.forbidden
+
+A refusal with status 403. The caller is signed in but `roles`, `permissions` or
+a `when` condition failed, a `FORBIDDEN` relation rung refused, or no rule names
+the route and `global.unmatched` is `deny`. Run `explain` with the same input:
+the step with `passed: false` is the one. A `when` predicate that throws also
+lands here; its message is in the step's `note`.
+
+## auth.errors.forbidden, params.reason: no-subject
+
+The rule declares `relations` and the caller is signed in
+(`authenticated: true`) but carries no usable `claims.subject` (an object
+whose `type` and `id` are non-empty strings), so there is nobody to ask the
+relations about. The refusal is 403 with `params.reason: 'no-subject'`
+(an anonymous caller is 401 first). Read the identity into the claims:
+
+```ts
+claims: { authenticated: true, subject: { type: 'user', id: userId } }
+```
+
+## auth.errors.not-found
+
+A refusal with status 404. A relation rung that answers `NOT_FOUND` (the
+default) failed: the caller does not hold the relation on the object, or the
+`from` path resolved no id. Write `onDeny: FORBIDDEN` on the rung to answer 403
+instead, or give the rung a `code` to change the code (under `auth.errors.`, so
+`@softistx/alxia-access` reads it).
+
+## limix.errors.unavailable
+
+A refusal with status 503. `params.reason` says why.
+
+- `no-policy`: the `PolicySource` you passed holds no policy yet (a
+  `mutableSource()` nobody called `swap` on, or one that was withdrawn).
+  Swap a compiled policy in; until then every request is refused.
+- `no-relation-checker`: the matched rule declares `relations` and the call
+  passed no `relations`. Pass your `RelationChecker`. `policy.usesRelations`
+  tells at setup whether any rule needs one: throw there rather than answer 503
+  per request.
+
+`@softistx/alxia-access`'s `refusalOf` reads only codes under `auth.errors.` and
+`tenancy.errors.`, so this one needs the alxia integration's own mapping.
+
+## Policy source unavailable (limix.errors.unavailable): it holds no policy, every request is refused
+
+The line `outageReporter` reports (`OUTAGE_MESSAGE`) when a source is seen
+holding none, including the first look before any policy arrived: the `mutableSource` was swapped to `null`, or
+a remote source lost its rules. Every evaluator answers
+`limix.errors.unavailable` (503, `params.reason: 'no-policy'`) until a policy is
+swapped back, which re-arms the reporter.
+
+## the error your RelationChecker threw
+
+`evaluateRest`, `evaluateField` and `explain` do not catch a `RelationChecker`
+that throws or rejects (the backend is down, a timeout): the evaluation rejects
+with that same error, never with an allow or a refusal. Catch it where you call
+the evaluator and answer with the status you choose (503 is usual); do not
+treat it as a denial.
+
+## evaluateRest: pass the `route` or the `path`
+
+`evaluateRest` and `explain` were given neither. Pass the matched route pattern
+as `route`, or the request pathname as `path`. A source that holds no
+policy answers 503 before this check is reached.
+
+## limix: the RelationChecker answered N for M queries; it must return one boolean per query, in order
+
+Your `RelationChecker.check` returned an array of another length than the
+`queries` it received. The variant `answered nothing for M queries` is a result
+that is not an array at all (`undefined`, an object): return the array. Return exactly `queries.map(...)`, one boolean per query
+in the same order; a backend that dedupes must expand its answers back.
+
+## policySource: `current` and `subscribe` must both be functions
+
+`policySource({ current, subscribe })` was given an object missing one of them.
+Both are functions: `current()` returns the compiled policy or `null`,
+`subscribe(listener)` returns the unsubscribe function. For a fixed or
+hand-swapped policy use `staticSource` or `mutableSource`.

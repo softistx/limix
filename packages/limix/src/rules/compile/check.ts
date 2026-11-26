@@ -1,6 +1,7 @@
 import type { RulesIssue } from '../error';
 import type { GraphqlRule } from '../graphql';
 import type { RestRule } from '../rest';
+import { DEFAULT_FROM } from '../terms';
 import type { Condition } from './types';
 
 type Rule = RestRule | GraphqlRule;
@@ -55,6 +56,34 @@ export function checkContradictions(
 				issues.push({
 					path: where,
 					message: `\`public\` and \`${key}\` are contradictory: a public rule admits every caller, and \`${key}\` would narrow who may reach it`,
+				});
+			}
+		}
+	}
+}
+
+/** True when the rule declares at least one relation rung. */
+export function usesRelations(rule: Rule): boolean {
+	return Boolean(rule.relations?.length);
+}
+
+/** A REST relation term reading `param.<name>` must name a parameter of its pattern. */
+export function checkParams(
+	rule: Rule,
+	where: string,
+	names: ReadonlySet<string>,
+	issues: RulesIssue[],
+): void {
+	for (const [rungIndex, rung] of (rule.relations ?? []).entries()) {
+		for (const [altIndex, alternative] of rung.require.entries()) {
+			for (const [termIndex, term] of alternative.entries()) {
+				const from = term.from ?? DEFAULT_FROM.rest;
+				if (!from.startsWith('param.')) continue;
+				const name = from.split('.')[1] ?? '';
+				if (names.has(name)) continue;
+				issues.push({
+					path: `${where}.relations[${rungIndex}].require[${altIndex}][${termIndex}].from`,
+					message: `\`${from}\` names no parameter of the pattern: it captures ${names.size ? [...names].join(', ') : 'none'}`,
 				});
 			}
 		}

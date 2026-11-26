@@ -164,6 +164,19 @@ describe('parseRules', () => {
 		});
 	});
 
+	it('message on a relation rung, renamed code', () => {
+		const rung = {
+			require: [[{ relation: 'view', type: 'doc' }]],
+			message: 'x',
+		};
+		expect(
+			issuesOf({
+				...base,
+				rest: { '/a': { GET: { relations: [rung] } } },
+			}).map((issue) => issue.message),
+		).toEqual(["`message` is renamed `code`: it is the refusal's code"]);
+	});
+
 	it('names the source in the error when given', () => {
 		try {
 			parseRules({}, 'rules.yaml');

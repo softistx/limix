@@ -3,7 +3,7 @@ import type { GraphqlRule } from '../graphql';
 import type { RestRule } from '../rest';
 import type { Rules } from '../schema';
 
-/** What a condition is asked about. REST fills `request`; GraphQL fills `args`, `source` and `info`. */
+/** What a condition is asked about. REST fills `request` and `info`; GraphQL fills `args`, `source` and `info`. */
 export interface ConditionContext {
 	claims: Readonly<Record<string, unknown>>;
 	request?: unknown;
@@ -38,6 +38,12 @@ export interface CompiledPolicy {
 	/** Routes by HTTP method, each list in document order (first match wins). */
 	restRoutesByMethod: Map<string, CompiledRestRoute[]>;
 	graphql?: Record<string, Record<string, CompiledGraphqlEntry>>;
+	/**
+	 * True when any rule declares relations: an integration throws at setup when
+	 * this holds and it was given no `RelationChecker`, rather than answering 503
+	 * to every request that reaches such a rule.
+	 */
+	usesRelations: boolean;
 }
 
 export interface CompileOptions {

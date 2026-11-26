@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { RELATION_TERM_HINTS, ROLE_DOMAIN_HINT, strict } from './hints';
+import {
+	RELATION_RUNG_HINTS,
+	RELATION_TERM_HINTS,
+	ROLE_DOMAIN_HINT,
+	strict,
+} from './hints';
 
 /**
  * A list of alternatives in disjunctive normal form: the OUTER list is OR, each
@@ -87,28 +92,37 @@ function relationRung(
 	idExamples: string[],
 	defaultFrom: string,
 ) {
-	return strict({
-		require: z
-			.array(
-				z
-					.array(relationTerm(idPattern, idHelp, idExamples, defaultFrom))
-					.min(1),
-			)
-			.min(1)
-			.describe(
-				'Requirement in disjunctive normal form: the OUTER list is OR, the ' +
-					'INNER list is AND, so [[A, B], [C]] reads "(A and B) or C".',
-			),
-		onDeny: z
-			.enum(DENIALS)
-			.optional()
-			.describe(
-				`How a failure of this rung is answered. ${DEFAULT_ON_DENY} (the default) is ` +
-					'the same answer as for an id that never existed; FORBIDDEN is for ' +
-					'a second rung on an object the caller can already see.',
-			),
-		message: z.string().optional().describe('The i18n key the denial carries.'),
-	});
+	return strict(
+		{
+			require: z
+				.array(
+					z
+						.array(relationTerm(idPattern, idHelp, idExamples, defaultFrom))
+						.min(1),
+				)
+				.min(1)
+				.describe(
+					'Requirement in disjunctive normal form: the OUTER list is OR, the ' +
+						'INNER list is AND, so [[A, B], [C]] reads "(A and B) or C".',
+				),
+			onDeny: z
+				.enum(DENIALS)
+				.optional()
+				.describe(
+					`How a failure of this rung is answered. ${DEFAULT_ON_DENY} (the default) is ` +
+						'the same answer as for an id that never existed; FORBIDDEN is for ' +
+						'a second rung on an object the caller can already see.',
+				),
+			code: z
+				.string()
+				.optional()
+				.describe(
+					"The refusal's code, replacing the default one of the answer. " +
+						'Put it under "auth.errors." for @softistx/alxia-access to read it.',
+				),
+		},
+		RELATION_RUNG_HINTS,
+	);
 }
 
 export const zRestRelationRung = relationRung(

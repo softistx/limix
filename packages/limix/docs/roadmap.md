@@ -5,15 +5,16 @@ dates here, and the version something shipped in is the only number.
 
 ## Now
 
-- **The rules format** — in: parse, load, `definePolicy`, compile and the JSON
-  schema. Evaluation, coverage of your operations, relations and signed remote
-  rules are still coming.
+- **The rules format and evaluation** — in: parse, load, `definePolicy`, compile,
+  the JSON schema, then `evaluateRest`, `evaluateField`, `explain`, the
+  `RelationChecker` port and policy sources. Coverage of your operations and
+  signed remote rules are still coming.
 
 ## Next
 
-- **Janus relations** — relations checked through janus.
+- **Janus relations** — relations checked through janus (`@softistx/limix-janus`).
 - **Rule publisher** — sign a rules file and serve the keys that verify it.
-- **graxia integration** — rules on GraphQL fields in a graxia API.
+- **graxia integration** — rules on GraphQL fields in a graxia API (`@softistx/limix-graxia`).
 - **alxia integration** — rules on HTTP routes, tenants and refusals in an alxia API.
 - **Migration from @softistx/security** — a guide from the `policy` part of
   `@softistx/security`.

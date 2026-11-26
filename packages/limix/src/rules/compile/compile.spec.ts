@@ -177,4 +177,102 @@ describe('compilePolicy', () => {
 		expect(issues[0]?.message).toStartWith('invalid path pattern: ');
 		expect(issues[2]?.message).toStartWith('invalid path pattern: ');
 	});
+
+	describe('relation terms reading a path parameter', () => {
+		const rules = (from?: string, path = '/docs/:id') =>
+			definePolicy({
+				limix: 1,
+				global: { unmatched: 'allow' },
+				rest: {
+					[path]: {
+						GET: {
+							relations: [
+								{
+									require: [
+										[
+											{
+												relation: 'view',
+												type: 'doc',
+												...(from ? { from } : {}),
+											},
+										],
+									],
+								},
+							],
+						},
+					},
+				},
+			});
+
+		it('refuses a `param.<name>` the pattern does not capture, with its path', () => {
+			try {
+				compilePolicy(rules('param.docId'));
+				throw new Error('expected a RulesError');
+			} catch (error) {
+				expect(error).toBeInstanceOf(RulesError);
+				expect((error as RulesError).issues).toEqual([
+					{
+						path: "rest['/docs/:id'].GET.relations[0].require[0][0].from",
+						message:
+							'`param.docId` names no parameter of the pattern: it captures id',
+					},
+				]);
+			}
+		});
+
+		it('refuses the default `param.id` on a pattern with no :id', () => {
+			expect(() => compilePolicy(rules(undefined, '/docs'))).toThrow(
+				RulesError,
+			);
+		});
+
+		it('accepts a captured name, a wildcard and a group', () => {
+			expect(() => compilePolicy(rules('param.id'))).not.toThrow();
+			expect(() =>
+				compilePolicy(rules('param.rest', '/files/*rest')),
+			).not.toThrow();
+			expect(() =>
+				compilePolicy(rules('param.ext', '/files{.:ext}')),
+			).not.toThrow();
+		});
+	});
+
+	describe('usesRelations', () => {
+		const relations = [{ require: [[{ relation: 'view', type: 'doc' }]] }];
+		const compile = (rest: object, graphql?: object) =>
+			compilePolicy(
+				definePolicy({
+					limix: 1,
+					global: { unmatched: 'allow' },
+					rest,
+					...(graphql ? { graphql } : {}),
+				} as never),
+			);
+
+		it('is false when no rule declares relations', () => {
+			expect(compile({ '/a': { GET: { public: true } } }).usesRelations).toBe(
+				false,
+			);
+		});
+
+		it('is true for a REST rule with relations', () => {
+			expect(compile({ '/a/:id': { GET: { relations } } }).usesRelations).toBe(
+				true,
+			);
+		});
+
+		it('is true for a GraphQL field with relations', () => {
+			const policy = compile(
+				{},
+				{
+					Query: {
+						a: {
+							relations: [{ require: [[{ relation: 'view', type: 'doc' }]] }],
+						},
+					},
+				},
+			);
+			expect(policy.usesRelations).toBe(true);
+		});
+	});
 });
