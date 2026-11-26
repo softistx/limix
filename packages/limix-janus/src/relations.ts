@@ -1,17 +1,12 @@
+import type { ModelConfig, Permissions } from '@softistx/janus/permissions';
 import type { RelationChecker, RelationQuery, Subject } from '@softistx/limix';
 
-/**
- * What `janusRelations` reads of `permissions({ model, store })`: its `can`.
- * Typed loosely on purpose, so any model's `Permissions` is accepted without a
- * cast; the call itself is checked by janus at run time.
- */
-export interface JanusAccess {
-	readonly can: (...args: never[]) => Promise<boolean>;
-}
-
-export interface JanusRelationsOptions {
-	/** What `permissions({ model, store })` answered. */
-	readonly access: JanusAccess;
+export interface JanusRelationsOptions<C extends ModelConfig = ModelConfig> {
+	/**
+	 * What `permissions({ model, store })` answered; only its `can` is read,
+	 * and it must be janus's own.
+	 */
+	readonly access: Pick<Permissions<C>, 'can'>;
 	/**
 	 * The janus subject a `claims.subject` stands for. Defaults to
 	 * `{ type, id }` as is; use it when your claims name users differently from
@@ -40,9 +35,10 @@ type CanArgs = [
  * come back in the order of the queries. A janus error (`STORE_FAILED`,
  * `PERMISSION_DEPTH`, a malformed id) propagates: it is never a denial.
  */
-export function janusRelations(
-	options: JanusRelationsOptions,
+export function janusRelations<C extends ModelConfig>(
+	options: JanusRelationsOptions<C>,
 ): RelationChecker {
+	// The one cast: `relation` is a plain string, janus types it from the model.
 	const can = options.access.can as unknown as (
 		...args: CanArgs
 	) => Promise<boolean>;
@@ -58,7 +54,14 @@ export function janusRelations(
 						{ type: query.object.type, id: query.object.id },
 					];
 					if (ctxOf) args.push({ ctx: ctxOf(query) });
-					return can(...args);
+					return can(...args).then((answer) => {
+						if (typeof answer !== 'boolean') {
+							throw new TypeError(
+								`limix-janus: access.can answered ${typeof answer}, not a boolean`,
+							);
+						}
+						return answer;
+					});
 				}),
 			),
 	};

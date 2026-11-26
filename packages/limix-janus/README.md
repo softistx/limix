@@ -14,8 +14,11 @@ Not on npm yet. Once published:
 bun add @softistx/limix-janus @softistx/limix @softistx/janus
 ```
 
-`@softistx/limix`, `@softistx/janus` (0.84) and `typescript` (6 or 7) are
-required peers. Your tsconfig resolves as a bundler does
+`@softistx/limix`, `@softistx/janus` and `typescript` (6 or 7) are required
+peers. `@softistx/janus` must be 0.84.0 or later and below 1.0.0, and
+`@softistx/limix` the caret range of the version this release was built
+against (the repository's `workspace:^` becomes `^<version>` when the package
+is packed). Your tsconfig resolves as a bundler does
 (`"moduleResolution": "bundler"`, which Bun and every bundler use): the
 declarations import without extensions, so `nodenext` is not supported.
 
@@ -25,7 +28,7 @@ declarations import without extensions, so `nodenext` is not supported.
 | --- | --- |
 | `janusRelations({ access, subjectOf?, ctxOf? })` | A `RelationChecker` over `access.can`: one `can(subject, relation, { type, id })` per query, answers in order |
 | `checkRulesAgainstModel(policy, model)` | Lists every relation term of a compiled policy whose `type` or `relation` the janus model does not declare; empty means consistent |
-| types `JanusAccess`, `JanusRelationsOptions`, `CheckIssue`, `ModelLike` | The shapes the functions take and return |
+| types `JanusRelationsOptions`, `CheckIssue`, `ModelLike` | The shapes the functions take and return |
 | `@softistx/limix-janus/package.json` | The package manifest |
 
 Wire it into `evaluateRest` (copy-paste, with a janus model and the in-memory

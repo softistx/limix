@@ -60,6 +60,10 @@ Declared divergences from janus:
 - No peer-floor tooling (`run-on-peer-floor`, `run-in-floor-project`,
   `newest-peers`, `test-retry`) and no `nightly.yml`: the floor matrices exist
   for packages with many peers and drivers.
+- `@softistx/limix-janus` accepts any `@softistx/janus` `>=0.84.0 <1.0.0`
+  (declared: the adapter reads only `can` and `model.definition.types[*].related|permits`,
+  so any 0.x minor from 0.84 is accepted). With no peer-floor tooling, a new
+  janus minor is untested until a limix-janus release.
 - No `nxgt-versions.yml` or `check-nxgt-versions.ts`: limix depends on no
   `@nxgt` package.
 - `biome.json` turns off `useLiteralKeys` only, which the scripts need under

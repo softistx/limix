@@ -37,7 +37,7 @@
         "@types/bun": "^1.4.5",
       },
       "peerDependencies": {
-        "@softistx/janus": "^0.84.0",
+        "@softistx/janus": ">=0.84.0 <1.0.0",
         "@softistx/limix": "workspace:^",
         "typescript": "^6.0.3 || ^7.0.0",
       },

@@ -147,7 +147,9 @@ const policy = compilePolicy(await loadRules('rules.yaml'), {
 })
 
 const relations: RelationChecker = {
-  check: async (queries) => queries.map(() => true), // your backend
+  // your backend; for janus, `janusRelations({ access })` from
+  // [`@softistx/limix-janus`](https://github.com/softistx/limix/blob/develop/packages/limix-janus/README.md)
+  check: async (queries) => queries.map(() => true),
 }
 
 const claims = {

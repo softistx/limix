@@ -38,6 +38,9 @@ janusRelations({
 ```
 
 An anonymous caller never reaches the checker: limix refuses before asking.
+A subject janus cannot name (an id with `@`, `#` or parentheses, a type the
+model lacks) throws; see the subject entries of
+[troubleshooting](troubleshooting.md).
 
 ## Conditions (`when`)
 
@@ -49,16 +52,17 @@ janusRelations({ access, ctxOf: (query) => ({ onShift: isOnShift(query.subject.i
 ```
 
 Without `ctxOf` janus is called with no options, and such a permission throws
-as in janus.
+as in janus. How to write a `when` and what `ctx` it takes is in the janus
+documentation of conditions (the `when` section of the
+`@softistx/janus` README).
 
 ## Errors
 
-A janus failure is never a denial. `STORE_FAILED`, `PERMISSION_DEPTH`, and the
-`TypeError`s `can` throws for a relation or type the model does not declare or
-an id with `@`, `#` or parentheses all propagate out of `check`, and so out of
-`evaluateRest` and `evaluateField`: answer them as a server error in your
+A janus failure is never a denial: it propagates out of `check`, and so out of
+`evaluateRest` and `evaluateField`. Answer it as a server error in your
 integration. A relation that simply does not hold is `false`, and limix
-refuses with the rung's `onDeny`.
+refuses with the rung's `onDeny`. Every message and its cure is in
+[troubleshooting](troubleshooting.md).
 
 ## Check the rules against the model
 
@@ -74,13 +78,18 @@ const issues = checkRulesAgainstModel(policy, model)
 It lists every relation term whose `type` is not an object type of the model,
 or whose `relation` is neither a relation nor a permission of that type. Empty
 means consistent. Call it at startup or in a spec. Paths for REST rules carry
-the pattern with `global.basePath` already prefixed.
+the pattern as the rules file writes it, without `global.basePath`, as core's
+rules issues do. A relation term that names a `fromField` relation is reported
+too, since the adapter cannot answer it.
 
 ## Limits
 
 - **`fromField` relations**: janus reads them from fields of the object, and a
-  `RelationQuery` carries only `{ type, id }`. A model whose checked
-  permissions reach a `fromField` is not supported yet (see the roadmap).
+  `RelationQuery` carries only `{ type, id }`. A permission that reaches a
+  `fromField` throws `can: <type>.<relation> reads <field>, which the object
+  does not carry — pass the loaded object, spread`, and
+  `checkRulesAgainstModel` reports a term naming such a relation. Not
+  supported yet: a `load` option is on the [roadmap](roadmap.md).
 - **No batching**: janus has no batched `can`, so each query is its own walk.
   A batched `can` would be a useful upstream addition; nothing is filed.
 - Only `can` is read: `access.list`, `grant` and the rest stay yours.

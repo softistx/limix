@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test';
+import { defineModel, fromField } from '@softistx/janus/permissions';
 import { compilePolicy, definePolicy } from '@softistx/limix';
 import { checkRulesAgainstModel } from './check';
-import { model, policy } from './fixtures';
+import { model, policy } from './janus.fixtures';
 
 const term = (relation: string, type: string) => ({
 	require: [[{ relation, type }]],
@@ -53,5 +54,49 @@ describe('checkRulesAgainstModel', () => {
 			}),
 		);
 		expect(checkRulesAgainstModel(ok, model)).toEqual([]);
+	});
+
+	test('REST paths use the rules-file pattern, without global.basePath', () => {
+		const bad = compilePolicy(
+			definePolicy({
+				limix: 1,
+				global: { basePath: '/api', unmatched: 'deny' },
+				rest: { '/files/:id': { GET: { relations: [term('view', 'file')] } } },
+			}),
+		);
+		expect(checkRulesAgainstModel(bad, model).map((i) => i.path)).toEqual([
+			"rest['/files/:id'].GET.relations[0].require[0][0]",
+		]);
+	});
+
+	test('reports a fromField relation as not supported', () => {
+		const withField = defineModel({
+			subjects: ['staff'],
+			types: {
+				record: {
+					related: { doctors: fromField('doctorId', 'staff') },
+					permits: { read: ['doctors'] },
+				},
+			},
+		});
+		const rules = compilePolicy(
+			definePolicy({
+				limix: 1,
+				global: { unmatched: 'deny' },
+				rest: {
+					'/records/:id': {
+						GET: { relations: [term('doctors', 'record')] },
+						PUT: { relations: [term('read', 'record')] },
+					},
+				},
+			}),
+		);
+		const issues = checkRulesAgainstModel(rules, withField);
+		expect(issues).toHaveLength(1);
+		expect(issues[0]?.path).toBe(
+			"rest['/records/:id'].GET.relations[0].require[0][0]",
+		);
+		expect(issues[0]?.message).toContain('not supported');
+		expect(issues[0]?.message).toContain('`load` option on the roadmap');
 	});
 });

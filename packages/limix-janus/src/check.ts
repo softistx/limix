@@ -33,14 +33,30 @@ interface RuleLike {
 		| undefined;
 }
 
+const isFromField = (
+	related: { readonly [name: string]: unknown } | undefined,
+	name: string,
+): boolean =>
+	related !== undefined &&
+	Object.hasOwn(related, name) &&
+	(related[name] as { kind?: unknown } | null)?.kind === 'fromField';
+
 const key = (name: string): string =>
 	/^[A-Za-z_$][\w$]*$/.test(name) ? `.${name}` : `['${name}']`;
 
-/** Every `[where, rule]` of the policy, REST then GraphQL, in document order. */
+/**
+ * Every `[where, rule]` of the policy, REST then GraphQL: REST by method, then
+ * in document order. A REST path is the rules file's pattern, without
+ * `global.basePath`, as core's `RulesIssue` paths are.
+ */
 function* rulesOf(policy: CompiledPolicy): Generator<[string, RuleLike]> {
+	const basePath = policy.global.basePath ?? '';
 	for (const [method, routes] of policy.restRoutesByMethod) {
 		for (const route of routes) {
-			yield [`rest['${route.pattern}']${key(method)}`, route.rule];
+			const pattern = route.pattern.startsWith(basePath)
+				? route.pattern.slice(basePath.length)
+				: route.pattern;
+			yield [`rest['${pattern}']${key(method)}`, route.rule];
 		}
 	}
 	for (const [type, fields] of Object.entries(policy.graphql ?? {})) {
@@ -74,6 +90,11 @@ export function checkRulesAgainstModel(
 						issues.push({
 							path,
 							message: `type \`${term.type}\` is not a type of the janus model (it declares ${model.types.join(', ') || 'none'})`,
+						});
+					} else if (isFromField(def.related, term.relation)) {
+						issues.push({
+							path,
+							message: `\`${term.relation}\` of \`${term.type}\` is read from a field (fromField), which is not supported: the adapter sends { type, id } only; see the \`load\` option on the roadmap`,
 						});
 					} else if (
 						!Object.hasOwn(def.related ?? {}, term.relation) &&

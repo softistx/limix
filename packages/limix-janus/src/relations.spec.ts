@@ -1,14 +1,18 @@
 import { describe, expect, test } from 'bun:test';
 import {
 	createMemoryRelations,
+	defineModel,
 	permissions,
+	when,
 } from '@softistx/janus/permissions';
 import {
+	compilePolicy,
+	definePolicy,
 	evaluateField,
 	evaluateRest,
 	type RelationQuery,
 } from '@softistx/limix';
-import { ada, bob, model, policy, seeded } from './fixtures';
+import { ada, bob, model, policy, seeded } from './janus.fixtures';
 import { janusRelations } from './relations';
 
 const query = (id: string, relation = 'view'): RelationQuery => ({
@@ -106,7 +110,92 @@ describe('janusRelations', () => {
 		const checker = janusRelations({
 			access: permissions({ model, store }),
 		});
-		await expect(checker.check([query('d1')])).rejects.toThrow();
-		await expect(get(checker)).rejects.toThrow();
+		const failure = await checker.check([query('d1')]).catch((e) => e);
+		expect(failure).toMatchObject({ code: 'STORE_FAILED' });
+		await expect(get(checker)).rejects.toMatchObject({ code: 'STORE_FAILED' });
+	});
+
+	test('an unknown relation propagates janus TypeError through evaluateRest', async () => {
+		const checker = janusRelations({ access: await seeded() });
+		const bad = compilePolicy(
+			definePolicy({
+				limix: 1,
+				global: { unmatched: 'deny' },
+				rest: {
+					'/documents/:id': {
+						GET: {
+							relations: [
+								{ require: [[{ relation: 'purge', type: 'document' }]] },
+							],
+						},
+					},
+				},
+			}),
+		);
+		await expect(
+			evaluateRest(bad, {
+				method: 'GET',
+				path: '/documents/d1',
+				claims: claims(ada),
+				relations: checker,
+			}),
+		).rejects.toThrow(
+			'can: "purge" is not a relation or a permission of document',
+		);
+	});
+
+	test('ctxOf reaches a janus when; without it janus throws', async () => {
+		const shiftModel = defineModel({
+			subjects: ['user'],
+			types: {
+				ward: {
+					related: { nurses: ['user'] },
+					permits: {
+						enter: [when('nurses', (ctx: { onShift: boolean }) => ctx.onShift)],
+					},
+				},
+			},
+		});
+		const access = permissions({
+			model: shiftModel,
+			store: createMemoryRelations(),
+		});
+		await access.grant({ type: 'ward', id: 'w1' }, 'nurses', ada);
+		const q: RelationQuery = {
+			subject: ada,
+			relation: 'enter',
+			object: { type: 'ward', id: 'w1' },
+		};
+		await expect(janusRelations({ access }).check([q])).rejects.toThrow(
+			'can: ward.enter reaches a condition, and no ctx was passed',
+		);
+		const onShift = janusRelations({
+			access,
+			ctxOf: () => ({ onShift: true }),
+		});
+		expect(await onShift.check([q])).toEqual([true]);
+		const off = janusRelations({ access, ctxOf: () => ({ onShift: false }) });
+		expect(await off.check([q])).toEqual([false]);
+	});
+
+	test('a non-boolean answer of can throws a TypeError', async () => {
+		const access = { can: async () => 'yes' } as unknown as Pick<
+			ReturnType<typeof permissions<typeof model.definition>>,
+			'can'
+		>;
+		await expect(
+			janusRelations({ access }).check([query('d1')]),
+		).rejects.toThrow(
+			new TypeError('limix-janus: access.can answered string, not a boolean'),
+		);
+	});
+
+	test('rejects a wrong access at compile time', async () => {
+		const real = await seeded();
+		// @ts-expect-error a can that is not janus's
+		janusRelations({ access: { can: async (_a: number) => true } });
+		// @ts-expect-error the model is not the access
+		janusRelations({ access: model });
+		janusRelations({ access: real });
 	});
 });
