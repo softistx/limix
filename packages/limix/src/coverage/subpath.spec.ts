@@ -41,11 +41,11 @@ describe('the ./coverage subpath', () => {
 		expect(names).toContain('evaluation/graphql-entry.ts');
 	});
 
-	it('imports no node: or bun module, and no package but path-to-regexp', () => {
+	it('imports no node: or bun module and no package at all', () => {
 		const bare = [...graph.values()]
 			.flatMap(runtimeImports)
 			.filter((specifier) => !specifier.startsWith('.'));
-		expect([...new Set(bare)]).toEqual(['path-to-regexp']);
+		expect([...new Set(bare)]).toEqual([]);
 	});
 
 	it('does not reach the evaluators, the sources or the rules parser', () => {
@@ -68,7 +68,7 @@ describe('the main entry', () => {
 		expect(specifiers.filter((s) => /^(node|bun):/.test(s))).toEqual([]);
 	});
 
-	it('does not reach loadRules, which lives on ./node', () => {
+	it('does not reach loadRules, which lives on ./bun', () => {
 		const names = [...walk(MAIN).keys()].map((file) => file.split('/').pop());
 		expect(names).not.toContain('load.ts');
 	});
@@ -86,10 +86,8 @@ describe('the ./remote subpath', () => {
 		expect(bare.filter((s) => /^(node|bun):/.test(s))).toEqual([]);
 	});
 
-	it('uses jose and the core only, and leaves the file store to ./node', () => {
-		expect([...new Set(bare)].sort()).toEqual(
-			['jose', 'path-to-regexp', 'zod'].sort(),
-		);
+	it('uses jose and the core only, and leaves the file store to ./bun', () => {
+		expect([...new Set(bare)].sort()).toEqual(['jose', 'zod'].sort());
 		const names = [...graph.keys()].map((file) => file.split('/').pop());
 		expect(names).not.toContain('file-store.ts');
 		expect(names).not.toContain('load.ts');

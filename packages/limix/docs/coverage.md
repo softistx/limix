@@ -6,15 +6,15 @@ the operations your API exposes, it says which a rule covers, which are public,
 which no rule names, and which rules name nothing that exists.
 
 It lives on its own subpath, `@softistx/limix/coverage`, which imports no
-`node:` module and no package but `path-to-regexp`: it runs in a browser (a rules editor) or an edge
+`node:` module and no package at all: it runs in a browser (a rules editor) or an edge
 runtime as well as in CI. The main entry `@softistx/limix` imports no `node:`
-module either; only `loadRules`, on `@softistx/limix/node`, reads the disk. A
+module either; only `loadRules`, on `@softistx/limix/bun`, reads the disk. A
 spec of the repository follows the source imports of both entries and fails on
 a `node:` or `bun:` one.
 
 ```ts
 import { compilePolicy } from '@softistx/limix'
-import { loadRules } from '@softistx/limix/node'
+import { loadRules } from '@softistx/limix/bun'
 import { coverage, type Operation } from '@softistx/limix/coverage'
 
 const policy = compilePolicy(await loadRules('rules.yaml'))
@@ -126,7 +126,7 @@ does not fail. List the operations from your integration; here, by hand:
 ```ts
 // scripts/check-coverage.ts
 import { compilePolicy } from '@softistx/limix'
-import { loadRules } from '@softistx/limix/node'
+import { loadRules } from '@softistx/limix/bun'
 import { coverage, type Operation } from '@softistx/limix/coverage'
 
 // Your list: an integration builds it; `rulesPathOf` converts OpenAPI paths.

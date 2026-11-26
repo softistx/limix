@@ -9,7 +9,7 @@ or this GraphQL field? `evaluateRest` and `evaluateField` answer it with a
 
 ```ts
 import { compilePolicy, evaluateRest } from '@softistx/limix'
-import { loadRules } from '@softistx/limix/node'
+import { loadRules } from '@softistx/limix/bun'
 
 const policy = compilePolicy(await loadRules('rules.yaml'), {
   conditions: { workingHours: ({ claims }) => claims['shift'] === 'day' },

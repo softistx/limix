@@ -17,6 +17,10 @@ Not on npm yet. Once published:
 bun add @softistx/limix
 ```
 
+The package has two runtime dependencies, `zod` (the rules schema and its JSON
+schema) and `jose` (signed remote rules). Route patterns are compiled by limix
+itself, and `loadRules` uses Bun's own file and YAML APIs.
+
 `typescript` (6 or 7) is a required peer. Your tsconfig resolves as a bundler
 does (`"moduleResolution": "bundler"`, which Bun and every bundler use): the
 declarations import without extensions, so `nodenext` is not supported.
@@ -28,7 +32,7 @@ declarations import without extensions, so `nodenext` is not supported.
 | `@softistx/limix` | Rules, evaluation, sources, relations | yes (imports no `node:` module) |
 | `@softistx/limix/coverage` | `coverage`, `rulesPathOf` and the operation types | yes |
 | `@softistx/limix/remote` | `remotePolicy`, the signed-rules client, and `RemotePolicyError` | yes (global `fetch` and `jose` only) |
-| `@softistx/limix/node` | `loadRules`, which reads a rules file from disk, and `filePolicyStore`, which keeps the last good remote copy | no (`node:fs`) |
+| `@softistx/limix/bun` | `loadRules`, which reads a rules file from disk, and `filePolicyStore`, which keeps the last good remote copy | no (Bun only: `Bun.file`, `Bun.YAML`) |
 | `@softistx/limix/rules.schema.json` | The JSON schema of a rules document | n/a |
 
 ## Usage
@@ -36,7 +40,7 @@ declarations import without extensions, so `nodenext` is not supported.
 | Export | What it is |
 | --- | --- |
 | `parseRules(input, source?)` | Validates a value (an object, or a YAML or JSON text you parsed), returns `Rules` |
-| `loadRules(path)` from `@softistx/limix/node` | Reads a `.yaml`, `.yml` or `.json` file, then `parseRules` |
+| `loadRules(path)` from `@softistx/limix/bun` | Reads a `.yaml`, `.yml` or `.json` file, then `parseRules` |
 | `definePolicy(rules)` | Writes the document in code; a typo fails to compile |
 | `compilePolicy(rules, { conditions })` | Precompiles the route and field tables into a `CompiledPolicy` |
 | `evaluateRest(policy, input)` | Decides a REST request (`method`, `route` or `path`, `claims`, `request`, `relations`, `info`): `{ allow: true }` or `{ allow: false, refusal }` |
@@ -52,7 +56,7 @@ declarations import without extensions, so `nodenext` is not supported.
 | types `Claims`, `Subject`, `Decision`, `RelationChecker`, `RelationQuery`, `PolicyInput`, `PolicySource`, `MutableSource`, `Explanation`, `Step`, `StepKind`, `TermStep`, `RestInput`, `RestRequest`, `FieldInput`, `Rules`, `RulesIssue`, `CompileOptions`, `Condition`, `ConditionContext`, `CompiledPolicy`, `CompiledRestRoute`, `CompiledGraphqlEntry` | The shapes the functions take and return |
 | `remotePolicy(options)` from `@softistx/limix/remote` | A `PolicySource` that pulls rules signed as a JWS, verifies them against the publisher's JWKS (`jwksUri`, or the issuer's discovery), hot-swaps them and keeps the last good copy through an outage (`ready`, `refresh()`, `stop()`, `age()`, `version()`) |
 | `RemotePolicyError`, `RemotePolicyConfigError`, `DEFAULT_TYP` from `@softistx/limix/remote` | The failure of a pull (`code`: `FETCH_FAILED`, `HTTP_STATUS`, `SIGNATURE`, `CLAIMS`, `STALE_VERSION`, `RULES_REFUSED`, `STORE`, `EXPIRED`, `TOO_LARGE`), a refused option, and the default `typ` `limix-rules+jwt` |
-| `filePolicyStore(path)` from `@softistx/limix/node` | A `PolicyStore` over one JSON file, so a restart serves the last good copy before the first pull |
+| `filePolicyStore(path)` from `@softistx/limix/bun` | A `PolicyStore` over one JSON file, so a restart serves the last good copy before the first pull |
 | types `RemotePolicy`, `RemotePolicyOptions`, `RemotePolicyLogger`, `PolicyStore`, `StoredPolicy`, `RemotePolicyErrorCode` from `@softistx/limix/remote` | The shapes the remote client takes and returns |
 | `rulesPathOf(openApiPath)` from `@softistx/limix/coverage` | `/things/{id}` to `/things/:id`, to build an operation list |
 | `coverage(policy, operations)` from `@softistx/limix/coverage` | Which operations the rules cover, leave public or leave to `global.unmatched`, and which rules are stale; runs in a browser or an edge runtime |
@@ -108,18 +112,17 @@ try {
 }
 ```
 
-To read the rules from a file, `loadRules` (from `@softistx/limix/node`, the only part that reads the disk) takes a path; `parseRules` takes a
+To read the rules from a file, `loadRules` (from `@softistx/limix/bun`, Bun only, the only part that reads the disk) takes a path; `parseRules` takes a
 value, an object or the result of parsing YAML or JSON yourself, and an
 optional source name for the error message:
 
 ```ts
-import { readFile } from 'node:fs/promises'
-import { parse } from 'yaml'
 import { parseRules } from '@softistx/limix'
-import { loadRules } from '@softistx/limix/node'
+import { loadRules } from '@softistx/limix/bun'
 
 const fromFile = await loadRules('rules.yaml')
-const fromText = parseRules(parse(await readFile('rules.yaml', 'utf8')), 'rules.yaml')
+// Anywhere but Bun: read the file and parse it with your runtime's YAML (or JSON) parser.
+const fromText = parseRules(Bun.YAML.parse(await Bun.file('rules.yaml').text()), 'rules.yaml')
 ```
 
 `LIMIX_FORMAT_VERSION` is `1`, the value of the `limix` key. The JSON schema is
@@ -147,7 +150,7 @@ import {
   isLimixRefusal,
   type RelationChecker,
 } from '@softistx/limix'
-import { loadRules } from '@softistx/limix/node'
+import { loadRules } from '@softistx/limix/bun'
 
 const policy = compilePolicy(await loadRules('rules.yaml'), {
   conditions: { workingHours: ({ claims }) => claims['shift'] === 'day' },
@@ -235,7 +238,7 @@ longer exists? `coverage` takes the compiled policy and a list of operations
 operation, `covered`, `public` or `uncovered` (with what `global.unmatched`
 does to it), plus the `stale` rules. It lives on its own subpath, free of Node,
 so it also runs in a browser (a spec of the repository proves, on the source,
-that neither it nor the main entry imports a `node:` module; the subpath imports `path-to-regexp` only):
+that neither it nor the main entry imports a `node:` module; the subpath imports no package at all):
 
 ```ts
 import { compilePolicy, definePolicy } from '@softistx/limix'
@@ -300,7 +303,7 @@ Give `jwksUri` or `issuer` (or both): without one, `remotePolicy` throws a
 ```ts
 import { evaluateRest } from '@softistx/limix'
 import { remotePolicy } from '@softistx/limix/remote'
-import { filePolicyStore } from '@softistx/limix/node'
+import { filePolicyStore } from '@softistx/limix/bun'
 
 const claims = { authenticated: true, shift: 'day' }
 

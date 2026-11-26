@@ -1,6 +1,4 @@
-import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { rename, rm } from 'node:fs/promises';
 import type { PolicyStore, StoredPolicy } from '../remote/types';
 
 /**
@@ -16,7 +14,7 @@ export function filePolicyStore(path: string): PolicyStore {
 		async read() {
 			let text: string;
 			try {
-				text = await readFile(path, 'utf8');
+				text = await Bun.file(path).text();
 			} catch (error) {
 				if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
 				throw error;
@@ -29,10 +27,10 @@ export function filePolicyStore(path: string): PolicyStore {
 		},
 		async write(value) {
 			const mine = ++sequence;
-			const temp = `${path}.${process.pid}.${mine}.${randomUUID()}.tmp`;
-			await mkdir(dirname(path), { recursive: true });
+			const temp = `${path}.${process.pid}.${mine}.${crypto.randomUUID()}.tmp`;
 			try {
-				await writeFile(temp, JSON.stringify(value), { mode: 0o600 });
+				// Bun.write creates the missing folders on the way.
+				await Bun.write(temp, JSON.stringify(value), { mode: 0o600 });
 				// Renames run one at a time, so an abandoned older write never
 				// renames over a newer one.
 				const step = renames.then(async () => {

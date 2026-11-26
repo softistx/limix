@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { RulesError } from './error';
-import { EXAMPLE_POLICY, EXAMPLE_YAML } from './example.fixtures';
+import { RulesError } from '../rules/error';
+import { EXAMPLE_POLICY, EXAMPLE_YAML } from '../rules/example.fixtures';
 import { loadRules } from './load';
 
 describe('loadRules', () => {

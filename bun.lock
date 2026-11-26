@@ -10,6 +10,7 @@
         "@changesets/cli": "^3.0.1",
         "@changesets/parse": "^1.0.0",
         "@types/bun": "^1.4.5",
+        "path-to-regexp": "^8.4.2",
         "typescript": "~7.0.2",
       },
     },
@@ -18,8 +19,6 @@
       "version": "0.0.0",
       "dependencies": {
         "jose": "^6.2.18",
-        "path-to-regexp": "^8.4.2",
-        "yaml": "^2.9.1",
         "zod": "^4.6.7",
       },
       "devDependencies": {

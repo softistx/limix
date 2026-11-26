@@ -154,14 +154,48 @@ and decide the tenant in a condition (`when: [name]`) or a relation.
 
 ## invalid path pattern: <reason>
 
-At `rest['<pattern>']`: the path-to-regexp pattern does not parse (an unnamed
-`:`, an unclosed `(`). The reason is the library's, with the index of the
-character. `compilePolicy` skips that route and reports every bad pattern with
+At `rest['<pattern>']`: the path pattern does not parse. The reason names the
+problem and the index of the character, and ends with the pattern. The messages
+(from limix 0.x; they replace the `path-to-regexp` ones, which ended with a
+`git.new` link):
+
+- `Missing parameter name at index N, write :name (for example /:id) or escape the : with a backslash`
+  (also for `*`): a bare `:` or `*`. Name it (`/:id`, `/*path`), or write `\:`
+  to match a colon.
+- `Unexpected ( at index N, regular expressions are not supported, escape it with a backslash to match it literally`
+  (also `)`, `[`, `]`, `+`, `?`, `!` and a stray `}`): the syntax has no regular
+  expressions or modifiers; an optional part is a group, `{/:id}`.
+- `Unexpected end at index N, expected }`: a `{` never closed.
+- `Unterminated quote at index N` and `Unexpected end after \ at index N`: a
+  `:"name` without its closing quote, or a pattern ending in a backslash.
+- `Missing text before "b" param, put a literal character between two captures`
+  (also `wildcard`): `/:a:b` has no text to tell where `a` ends.
+- `Too many path combinations, use fewer optional groups`: more than 256
+  combinations of optional groups.
+
+`compilePolicy` skips that route and reports every bad pattern with
 the other issues, so fix them together.
+
+## Bun is not defined
+
+`import { loadRules, filePolicyStore } from '@softistx/limix/bun'` loads
+anywhere, but the first call throws `ReferenceError: Bun is not defined` in
+Node, Deno, a browser or an edge runtime: the subpath reads files with
+`Bun.file` and parses YAML with `Bun.YAML`, so it runs on Bun only. Elsewhere,
+read the file yourself and pass the value to `parseRules`; keep the last good
+remote copy with your own `PolicyStore`:
+
+```ts
+import { readFile } from 'node:fs/promises'
+import { parseRules } from '@softistx/limix'
+
+// YAML: use a parser you install (or the runtime's own); JSON needs none.
+const rules = parseRules(JSON.parse(await readFile('rules.json', 'utf8')), 'rules.json')
+```
 
 ## unsupported extension `<ext>`: use .yaml, .yml or .json
 
-`loadRules` (`@softistx/limix/node`) picks the parser by file extension. Rename the file, or read it
+`loadRules` (`@softistx/limix/bun`, Bun only) picks the parser by file extension. Rename the file, or read it
 yourself and pass the value to `parseRules`.
 
 ## not readable: <reason>
@@ -171,7 +205,7 @@ the parser's. Fix the syntax.
 
 ## ENOENT: no such file or directory, open '<path>'
 
-`loadRules` throws the raw `node:fs` error, not a `RulesError`, when the file is
+`loadRules` throws the raw system error (`Bun.file`'s), not a `RulesError`, when the file is
 missing (`ENOENT`) or unreadable (`EACCES`): the `RulesError` is for what the
 file says, not for reaching it. Check the path (it is resolved from the
 process's working directory) and the permissions, or catch the error where you
@@ -328,12 +362,12 @@ stale.
 
 ## `loadRules` is not exported by `@softistx/limix`
 
-`loadRules` moved to `@softistx/limix/node`: it reads the disk with `node:fs`,
-and the main entry imports no `node:` module so it runs in a browser or an edge
+`loadRules` moved to `@softistx/limix/bun`: it reads the disk with `Bun.file`,
+and the main entry imports no `node:` or Bun API so it runs in a browser or an edge
 runtime. Change the import:
 
 ```ts
-import { loadRules } from '@softistx/limix/node'
+import { loadRules } from '@softistx/limix/bun'
 ```
 
 ## remotePolicy: give `jwksUri`, `issuer`, or both
@@ -634,9 +668,9 @@ const policy = remotePolicy({
 ## Module '"@softistx/limix/remote"' has no exported member 'filePolicyStore'
 
 TypeScript's text for `import { filePolicyStore } from '@softistx/limix/remote'`.
-The file store reads the disk with `node:fs`, so it lives on
-`@softistx/limix/node`; `remote` stays free of Node:
+The file store reads the disk with Bun's file API, so it lives on
+`@softistx/limix/bun`; `remote` stays free of Node and Bun:
 
 ```ts
-import { filePolicyStore } from '@softistx/limix/node'
+import { filePolicyStore } from '@softistx/limix/bun'
 ```

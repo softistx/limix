@@ -1,16 +1,14 @@
-import { readFile } from 'node:fs/promises';
 import { extname } from 'node:path';
-import { parse as parseYaml } from 'yaml';
-import { RulesError } from './error';
-import { parseRules } from './parse';
-import type { Rules } from './schema';
+import { RulesError } from '../rules/error';
+import { parseRules } from '../rules/parse';
+import type { Rules } from '../rules/schema';
 
 /**
  * Reads a rules file (`.yaml`, `.yml` or `.json`, by extension) and validates
- * it. Throws a `RulesError` for a document that is not valid, and for a file
- * that does not parse or has another extension. A file that is missing or
- * unreadable throws the raw `node:fs` error (`ENOENT`, `EACCES`), not a
- * `RulesError`.
+ * it, with `Bun.file` and `Bun.YAML`: Bun only. Throws a `RulesError` for a
+ * document that is not valid, and for a file that does not parse or has
+ * another extension. A file that is missing or unreadable throws the raw
+ * system error (`ENOENT`, `EACCES`), not a `RulesError`.
  */
 export async function loadRules(path: string): Promise<Rules> {
 	const extension = extname(path).toLowerCase();
@@ -25,10 +23,10 @@ export async function loadRules(path: string): Promise<Rules> {
 			path,
 		);
 	}
-	const text = await readFile(path, 'utf8');
+	const text = await Bun.file(path).text();
 	let data: unknown;
 	try {
-		data = extension === '.json' ? JSON.parse(text) : parseYaml(text);
+		data = extension === '.json' ? JSON.parse(text) : Bun.YAML.parse(text);
 	} catch (error) {
 		const reason = error instanceof Error ? error.message : String(error);
 		throw new RulesError(
