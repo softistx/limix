@@ -30,6 +30,14 @@ fixes only on 5.x) until nothing imports it, then `npm deprecate`d.
 - The repository is public, the npm packages are private (`access:
   "restricted"`, owner, 2026-11-26); versions stay 0.x until the pilot runs on
   them.
+- `path-to-regexp` stays a root devDependency, declared: a dev-only reference
+  for the port (`matcher.differential.spec.ts` compares the in-house matcher
+  with it, and `bench/routes.bench.ts` uses it as the baseline). It is never a
+  dependency of a package.
+- `yaml` stays a root devDependency, declared: a dev-only reference
+  (`duplicate-keys.differential.spec.ts` checks that the duplicate-key scanner
+  of `./bun` reports a duplicate exactly when `yaml` refuses the key). It is
+  never imported by `src` nor a dependency of a package.
 
 ## Layout
 

@@ -1,4 +1,3 @@
-import { match, parse, type Token } from 'path-to-regexp';
 import { formatPath, RulesError, type RulesIssue } from '../error';
 import type { Rules } from '../schema';
 import {
@@ -7,6 +6,7 @@ import {
 	resolveConditions,
 	usesRelations,
 } from './check';
+import { compileMatcher } from './matcher';
 import type {
 	CompiledGraphqlEntry,
 	CompiledPolicy,
@@ -65,8 +65,9 @@ function compileRest(
 		let matcher: CompiledRestRoute['matcher'];
 		let names: ReadonlySet<string>;
 		try {
-			matcher = match(pattern, { decode: decodeURIComponent });
-			names = paramNames(parse(pattern).tokens);
+			const compiled = compileMatcher(pattern);
+			matcher = compiled;
+			names = compiled.names;
 		} catch (error) {
 			issues.push({
 				path: formatPath(['rest', basePattern]),
@@ -121,17 +122,4 @@ function compileGraphql(
 		graphql[type] = compiled;
 	}
 	return graphql;
-}
-
-/** The names a REST pattern captures, groups included. */
-function paramNames(tokens: readonly Token[]): ReadonlySet<string> {
-	const names = new Set<string>();
-	for (const token of tokens) {
-		if (token.type === 'group') {
-			for (const name of paramNames(token.tokens)) names.add(name);
-		} else if (token.type === 'param' || token.type === 'wildcard') {
-			names.add(token.name);
-		}
-	}
-	return names;
 }

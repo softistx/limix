@@ -36,7 +36,9 @@ export const zRestRules = z
 	.record(
 		z
 			.string()
-			.describe('Path pattern in path-to-regexp syntax, e.g. "/users/:id".'),
+			.describe(
+				'Path pattern: `:name` for one segment, `*name` for the rest, `{...}` optional, e.g. "/users/:id".',
+			),
 		zMethods,
 	)
 	.describe(

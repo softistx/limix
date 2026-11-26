@@ -154,14 +154,81 @@ and decide the tenant in a condition (`when: [name]`) or a relation.
 
 ## invalid path pattern: <reason>
 
-At `rest['<pattern>']`: the path-to-regexp pattern does not parse (an unnamed
-`:`, an unclosed `(`). The reason is the library's, with the index of the
-character. `compilePolicy` skips that route and reports every bad pattern with
-the other issues, so fix them together.
+At `rest['<pattern>']`: the path pattern does not parse. The reason names the
+problem and the index of the character, and ends with the pattern. Each reason
+has its own entry below. `compilePolicy` skips that route and reports every bad
+pattern with the other issues, so fix them together.
+
+### Missing parameter name at index N, write :name (for example /:id) or escape the : with a backslash
+
+A bare `:` or `*` (the message reads `*name` and `/*path` for a `*`). Name it
+(`/:id`, `/*path`), or write `\:` to match a colon.
+
+### Unexpected ( at index N, regular expressions are not supported, escape it with a backslash to match it literally
+
+Also `)`, `[`, `]`, `+`, `?` and `!`. The syntax has no regular expressions or
+modifiers; an optional part is a group, `{/:id}`. Escape the character
+(`\(`) to match it literally.
+
+### Unexpected } at index N with no { open, escape it with a backslash to match it literally
+
+A `}` closes nothing. Remove it, add the `{` it belongs to, or write `\}` to
+match a brace.
+
+### Unexpected end at index N, expected }
+
+A `{` was never closed: `/a{/:id`. Add the `}`, or write `\{` to match a brace.
+
+### Unterminated quote at index N
+
+A quoted name without its closing quote: `/:"a-b`. Close it (`/:"a-b"`).
+
+### Unexpected end after \ at index N
+
+The pattern ends with a backslash, which escapes the next character. Remove it,
+or write `\\` to match a backslash.
+
+### Missing text before "<name>" param, put a literal character between two captures
+
+Also `wildcard`. `/:a:b` has no text to tell where `a` ends. Put a literal
+between them (`/:a-:b`, `/:a/:b`).
+
+### Too many path combinations, use fewer optional groups
+
+More than 256 combinations of optional groups. Use fewer groups, or split the
+route in two.
+
+## Bun is not defined
+
+`import { loadRules, filePolicyStore } from '@softistx/limix/bun'` loads
+anywhere, but the first call throws `ReferenceError: Bun is not defined` in
+Node, Deno, a browser or an edge runtime: the subpath reads files with
+`Bun.file` and parses YAML with `Bun.YAML`, so it runs on Bun only. Elsewhere,
+read the file yourself and pass the value to `parseRules`; keep the last good
+remote copy with your own `PolicyStore`. A YAML file needs a parser you
+install (or your runtime's own); limix ships none outside Bun:
+
+```ts
+import { readFile } from 'node:fs/promises'
+import { parseRules } from '@softistx/limix'
+
+// JSON needs no parser; for YAML, parse the text with the parser you installed.
+const rules = parseRules(JSON.parse(await readFile('rules.json', 'utf8')), 'rules.json')
+```
+
+## Cannot find module '@softistx/limix/node' or its corresponding type declarations
+
+Also the runtime's `Package subpath './node' is not defined by "exports" in …/node_modules/@softistx/limix/package.json`. The
+`./node` subpath was renamed `./bun`, because it runs on Bun only. Import from
+`@softistx/limix/bun` (Bun only; elsewhere see [Bun is not defined](#bun-is-not-defined)):
+
+```ts
+import { loadRules, filePolicyStore } from '@softistx/limix/bun'
+```
 
 ## unsupported extension `<ext>`: use .yaml, .yml or .json
 
-`loadRules` (`@softistx/limix/node`) picks the parser by file extension. Rename the file, or read it
+`loadRules` (`@softistx/limix/bun`, Bun only) picks the parser by file extension. Rename the file, or read it
 yourself and pass the value to `parseRules`.
 
 ## not readable: <reason>
@@ -169,9 +236,34 @@ yourself and pass the value to `parseRules`.
 The file has the right extension but is not valid YAML or JSON; the reason is
 the parser's. Fix the syntax.
 
+## duplicate key "<key>" at line <n> (first at line <m>)
+
+`loadRules` found `<key>` twice in one mapping of a YAML file (a `RulesError`
+listing every repeat). A YAML parser would keep the last one and drop the
+first, so a rule or a method you wrote could vanish without a trace. Delete or
+merge the repeat:
+
+```yaml
+rest:
+  /documents:
+    GET: { roles: [[reader]] }
+    GET: { public: true }   # line 4: duplicate, first at line 3
+```
+
+Keys are compared as Bun reads them: `a`, `"a"` and `'a'` are one key, so are `1` and `1.0`
+or `null` and `~`, but `1.0` and `"1.0"` are two. A repeat inside a merge-key mapping, a
+multi-line flow collection or after a complex key is not looked for (see
+[rules.md](./rules.md#duplicate-keys-and-one-document)).
+
+## a rules file holds one YAML document
+
+The file has a `---` separator after its first document (or a `...` end marker
+before another). The rules are one document: remove the separator, or split the
+file in two and load each.
+
 ## ENOENT: no such file or directory, open '<path>'
 
-`loadRules` throws the raw `node:fs` error, not a `RulesError`, when the file is
+`loadRules` throws the raw system error (`Bun.file`'s), not a `RulesError`, when the file is
 missing (`ENOENT`) or unreadable (`EACCES`): the `RulesError` is for what the
 file says, not for reaching it. Check the path (it is resolved from the
 process's working directory) and the permissions, or catch the error where you
@@ -328,12 +420,12 @@ stale.
 
 ## `loadRules` is not exported by `@softistx/limix`
 
-`loadRules` moved to `@softistx/limix/node`: it reads the disk with `node:fs`,
-and the main entry imports no `node:` module so it runs in a browser or an edge
+`loadRules` moved to `@softistx/limix/bun`: it reads the disk with `Bun.file`,
+and the main entry imports no `node:` or Bun API so it runs in a browser or an edge
 runtime. Change the import:
 
 ```ts
-import { loadRules } from '@softistx/limix/node'
+import { loadRules } from '@softistx/limix/bun'
 ```
 
 ## remotePolicy: give `jwksUri`, `issuer`, or both
@@ -634,9 +726,9 @@ const policy = remotePolicy({
 ## Module '"@softistx/limix/remote"' has no exported member 'filePolicyStore'
 
 TypeScript's text for `import { filePolicyStore } from '@softistx/limix/remote'`.
-The file store reads the disk with `node:fs`, so it lives on
-`@softistx/limix/node`; `remote` stays free of Node:
+The file store reads the disk with Bun's file API, so it lives on
+`@softistx/limix/bun`; `remote` stays free of Node and Bun:
 
 ```ts
-import { filePolicyStore } from '@softistx/limix/node'
+import { filePolicyStore } from '@softistx/limix/bun'
 ```

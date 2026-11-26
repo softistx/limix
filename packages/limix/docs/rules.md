@@ -35,13 +35,13 @@ export const rules = definePolicy({
 | Function | What it does |
 | --- | --- |
 | `parseRules(input)` | Validates a value, returns `Rules`, throws a `RulesError` listing every issue with its path |
-| `loadRules(path)` from `@softistx/limix/node` | Reads a `.yaml`, `.yml` or `.json` file, then `parseRules` |
+| `loadRules(path)` from `@softistx/limix/bun` | Reads a `.yaml`, `.yml` or `.json` file, then `parseRules` |
 | `definePolicy(rules)` | Writes the document in code: the identity at run time, a compile error on a typo |
 | `compilePolicy(rules, { conditions })` | Precompiles the route table and the field table into a `CompiledPolicy` |
 
 ```ts
 import { compilePolicy } from '@softistx/limix'
-import { loadRules } from '@softistx/limix/node'
+import { loadRules } from '@softistx/limix/bun'
 
 const rules = await loadRules('rules.yaml')
 const policy = compilePolicy(rules, {
@@ -53,14 +53,55 @@ To validate a value you already hold, an object or the result of parsing YAML
 or JSON yourself, call `parseRules`:
 
 ```ts
-import { readFile } from 'node:fs/promises'
-import { parse } from 'yaml'
 import { parseRules } from '@softistx/limix'
 
-const rules = parseRules(parse(await readFile('rules.yaml', 'utf8')), 'rules.yaml')
+// Bun shown; elsewhere read the file and use your runtime's YAML or JSON parser.
+const rules = parseRules(Bun.YAML.parse(await Bun.file('rules.yaml').text()), 'rules.yaml')
 ```
 
 The second argument is only the name the error message shows.
+
+### Duplicate keys and one document
+
+`loadRules` refuses a YAML file that writes a key twice in one mapping, where
+`Bun.YAML.parse` alone would keep the last one without a word. The error lists
+every repeat, with the line of each and of the first:
+
+```
+Invalid rules in rules.yaml: 1 issue
+  (document): duplicate key "GET" at line 9 (first at line 5)
+```
+
+A file holding several YAML documents (`---` after content) is refused too:
+`a rules file holds one YAML document`.
+
+The check is a small scanner of its own, run on the text before parsing, and it
+aims never to refuse a valid file: what it does not read it skips instead of
+guessing. It reads block mappings by indentation, block sequences (`- key:`
+opens a mapping), plain, single-quoted and double-quoted keys, comments, block
+scalars (their content is skipped), anchors, aliases and tags, and flow
+mappings on one line (`{ a: 1, b: 2 }`). Keys are compared as Bun reads them
+(`String(Bun.YAML.parse(key))`): `a`, `"a"` and `'a'` are one key, so are `1`
+and `1.0`, `null` and `~`, `"\x41"` and `A`; `1.0` and `"1.0"`, or `~` and
+`"~"`, are two. A key Bun cannot read alone skips its mapping.
+
+A repeat is not caught in these places, write keys once there too:
+
+- a mapping with a merge key `<<` (Bun applies merges) or an alias used as a key;
+- a flow collection over several lines, and its mapping (an unclosed quote inside one stops the check);
+- anything after a complex key (`? key`), which stops the check at that line;
+- a root block scalar (`--- |`) is skipped to the end of the file, a `---` inside it included;
+- a flow collection used as a key.
+
+Other things to know:
+
+- `---` then `---` then content counts as one document, and the empty-document
+  array Bun returns is refused by `parseRules`, not by this check.
+- A file that is not valid YAML may get the duplicate message first; fix that
+  one and the syntax error follows.
+
+`parseRules` on a value you parsed yourself cannot see duplicates, the parser
+has already dropped them.
 
 A `RulesError` lists every issue, not the first:
 
@@ -94,7 +135,7 @@ Any other top-level key throws.
 
 ### REST rules
 
-Keyed by path pattern (path-to-regexp syntax), then by method (`GET`, `POST`,
+Keyed by path pattern (`:name` for one segment, `*name` for the rest of the path, `{...}` for an optional part, `\` to write a special character literally), then by method (`GET`, `POST`,
 `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`, `CONNECT`, `TRACE`, `QUERY`). The
 first pattern that matches, in document order, is used.
 

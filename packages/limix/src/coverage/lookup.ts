@@ -1,6 +1,6 @@
-import { parse, type Token } from 'path-to-regexp';
 import { findRoute } from '../evaluation/rest-routes';
 import type { CompiledRestRoute } from '../rules';
+import { opensPattern, parsePattern } from '../rules/compile/pattern';
 
 export interface OperationRoute {
 	route: CompiledRestRoute;
@@ -33,26 +33,13 @@ export function findOperationRoute(
 }
 
 /**
- * Whether the operation path stands for more than one segment shape: a
- * wildcard, or an optional group that holds a parameter or a wildcard. A group
- * of plain text (an OpenAPI `{id}` brace) names one spelling and is left to the
- * matcher, as `rulesPathOf` documents.
+ * Whether the operation path stands for more than one segment shape, as
+ * `opensPattern` reads it; a path that does not parse is left to the matcher.
  */
 function leavesPartlyOpen(path: string): boolean {
 	try {
-		return opens(parse(path).tokens);
+		return opensPattern(parsePattern(path));
 	} catch {
 		return false;
 	}
-}
-
-function opens(tokens: readonly Token[]): boolean {
-	return tokens.some((token) =>
-		token.type === 'wildcard'
-			? true
-			: token.type === 'group'
-				? token.tokens.some((inner) => inner.type !== 'text') ||
-					opens(token.tokens)
-				: false,
-	);
 }

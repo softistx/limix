@@ -72,7 +72,7 @@
 		},
 		"__schema4": {
 			"type": "string",
-			"description": "Path pattern in path-to-regexp syntax, e.g. \"/users/:id\"."
+			"description": "Path pattern: `:name` for one segment, `*name` for the rest, `{...}` optional, e.g. \"/users/:id\"."
 		},
 		"__schema5": {
 			"type": "object",

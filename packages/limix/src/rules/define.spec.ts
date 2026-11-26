@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'bun:test';
-import { parse } from 'yaml';
 import { definePolicy } from './define';
 import { EXAMPLE_POLICY, EXAMPLE_YAML } from './example.fixtures';
 import { parseRules } from './parse';
@@ -11,7 +10,7 @@ describe('definePolicy', () => {
 	});
 
 	it('produces exactly what parseRules returns for the same YAML document', () => {
-		expect(parseRules(parse(EXAMPLE_YAML))).toEqual(EXAMPLE_POLICY);
+		expect(parseRules(Bun.YAML.parse(EXAMPLE_YAML))).toEqual(EXAMPLE_POLICY);
 		expect(parseRules(EXAMPLE_POLICY)).toEqual(EXAMPLE_POLICY);
 	});
 

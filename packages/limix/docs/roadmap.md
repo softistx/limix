@@ -12,7 +12,12 @@ dates here, and the version something shipped in is the only number.
   a neutral list that integrations supply), then signed remote rules
   (`@softistx/limix/remote`: `remotePolicy` pulls a signed JWS, verifies it
   against the publisher's JWKS, hot-swaps it and keeps the last good copy
-  through an outage; `filePolicyStore` in `@softistx/limix/node`).
+  through an outage; `filePolicyStore` in `@softistx/limix/bun`).
+- **Fewer dependencies** — route matching and rules loading no longer pull in
+  `path-to-regexp` or `yaml`: a pattern compiles to one regular expression of
+  limix's own, `loadRules` reads with `Bun.file` and `Bun.YAML`, and the
+  `./node` subpath is now `./bun`. `jose` stays until a framework-free JWS
+  package can replace it in `./remote`.
 - **Janus relations** — relations checked through janus (`@softistx/limix-janus`:
   `janusRelations`, `checkRulesAgainstModel`).
 

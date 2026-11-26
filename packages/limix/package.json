@@ -26,10 +26,10 @@
 			"import": "./dist/coverage/index.js",
 			"default": "./dist/coverage/index.js"
 		},
-		"./node": {
-			"types": "./dist/node/index.d.ts",
-			"import": "./dist/node/index.js",
-			"default": "./dist/node/index.js"
+		"./bun": {
+			"types": "./dist/bun/index.d.ts",
+			"import": "./dist/bun/index.js",
+			"default": "./dist/bun/index.js"
 		},
 		"./remote": {
 			"types": "./dist/remote/index.d.ts",
@@ -65,7 +65,7 @@
 		"entrypoints": [
 			"src/index.ts",
 			"src/coverage/index.ts",
-			"src/node/index.ts",
+			"src/bun/index.ts",
 			"src/remote/index.ts"
 		]
 	},
@@ -77,8 +77,6 @@
 	},
 	"dependencies": {
 		"jose": "^6.2.18",
-		"path-to-regexp": "^8.4.2",
-		"yaml": "^2.9.1",
 		"zod": "^4.6.7"
 	}
 }

@@ -8,9 +8,9 @@ restart; a publisher outage keeps the last good copy serving.
 It uses the global `fetch` and [`jose`](https://github.com/panva/jose) only, so
 it runs in Node, Bun, a browser or an edge runtime. The floor is
 `AbortSignal.any`: Node 20.3 or later, Bun, Deno, Cloudflare Workers, Chrome
-116, Firefox 124 and Safari 17.4. The one Node-only part, a
+116, Firefox 124 and Safari 17.4. The one Bun-only part, a
 file that keeps the last good copy across a restart, is `filePolicyStore` in
-`@softistx/limix/node`.
+`@softistx/limix/bun`.
 
 ## A first source
 
@@ -147,7 +147,7 @@ if (!held) throw new Error('no policy within 15 s')
 
 ```ts
 import { remotePolicy } from '@softistx/limix/remote'
-import { filePolicyStore } from '@softistx/limix/node'
+import { filePolicyStore } from '@softistx/limix/bun'
 
 const policy = remotePolicy({
   rulesUrl: 'https://policy.example.com/rules',
