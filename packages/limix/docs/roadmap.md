@@ -5,9 +5,9 @@ dates here, and the version something shipped in is the only number.
 
 ## Now
 
-- **Policy engine for REST and GraphQL** — the core is in progress: a rules
-  format, their evaluation, a relations port, coverage of your operations and
-  signed remote rules. The only shipped surface today is the format version.
+- **The rules format** — in: parse, load, `definePolicy`, compile and the JSON
+  schema. Evaluation, coverage of your operations, relations and signed remote
+  rules are still coming.
 
 ## Next
 
@@ -17,9 +17,15 @@ dates here, and the version something shipped in is the only number.
 - **alxia integration** — rules on HTTP routes, tenants and refusals in an alxia API.
 - **Migration from @softistx/security** — a guide from the `policy` part of
   `@softistx/security`.
+- **Code generation** — a CLI and a graphql-codegen plugin that type
+  `definePolicy` against the API's operations (from the GraphQL schema or the
+  OpenAPI spec) and type permission, role and condition names from the rules
+  file, plus a starter rules file.
 
 ## Later
 
+- **Typed condition contexts** — field args, route params and body typed per
+  operation.
 - **Rules editor** — a type-safe editor for rules, built on `@softistx/material`.
 - **Restricted profile** — a stricter profile for rules.
 - **Gateway trust proof** — a proof a gateway has already decided.

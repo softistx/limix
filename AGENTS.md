@@ -27,7 +27,9 @@ fixes only on 5.x) until nothing imports it, then `npm deprecate`d.
   `@softistx/alxia-access` fit together, moving core's `shared-hono` and
   `shared-graphql` off `@softistx/security`, and a type-safe rules editor built
   on `@softistx/material`.
-- The repository is public; versions stay 0.x until the pilot runs on them.
+- The repository is public, the npm packages are private (`access:
+  "restricted"`, owner, 2026-11-26); versions stay 0.x until the pilot runs on
+  them.
 
 ## Layout
 
@@ -52,7 +54,9 @@ Declared divergences from janus:
   no longer reports `redis` or `postgres`: limix has no database.
 - No plugin machinery (`plugins/`, `plugin-index.ts`, `plugin-manifests.spec.ts`):
   limix is not a plugin marketplace.
-- No `check:type-counts` step: no package holds `@ts-expect-error` fixtures yet.
+- No `check:type-counts` step: the type tests (`@ts-expect-error` cases in
+  `define.spec.ts`) are few enough to read; the count tooling comes back if they
+  grow.
 - No peer-floor tooling (`run-on-peer-floor`, `run-in-floor-project`,
   `newest-peers`, `test-retry`) and no `nightly.yml`: the floor matrices exist
   for packages with many peers and drivers.
@@ -85,7 +89,7 @@ Declared divergences from janus:
   resumes, and never builds: run `bun run build` first. Nothing publishes while
   every package is `"private": true`.
 - **`verify:artifacts`** packs each package and loads the tarball. It refuses a
-  scoped package not published as public, a build exiting 0 whose artifact does
+  package whose `publishConfig` is not `{ registry: npmjs, access: "restricted" }`, a build exiting 0 whose artifact does
   not load, declarations that no longer compile, an import not declared as a
   dependency or peer, a runtime dependency that only types need, and duplicate
   classes (the highest packaging risk: two copies of a class break `instanceof`).
