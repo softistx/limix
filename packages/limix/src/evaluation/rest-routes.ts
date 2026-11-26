@@ -20,6 +20,8 @@ export interface RouteMatch {
 	route: CompiledRestRoute;
 	/** What the pattern captured from the path; empty for a pre-matched route. */
 	params: Partial<Record<string, string | string[]>>;
+	/** `true` when `route` named the pattern itself, `false` when the matcher took `path`. */
+	exact: boolean;
 }
 
 /**
@@ -42,11 +44,11 @@ export function findRoute(
 				candidate.pattern === pattern ||
 				candidate.pattern === `${basePath ?? ''}${pattern}`,
 		);
-		if (route) return { route, params: {} };
+		if (route) return { route, params: {}, exact: true };
 	}
 	for (const route of routes) {
 		const result = path === undefined ? false : route.matcher(path);
-		if (result !== false) return { route, params: result.params };
+		if (result !== false) return { route, params: result.params, exact: false };
 	}
 	return undefined;
 }

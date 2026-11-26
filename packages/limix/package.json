@@ -26,6 +26,11 @@
 			"import": "./dist/coverage/index.js",
 			"default": "./dist/coverage/index.js"
 		},
+		"./node": {
+			"types": "./dist/node/index.d.ts",
+			"import": "./dist/node/index.js",
+			"default": "./dist/node/index.js"
+		},
 		"./rules.schema.json": "./schema/rules.schema.json",
 		"./package.json": "./package.json"
 	},
@@ -54,7 +59,8 @@
 	"nxgt": {
 		"entrypoints": [
 			"src/index.ts",
-			"src/coverage/index.ts"
+			"src/coverage/index.ts",
+			"src/node/index.ts"
 		]
 	},
 	"devDependencies": {

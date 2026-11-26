@@ -1,6 +1,7 @@
 import { graphqlEntry } from '../evaluation/graphql-entry';
-import { findRoute, ruleSetsForMethod } from '../evaluation/rest-routes';
+import { ruleSetsForMethod } from '../evaluation/rest-routes';
 import type { CompiledPolicy } from '../rules';
+import { findOperationRoute } from './lookup';
 import {
 	assertOperation,
 	type GraphqlOperation,
@@ -19,6 +20,13 @@ export interface OperationCoverage {
 	label: string;
 	status: CoverageStatus;
 	/**
+	 * On `covered` and `public` REST entries: `exact` when the rule's own
+	 * pattern names the path, `pattern` when its matcher took it (another
+	 * spelling, such as `/things/{id}` or `/things/:docId` for `/things/:id`).
+	 * A `pattern` hit is enforced, but worth bringing into line.
+	 */
+	match?: 'exact' | 'pattern';
+	/**
 	 * Only on `uncovered`: what `global.unmatched` does to it. A GraphQL
 	 * operation that is not a root is never governed by it, so it is always
 	 * `allow`.
@@ -33,6 +41,10 @@ export interface CoverageSummary {
 	uncovered: number;
 	/** Uncovered operations the guard refuses: the ones to fix before `unmatched: deny`. */
 	refused: number;
+	/** Uncovered operations `global.unmatched: allow` leaves open (a non-root GraphQL field is always one). */
+	open: number;
+	/** REST operations a rule reaches by its matcher, not by its own pattern. */
+	byPattern: number;
 	stale: number;
 }
 
@@ -53,18 +65,22 @@ export interface CoverageReport {
  * `global.unmatched`, and which rules name no operation.
  *
  * REST goes through the lookup `evaluateRest` uses (`findRoute`,
- * `ruleSetsForMethod`): the same `global.basePath` handling and the same
- * HEAD-faces-GET rule, so the report and the guard cannot disagree. A GraphQL
+ * `ruleSetsForMethod`): the exact pattern first, then the matcher on the path,
+ * with and without `global.basePath`, and HEAD faces the GET rules too. A rule
+ * reached by its matcher is used and reported `match: 'pattern'`. A GraphQL
  * operation is looked up as `evaluateField` does, and only a root one falls
  * under `unmatched`.
  *
- * Runs in a browser or an edge runtime. Throws a `TypeError` on a value that
- * is not an `Operation`.
+ * Runs in a browser or an edge runtime. Throws a `TypeError` when
+ * `operations` is not an array or holds a value that is not an `Operation`.
  */
 export function coverage(
 	policy: CompiledPolicy,
 	operations: readonly Operation[],
 ): CoverageReport {
+	if (!Array.isArray(operations)) {
+		throw new TypeError('coverage: `operations` must be an array');
+	}
 	operations.forEach(assertOperation);
 	const entries = operations.map((operation) => ({
 		operation,
@@ -94,17 +110,19 @@ export function coverage(
 			public: count('public'),
 			uncovered: count('uncovered'),
 			refused: entries.filter((entry) => entry.unmatched === 'deny').length,
+			open: entries.filter((entry) => entry.unmatched === 'allow').length,
+			byPattern: entries.filter((entry) => entry.match === 'pattern').length,
 			stale: stale.length,
 		},
 	};
 }
 
-type Verdict = Pick<OperationCoverage, 'status' | 'unmatched'>;
+type Verdict = Pick<OperationCoverage, 'status' | 'unmatched' | 'match'>;
 
 function restStatus(policy: CompiledPolicy, operation: RestOperation): Verdict {
 	const sets = ruleSetsForMethod(policy, operation.method.toUpperCase());
 	const matches = sets.map((routes) =>
-		findRoute(routes, { route: operation.path }, policy.global.basePath),
+		findOperationRoute(routes, operation.path, policy.global.basePath),
 	);
 	// The last set is the handler's: without a rule there, the request falls to
 	// `unmatched`, whatever the earlier sets hold (a HEAD-only rule).
@@ -112,7 +130,10 @@ function restStatus(policy: CompiledPolicy, operation: RestOperation): Verdict {
 	const everyPublic = matches.every(
 		(match) => !match || match.route.rule.public,
 	);
-	return { status: everyPublic ? 'public' : 'covered' };
+	const match = matches.some((hit) => hit?.match === 'pattern')
+		? 'pattern'
+		: 'exact';
+	return { status: everyPublic ? 'public' : 'covered', match };
 }
 
 function graphqlStatus(

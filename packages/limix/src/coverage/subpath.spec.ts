@@ -9,6 +9,7 @@ import { dirname, join, resolve } from 'node:path';
  * import named.
  */
 const ENTRY = resolve(import.meta.dir, 'index.ts');
+const MAIN = resolve(import.meta.dir, '../index.ts');
 const IMPORT = /(?:from|import)\s*\(?\s*['"]([^'"]+)['"]/g;
 /** `import type` is erased by the build and pulls in no runtime code. */
 const TYPE_IMPORT = /import\s+type\s[^;]*?from\s*['"][^'"]+['"];?/g;
@@ -56,5 +57,19 @@ describe('the ./coverage subpath', () => {
 		]) {
 			expect(names.map((name) => name.split('/')[1])).not.toContain(heavy);
 		}
+	});
+});
+
+describe('the main entry', () => {
+	it('imports no node: or bun module, so it runs in a browser', () => {
+		const specifiers = [...walk(MAIN).values()]
+			.flatMap(runtimeImports)
+			.filter((specifier) => !specifier.startsWith('.'));
+		expect(specifiers.filter((s) => /^(node|bun):/.test(s))).toEqual([]);
+	});
+
+	it('does not reach loadRules, which lives on ./node', () => {
+		const names = [...walk(MAIN).keys()].map((file) => file.split('/').pop());
+		expect(names).not.toContain('load.ts');
 	});
 });

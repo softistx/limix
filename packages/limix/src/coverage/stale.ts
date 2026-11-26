@@ -1,6 +1,7 @@
-import { findRoute, ruleSetsForMethod } from '../evaluation/rest-routes';
+import { ruleSetsForMethod } from '../evaluation/rest-routes';
 import { ROOT_TYPES } from '../evaluation/roots';
 import type { CompiledPolicy, CompiledRestRoute } from '../rules';
+import { findOperationRoute } from './lookup';
 import type { GraphqlOperation, RestOperation } from './operation';
 
 /** A rule in the policy that no operation of the list reaches. */
@@ -9,8 +10,8 @@ export type StaleRule =
 	| { kind: 'graphql'; type: string; field: string; label: string };
 
 /**
- * The REST rules no operation reaches, through the very lookup a request
- * takes (`findRoute` over `ruleSetsForMethod`), so a `HEAD` operation uses the
+ * The REST rules no operation reaches, through the lookup a request takes
+ * (`findRoute` over `ruleSetsForMethod`, the matcher included), so a `HEAD` operation uses the
  * `GET` rule too. Judged only when the list holds a REST operation.
  */
 export function staleRest(
@@ -24,9 +25,9 @@ export function staleRest(
 			policy,
 			operation.method.toUpperCase(),
 		)) {
-			const hit = findRoute(
+			const hit = findOperationRoute(
 				routes,
-				{ route: operation.path },
+				operation.path,
 				policy.global.basePath,
 			);
 			if (hit) used.add(hit.route);
