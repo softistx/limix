@@ -60,7 +60,7 @@ A `LimixRefusal` is a neutral object, with no HTTP framework in it:
 | `code` | `status` | When |
 | --- | --- | --- |
 | `auth.errors.unauthenticated` | 401 | The rule is not `public` and the caller is not signed in; or an unnamed route under `unmatched: deny` for an anonymous caller |
-| `auth.errors.forbidden` | 403 | `roles`, `permissions` or `when` failed; an unnamed route under `unmatched: deny` for a signed-in caller; a `FORBIDDEN` rung; a signed-in caller with no `subject` on a rule with relations (`params.reason: 'no-subject'`) |
+| `auth.errors.forbidden` | 403 | `roles`, `permissions` or `when` failed; an unnamed route under `unmatched: deny` for a signed-in caller; a `FORBIDDEN` rung; a signed-in caller with no valid `subject` (`{ type, id }`, non-empty strings) on a rule with relations (`params.reason: 'no-subject'`) |
 | `auth.errors.not-found` | 404 | A relation rung failed and answers `NOT_FOUND` (the default) |
 | `limix.errors.unavailable` | 503 | The source holds no policy, or the rule declares relations and no `RelationChecker` was given. `params.reason` is `no-policy` or `no-relation-checker` |
 
@@ -94,7 +94,8 @@ Each matched rule is checked cheapest first, and the first failure answers:
    inner list is AND. `[['admin'], ['editor', 'reviewer']]` is "admin, or
    editor and reviewer".
 3. **`permissions`** (403), same nesting. A permission holds when it is in
-   `claims.scope` and, when the caller carries `claims.permissions`, in that
+   `claims.scope` and, when the caller carries `claims.permissions` (a value
+   that is not a list holds nothing), in that
    list too.
 4. **`when`** (403): every named condition must hold. A predicate that throws,
    or answers anything but `true`, denies.

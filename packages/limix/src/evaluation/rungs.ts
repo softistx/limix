@@ -48,7 +48,7 @@ export async function runRungs(
 		});
 		return unavailable('no-relation-checker');
 	}
-	if (!claims.subject) {
+	if (!isSubject(claims.subject)) {
 		steps.push({
 			kind: 'relations',
 			label: 'the caller has no subject to ask the relations about',
@@ -118,4 +118,16 @@ async function runRung(
 			terms: terms.flat(),
 		},
 	};
+}
+
+/** A subject the checker can be asked about: non-empty string `type` and `id`. */
+function isSubject(value: unknown): value is Subject {
+	if (typeof value !== 'object' || value === null) return false;
+	const { type, id } = value as { type?: unknown; id?: unknown };
+	return (
+		typeof type === 'string' &&
+		type !== '' &&
+		typeof id === 'string' &&
+		id !== ''
+	);
 }

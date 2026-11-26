@@ -204,8 +204,9 @@ lands here; its message is in the step's `note`.
 ## auth.errors.forbidden, params.reason: no-subject
 
 The rule declares `relations` and the caller is signed in
-(`authenticated: true`) but carries no `claims.subject`, so there is nobody to
-ask the relations about. The refusal is 403 with `params.reason: 'no-subject'`
+(`authenticated: true`) but carries no usable `claims.subject` (an object
+whose `type` and `id` are non-empty strings), so there is nobody to ask the
+relations about. The refusal is 403 with `params.reason: 'no-subject'`
 (an anonymous caller is 401 first). Read the identity into the claims:
 
 ```ts

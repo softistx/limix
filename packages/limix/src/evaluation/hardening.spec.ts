@@ -186,6 +186,25 @@ describe('a caller with no subject on a relations rule', () => {
 		rest: { '/docs/:id': { GET: { relations } } },
 	});
 
+	it('never asks the checker about a malformed subject', async () => {
+		for (const subject of [
+			'u1',
+			{ type: 'user' },
+			{ type: '', id: 'u1' },
+			{ type: 'user', id: 7 },
+		]) {
+			const { checker, calls } = recordingChecker();
+			const decision = await evaluateRest(policy, {
+				method: 'GET',
+				path: '/docs/1',
+				claims: { authenticated: true, subject: subject as never },
+				relations: checker,
+			});
+			expect(refusalOf(decision).params).toEqual({ reason: 'no-subject' });
+			expect(calls).toHaveLength(0);
+		}
+	});
+
 	it('is forbidden, with the reason', async () => {
 		const { checker, calls } = recordingChecker();
 		const decision = await evaluateRest(policy, {

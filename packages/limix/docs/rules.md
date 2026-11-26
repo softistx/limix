@@ -123,8 +123,9 @@ roles: [[admin], [editor, reviewer]]
 ### `permissions`
 
 Same nesting as `roles`. A permission holds when it is a token of
-`claims.scope` (space separated) and, when the caller carries a
-`claims.permissions` list, is also in that list.
+`claims.scope` (space separated) and, when the caller carries
+`claims.permissions`, is also in that list; a `permissions` claim that is not a
+list holds nothing.
 
 ```yaml
 permissions: [[documents:write], [documents:admin, audit:read]]

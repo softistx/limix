@@ -213,6 +213,27 @@ describe('a matched route and the path', () => {
 		expect(refusalOf(decision).status).toBe(403);
 	});
 
+	it('treats a route or path that is not a string as missing', async () => {
+		const open = policyOf({
+			global: { unmatched: 'allow' },
+			rest: { '/docs/:id': { GET: { roles: [['admin']] } } },
+		});
+		for (const where of [
+			{ route: null, path: null },
+			{ path: null },
+			{ route: null },
+			{ path: 42 },
+		]) {
+			await expect(
+				evaluateRest(open, {
+					method: 'GET',
+					claims: user(),
+					...where,
+				} as never),
+			).rejects.toThrow('pass the `route` or the `path`');
+		}
+	});
+
 	it('needs a route or a path', async () => {
 		await expect(
 			evaluateRest(policy, { method: 'GET', claims: user() } as never),

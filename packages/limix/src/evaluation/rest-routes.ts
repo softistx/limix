@@ -34,7 +34,8 @@ export function findRoute(
 	where: { route?: string | undefined; path?: string | undefined },
 	basePath: string | undefined,
 ): RouteMatch | undefined {
-	const { route: pattern, path } = where;
+	const pattern = typeof where.route === 'string' ? where.route : undefined;
+	const path = typeof where.path === 'string' ? where.path : undefined;
 	if (pattern !== undefined) {
 		const route = routes.find(
 			(candidate) =>

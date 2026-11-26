@@ -43,7 +43,9 @@ export async function decideRest(
 ): Promise<Explanation> {
 	const policy = heldPolicy(input);
 	if (!policy) return noPolicy();
-	if (call.route === undefined && call.path === undefined) {
+	// A JS caller may pass `null` or a number: anything but a string is no
+	// route, so a missing route never falls through to `unmatched: allow`.
+	if (typeof call.route !== 'string' && typeof call.path !== 'string') {
 		throw new TypeError('evaluateRest: pass the `route` or the `path`');
 	}
 	const method = call.method.toUpperCase();
