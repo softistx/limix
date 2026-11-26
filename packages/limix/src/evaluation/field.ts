@@ -1,5 +1,5 @@
 import { DEFAULT_FROM } from '../rules';
-import type { Claims } from './claims';
+import { type Claims, isAuthenticated } from './claims';
 import { heldPolicy, noPolicy, type PolicyInput } from './held';
 import { ALLOW, type Decision, forbidden, unauthenticated } from './refusal';
 import type { RelationChecker } from './relations';
@@ -59,7 +59,7 @@ export async function decideField(
 		});
 		const decision: Decision = open
 			? ALLOW
-			: call.claims.authenticated
+			: isAuthenticated(call.claims)
 				? forbidden()
 				: unauthenticated();
 		return { decision, steps };

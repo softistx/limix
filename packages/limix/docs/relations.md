@@ -6,6 +6,9 @@ where the object's id is in the request; your code answers through the
 `RelationChecker` port. Janus is the first adapter (`@softistx/limix-janus`, planned, see the roadmap);
 anything that can answer a boolean works.
 
+> The snippets of these guides are schematic: where one uses a name it does not
+> define (`claims`, `relations`, `policy`, `myBackend`), read it as yours.
+
 ## In the rules
 
 ```yaml

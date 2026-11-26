@@ -1,5 +1,5 @@
 import { type CompiledPolicy, DEFAULT_FROM } from '../rules';
-import type { Claims } from './claims';
+import { type Claims, isAuthenticated } from './claims';
 import { heldPolicy, noPolicy, type PolicyInput } from './held';
 import { ALLOW, type Decision, forbidden, unauthenticated } from './refusal';
 import type { RelationChecker } from './relations';
@@ -15,19 +15,26 @@ export interface RestRequest {
 	json?: unknown;
 }
 
-export interface RestInput {
+interface RestBase {
 	/** The HTTP method, any case. */
 	method: string;
-	/** An already-matched route pattern, as the framework declared it. Wins over `path`. */
-	route?: string | undefined;
-	/** The request pathname, matched against the compiled table when no `route` is given. */
-	path?: string | undefined;
 	claims: Claims;
 	request?: RestRequest | undefined;
 	relations?: RelationChecker | undefined;
 	/** Handed to `when` conditions as `info`. */
 	info?: unknown;
 }
+
+/**
+ * What the integration read off the request, and where: an already-matched
+ * `route` pattern (as the rules file spells it), the request `path`, or both
+ * (`path` is tried when `route` names no rule). Neither is a type error.
+ */
+export type RestInput = RestBase &
+	(
+		| { route: string; path?: string | undefined }
+		| { path: string; route?: string | undefined }
+	);
 
 /** Every step of a REST evaluation: what `evaluateRest` reduces to its decision. */
 export async function decideRest(
@@ -105,7 +112,7 @@ function unmatched(
 		passed: open,
 	});
 	if (open) return ALLOW;
-	return call.claims.authenticated ? forbidden() : unauthenticated();
+	return isAuthenticated(call.claims) ? forbidden() : unauthenticated();
 }
 
 export async function evaluateRest(

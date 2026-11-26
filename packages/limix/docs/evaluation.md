@@ -5,7 +5,7 @@ or this GraphQL field? `evaluateRest` and `evaluateField` answer it with a
 `Decision`; `explain` answers it again and shows its work.
 
 > The snippets of these guides are schematic: where one uses a name it does not
-> define (`claims`, `relations`, `info`, `source`, `body`), read it as yours.
+> define (`claims`, `relations`, `info`, `source`, `body`, `logger`, `myBackend`), read it as yours.
 
 ```ts
 import { compilePolicy, evaluateRest, loadRules } from '@softistx/limix'
@@ -167,6 +167,7 @@ const live = mutableSource()          // holds nothing yet
 live.swap(policy)                     // hot swap; swap(null) withdraws it
 ```
 
+`policySource({ current, subscribe })` brands your own implementation as a source.
 A source that holds no policy answers every call with `limix.errors.unavailable`
 (503): it fails closed. `isPolicySource` tells a source from a policy.
 `outageReporter(report)` calls `report` once per withdrawal rather than once per
@@ -213,7 +214,7 @@ runs in order and stops at the first refusal:
 | `floor` | The sign-in check |
 | `roles`, `permissions` | Each term tried (`terms`), the alternative it belongs to, whether it held |
 | `when` | Each condition tried, up to the first that failed; a throw is in `note` |
-| `relations` | One step per rung (`rung` from 0), each term, and whether it held |
+| `relations` | One step per rung (`rung` from 0), each term, and whether it held; with no `RelationChecker` or no `subject` a single step with neither `rung` nor `terms` |
 
 ```ts
 // steps for a caller who is not an editor

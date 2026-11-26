@@ -78,7 +78,7 @@ const rules = definePolicy({
 })
 
 try {
-  const policy = compilePolicy(rules, {
+  compilePolicy(rules, {
     conditions: { workingHours: ({ claims }) => claims['shift'] === 'day' },
   })
 } catch (error) {
@@ -195,9 +195,7 @@ A refusal is also an `Error`, so an integration can throw it and recognise it
 further up, even when it comes from another copy of the package:
 
 ```ts
-try {
-  if (!decision.allow) throw decision.refusal
-} catch (error) {
+function onError(error: unknown) {
   if (isLimixRefusal(error)) return { status: error.status, code: error.code }
   throw error
 }

@@ -3,6 +3,7 @@ export {
 	isPolicySource,
 	type MutableSource,
 	mutableSource,
+	POLICY_SOURCE,
 	type PolicySource,
 	policySource,
 	staticSource,

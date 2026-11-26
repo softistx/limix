@@ -175,7 +175,7 @@ the parser's. Fix the syntax.
 missing (`ENOENT`) or unreadable (`EACCES`): the `RulesError` is for what the
 file says, not for reaching it. Check the path (it is resolved from the
 process's working directory) and the permissions, or catch the error where you
-call `loadRules`:
+call `loadRules` (schematic: `rules` is yours):
 
 ```ts
 try {
@@ -190,8 +190,7 @@ try {
 ## auth.errors.unauthenticated
 
 A refusal with status 401. The rule is not `public` and `claims.authenticated`
-is not `true`; or no rule names the route and `global.unmatched` is `deny`; or
-Pass `{ authenticated: true, subject: { type, id } }` for a signed-in caller, or
+is not `true`; or no rule names the route and `global.unmatched` is `deny`. Pass `{ authenticated: true, subject: { type, id } }` for a signed-in caller, or
 mark the rule `public: true`. `explain` shows which stage refused.
 
 ## auth.errors.forbidden
@@ -238,8 +237,8 @@ A refusal with status 503. `params.reason` says why.
 
 ## Policy source unavailable (limix.errors.unavailable): it holds no policy, every request is refused
 
-The line `outageReporter` reports (`OUTAGE_MESSAGE`) when a source goes from
-holding a policy to holding none: the `mutableSource` was swapped to `null`, or
+The line `outageReporter` reports (`OUTAGE_MESSAGE`) when a source is seen
+holding none, including the first look before any policy arrived: the `mutableSource` was swapped to `null`, or
 a remote source lost its rules. Every evaluator answers
 `limix.errors.unavailable` (503, `params.reason: 'no-policy'`) until a policy is
 swapped back, which re-arms the reporter.

@@ -215,7 +215,7 @@ describe('a matched route and the path', () => {
 
 	it('needs a route or a path', async () => {
 		await expect(
-			evaluateRest(policy, { method: 'GET', claims: user() }),
+			evaluateRest(policy, { method: 'GET', claims: user() } as never),
 		).rejects.toThrow('pass the `route` or the `path`');
 	});
 });

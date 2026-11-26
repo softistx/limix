@@ -44,4 +44,26 @@ describe('malformed claims fail closed', () => {
 			expect((await reach('/perms', claims)).allow).toBe(false);
 		}
 	});
+
+	it('answers an unnamed route 401, not 403, when `authenticated` is not true', async () => {
+		for (const authenticated of ['yes', 1, 'false']) {
+			const claims = { authenticated } as never;
+			const decision = await evaluateRest(policy, {
+				method: 'GET',
+				path: '/nothing',
+				claims,
+			});
+			if (decision.allow) throw new Error('expected a refusal');
+			expect(decision.refusal.status).toBe(401);
+		}
+	});
+
+	it('requires the route or the path at the type level', () => {
+		// @ts-expect-error neither `route` nor `path`
+		const input: Parameters<typeof evaluateRest>[1] = {
+			method: 'GET',
+			claims: user(),
+		};
+		expect(input.method).toBe('GET');
+	});
 });
