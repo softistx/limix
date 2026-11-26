@@ -1,7 +1,7 @@
-import type { MatchFunction } from 'path-to-regexp';
 import type { GraphqlRule } from '../graphql';
 import type { RestRule } from '../rest';
 import type { Rules } from '../schema';
+import type { RouteMatcher } from './matcher';
 
 /** What a condition is asked about. REST fills `request` and `info`; GraphQL fills `args`, `source` and `info`. */
 export interface ConditionContext {
@@ -20,7 +20,7 @@ export type Condition = (
 export interface CompiledRestRoute {
 	/** The basePath-prefixed pattern. */
 	pattern: string;
-	matcher: MatchFunction<Partial<Record<string, string | string[]>>>;
+	matcher: RouteMatcher;
 	rule: RestRule;
 	/** The conditions named by `when`, resolved, in order. */
 	conditions: readonly Condition[];
