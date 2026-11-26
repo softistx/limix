@@ -236,6 +236,28 @@ yourself and pass the value to `parseRules`.
 The file has the right extension but is not valid YAML or JSON; the reason is
 the parser's. Fix the syntax.
 
+## duplicate key "<key>" at line <n> (first at line <m>)
+
+`loadRules` found `<key>` twice in one mapping of a YAML file (a `RulesError`
+listing every repeat). A YAML parser would keep the last one and drop the
+first, so a rule or a method you wrote could vanish without a trace. Delete or
+merge the repeat:
+```yaml
+rest:
+  /documents:
+    GET: { roles: [[reader]] }
+    GET: { public: true }   # line 5: duplicate, first at line 4
+```
+`a`, `"a"` and `'a'` are one key. A repeat inside a merge-key mapping, a
+multi-line flow collection or after a complex key is not looked for (see
+[rules.md](./rules.md#duplicate-keys-and-one-document)).
+
+## a rules file holds one YAML document
+
+The file has a `---` separator after its first document (or a `...` end marker
+before another). The rules are one document: remove the separator, or split the
+file in two and load each.
+
 ## ENOENT: no such file or directory, open '<path>'
 
 `loadRules` throws the raw system error (`Bun.file`'s), not a `RulesError`, when the file is

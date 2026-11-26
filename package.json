@@ -25,7 +25,8 @@
 		"@changesets/parse": "^1.0.0",
 		"@types/bun": "^1.4.5",
 		"path-to-regexp": "^8.4.2",
-		"typescript": "~7.0.2"
+		"typescript": "~7.0.2",
+		"yaml": "^2.9.1"
 	},
 	"overrides": {
 		"typescript": "~7.0.2"

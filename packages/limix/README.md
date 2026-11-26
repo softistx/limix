@@ -40,7 +40,7 @@ declarations import without extensions, so `nodenext` is not supported.
 | Export | What it is |
 | --- | --- |
 | `parseRules(input, source?)` | Validates a value (an object, or a YAML or JSON text you parsed), returns `Rules` |
-| `loadRules(path)` from `@softistx/limix/bun` | Reads a `.yaml`, `.yml` or `.json` file, then `parseRules` |
+| `loadRules(path)` from `@softistx/limix/bun` | Reads a `.yaml`, `.yml` or `.json` file, then `parseRules`; refuses a repeated key and several YAML documents |
 | `definePolicy(rules)` | Writes the document in code; a typo fails to compile |
 | `compilePolicy(rules, { conditions })` | Precompiles the route and field tables into a `CompiledPolicy` |
 | `evaluateRest(policy, input)` | Decides a REST request (`method`, `route` or `path`, `claims`, `request`, `relations`, `info`): `{ allow: true }` or `{ allow: false, refusal }` |

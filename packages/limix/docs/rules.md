@@ -61,6 +61,36 @@ const rules = parseRules(Bun.YAML.parse(await Bun.file('rules.yaml').text()), 'r
 
 The second argument is only the name the error message shows.
 
+### Duplicate keys and one document
+
+`loadRules` refuses a YAML file that writes a key twice in one mapping, where
+`Bun.YAML.parse` alone would keep the last one without a word. The error lists
+every repeat, with the line of each and of the first:
+
+```
+Invalid rules in rules.yaml: 1 issue
+  (document): duplicate key "GET" at line 9 (first at line 5)
+```
+
+A file holding several YAML documents (`---` after content) is refused too:
+`a rules file holds one YAML document`.
+
+The check is a small scanner of its own, run on the text before parsing, and it
+never reports a valid file. It reads block mappings by indentation, block
+sequences (`- key:` opens a mapping), plain, single-quoted and double-quoted
+keys (`a`, `"a"` and `'a'` are one key), comments, block scalars (their content
+is skipped), anchors, aliases and tags, and flow mappings on one line
+(`{ a: 1, b: 2 }`). What it does not read it skips instead of guessing:
+
+- a mapping with a merge key `<<` (Bun applies merges) or an alias used as a key is not checked;
+- a flow collection over several lines is skipped, and so is its mapping;
+- a complex key (`? key`) stops the check at that line;
+- escapes other than `\"` and `\\` in a double-quoted key are compared as written.
+
+So a repeat in one of those places is not caught: write keys once there too.
+`parseRules` on a value you parsed yourself cannot see duplicates, the parser
+has already dropped them.
+
 A `RulesError` lists every issue, not the first:
 
 ```

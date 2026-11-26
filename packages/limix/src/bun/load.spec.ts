@@ -48,4 +48,25 @@ describe('loadRules', () => {
 		expect(error).toBeInstanceOf(RulesError);
 		expect((error as RulesError).issues[0]?.message).toMatch(/^not readable: /);
 	});
+
+	it('refuses a YAML file with a repeated key, listing every one', async () => {
+		const path = await write(
+			'd.yaml',
+			'limix: 1\nglobal:\n  unmatched: allow\n  unmatched: deny\nlimix: 1\n',
+		);
+		const error = await loadRules(path).catch((e) => e);
+		expect(error).toBeInstanceOf(RulesError);
+		expect((error as RulesError).issues.map((i) => i.message)).toEqual([
+			'duplicate key "unmatched" at line 4 (first at line 3)',
+			'duplicate key "limix" at line 5 (first at line 1)',
+		]);
+		expect((error as RulesError).message).toContain(path);
+	});
+
+	it('refuses a YAML file of several documents', async () => {
+		const path = await write('m.yaml', `${EXAMPLE_YAML}\n---\nlimix: 1\n`);
+		await expect(loadRules(path)).rejects.toThrow(
+			'a rules file holds one YAML document',
+		);
+	});
 });
