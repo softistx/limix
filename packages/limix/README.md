@@ -2,10 +2,12 @@
 
 A policy engine for REST and GraphQL: rules that decide whether a caller may
 reach a route or a field, written in YAML or JSON or through a typed builder,
-with relations checked through a port and coverage over your operations.
+with relations checked through a port, coverage over your operations and signed
+rules pulled from a policy server.
 
-> **Nothing published yet.** The rules format (parse, load, build, compile) and
-> evaluation (REST, GraphQL fields, relations, explain) and coverage are in. See the [roadmap](docs/roadmap.md).
+> **Nothing published yet.** The rules format (parse, load, build, compile),
+> evaluation (REST, GraphQL fields, relations, explain), coverage and the remote
+> client are in. See the [roadmap](docs/roadmap.md).
 
 ## Install
 
@@ -25,7 +27,8 @@ declarations import without extensions, so `nodenext` is not supported.
 | --- | --- | --- |
 | `@softistx/limix` | Rules, evaluation, sources, relations | yes (imports no `node:` module) |
 | `@softistx/limix/coverage` | `coverage`, `rulesPathOf` and the operation types | yes |
-| `@softistx/limix/node` | `loadRules`, which reads a rules file from disk | no (`node:fs`) |
+| `@softistx/limix/remote` | `remotePolicy`, the signed-rules client, and `RemotePolicyError` | yes (global `fetch` and `jose` only) |
+| `@softistx/limix/node` | `loadRules`, which reads a rules file from disk, and `filePolicyStore`, which keeps the last good remote copy | no (`node:fs`) |
 | `@softistx/limix/rules.schema.json` | The JSON schema of a rules document | n/a |
 
 ## Usage
@@ -47,6 +50,10 @@ declarations import without extensions, so `nodenext` is not supported.
 | `LIMIX_FORMAT_VERSION` | The format version, `1` |
 | `DEFAULT_FROM`, `DEFAULT_ON_DENY` | What a relation term reads when it names no `from` (`param.id` on REST, `args.id` on GraphQL) and how a rung answers when it names no `onDeny` (`NOT_FOUND`) |
 | types `Claims`, `Subject`, `Decision`, `RelationChecker`, `RelationQuery`, `PolicyInput`, `PolicySource`, `MutableSource`, `Explanation`, `Step`, `StepKind`, `TermStep`, `RestInput`, `RestRequest`, `FieldInput`, `Rules`, `RulesIssue`, `CompileOptions`, `Condition`, `ConditionContext`, `CompiledPolicy`, `CompiledRestRoute`, `CompiledGraphqlEntry` | The shapes the functions take and return |
+| `remotePolicy(options)` from `@softistx/limix/remote` | A `PolicySource` that pulls rules signed as a JWS, verifies them against the publisher's JWKS (`jwksUri`, or the issuer's discovery), hot-swaps them and keeps the last good copy through an outage (`ready`, `refresh()`, `stop()`, `age()`, `version()`) |
+| `RemotePolicyError`, `RemotePolicyConfigError`, `DEFAULT_TYP` from `@softistx/limix/remote` | The failure of a pull (`code`: `FETCH_FAILED`, `HTTP_STATUS`, `SIGNATURE`, `CLAIMS`, `STALE_VERSION`, `RULES_REFUSED`, `STORE`, `EXPIRED`, `TOO_LARGE`), a refused option, and the default `typ` `limix-rules+jwt` |
+| `filePolicyStore(path)` from `@softistx/limix/node` | A `PolicyStore` over one JSON file, so a restart serves the last good copy before the first pull |
+| types `RemotePolicy`, `RemotePolicyOptions`, `RemotePolicyLogger`, `PolicyStore`, `StoredPolicy`, `RemotePolicyErrorCode` from `@softistx/limix/remote` | The shapes the remote client takes and returns |
 | `rulesPathOf(openApiPath)` from `@softistx/limix/coverage` | `/things/{id}` to `/things/:id`, to build an operation list |
 | `coverage(policy, operations)` from `@softistx/limix/coverage` | Which operations the rules cover, leave public or leave to `global.unmatched`, and which rules are stale; runs in a browser or an edge runtime |
 | types `Operation`, `RestOperation`, `GraphqlOperation`, `CoverageReport`, `OperationCoverage`, `CoverageStatus`, `CoverageSummary`, `StaleRule` from `@softistx/limix/coverage` | The shapes coverage takes and returns |
@@ -277,9 +284,46 @@ never claimed by a matcher hit: it is `uncovered` unless a rule spells it
 exactly. See
 [coverage](docs/coverage.md).
 
+## Remote rules
+
+`remotePolicy` pulls the rules a policy server publishes as a signed compact
+JWS (`typ` `limix-rules+jwt`), verifies them against the issuer's keys, and is a
+`PolicySource`: pass it to an evaluator where you would pass a policy. A new
+`ver` applies to the next request; a stale `ver` is refused; an outage keeps the
+last good copy up to `maxStaleMs`, then refuses with `limix.errors.unavailable`.
+It uses the global `fetch` and `jose` only, so it runs in a browser or an edge
+runtime:
+
+Give `jwksUri` or `issuer` (or both): without one, `remotePolicy` throws a
+`RemotePolicyConfigError` at construction.
+
+```ts
+import { evaluateRest } from '@softistx/limix'
+import { remotePolicy } from '@softistx/limix/remote'
+import { filePolicyStore } from '@softistx/limix/node'
+
+const claims = { authenticated: true, shift: 'day' }
+
+const policy = remotePolicy({
+  rulesUrl: 'https://policy.example.com/rules',
+  audience: 'billing-api',
+  issuer: 'https://policy.example.com',
+  conditions: { workingHours: ({ claims }) => claims['shift'] === 'day' },
+  onError: (error) => console.error(error.code, error.message),
+  // Optional: serve the last good copy straight after a restart.
+  store: filePolicyStore('./policy.json'),
+})
+
+const decision = await evaluateRest(policy, { method: 'GET', path: '/invoices', claims })
+```
+
+`trustedKeys` only pins the keys a stored copy may carry; live pulls are always
+verified against the publisher's key set. Pulls refuse redirects, so the bearer
+token never follows one. See [remote](docs/remote.md).
+
 ## Documentation
 
 See [docs/](docs/README.md): the [rules format](docs/rules.md),
 [evaluation](docs/evaluation.md), [relations](docs/relations.md),
-[coverage](docs/coverage.md), the
+[coverage](docs/coverage.md), [remote rules](docs/remote.md), the
 [roadmap](docs/roadmap.md) and [troubleshooting](docs/troubleshooting.md).
