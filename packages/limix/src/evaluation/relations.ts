@@ -8,7 +8,7 @@ export interface RelationQuery {
 }
 
 /**
- * The port relations go through (janus first, through `@softistx/limix-janus`, planned: see the roadmap).
+ * The port relations go through (janus first, through `@softistx/limix-janus`).
  * Called once per rung with every query of that rung; it answers one boolean
  * per query, in order.
  */

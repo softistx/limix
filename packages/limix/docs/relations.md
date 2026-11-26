@@ -3,7 +3,7 @@
 A role says what a caller is. A relation says what a caller may do to **one
 object**: "may this user edit this document?". The rules name the relation and
 where the object's id is in the request; your code answers through the
-`RelationChecker` port. Janus is the first adapter (`@softistx/limix-janus`, planned, see the roadmap);
+`RelationChecker` port. Janus is the first adapter (`@softistx/limix-janus`, see its [guide](https://github.com/softistx/limix/blob/develop/packages/limix-janus/docs/janus.md));
 anything that can answer a boolean works.
 
 > The snippets of these guides are schematic: where one uses a name it does not
