@@ -138,6 +138,8 @@ function checkSchema(schema: unknown): number | undefined {
 	return schema;
 }
 
+const SOURCE = 'the pulled rules';
+
 /** Verifies a compact JWS and compiles its rules. */
 export async function verifyPolicyToken(
 	jws: string,
@@ -173,14 +175,16 @@ export async function verifyPolicyToken(
 	const schema = checkSchema(payload['schema']);
 	let policy: CompiledPolicy;
 	try {
-		policy = compilePolicy(parseRules(rules, 'the pulled rules'), {
+		policy = compilePolicy(parseRules(rules, SOURCE), {
 			...(options.conditions ? { conditions: options.conditions } : {}),
 		});
 	} catch (error) {
 		if (!(error instanceof RulesError)) throw error;
-		throw new RemotePolicyError('RULES_REFUSED', error.message, {
-			cause: error,
-		});
+		// compilePolicy's refusal names no source; say it came from the pull.
+		const message = error.message.startsWith(`Invalid rules in ${SOURCE}`)
+			? error.message
+			: error.message.replace(/^Invalid rules/, `Invalid rules in ${SOURCE}`);
+		throw new RemotePolicyError('RULES_REFUSED', message, { cause: error });
 	}
 	return {
 		ver,

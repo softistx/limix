@@ -37,13 +37,6 @@ export interface RemotePolicyLogger {
 	error(message: string, data?: Record<string, unknown>): void;
 }
 
-/** The default logger: nothing is logged. */
-export const NOOP_LOGGER: RemotePolicyLogger = {
-	info() {},
-	warn() {},
-	error() {},
-};
-
 export interface RemotePolicyOptions {
 	/** Where the signed rules (a compact JWS) are pulled from. */
 	rulesUrl: string;

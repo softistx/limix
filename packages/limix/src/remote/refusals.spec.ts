@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import { codes, make, settled, track } from './harness.fixtures';
 import type { createPublisher } from './publisher.fixtures';
-import { rulesFor, T0 } from './publisher.fixtures';
+import { AUDIENCE, rulesFor, T0 } from './publisher.fixtures';
 
 describe('remotePolicy: refusals keep the last known good', () => {
 	const refused = async (
@@ -119,5 +119,110 @@ describe('remotePolicy: refusals keep the last known good', () => {
 			?.restRoutesByMethod.get('GET')
 			?.map((route) => route.pattern);
 		expect(patterns).toEqual(['/a']);
+	});
+
+	it('an unsecured alg none token is SIGNATURE', () =>
+		refused(async (p) => {
+			const part = (value: object) =>
+				Buffer.from(JSON.stringify(value)).toString('base64url');
+			p.state.body = `${part({ alg: 'none', typ: 'limix-rules+jwt' })}.${part({
+				ver: 2,
+				rules: rulesFor('/a'),
+				aud: AUDIENCE,
+				iat: Math.floor(T0 / 1000),
+				exp: Math.floor(T0 / 1000) + 3600,
+			})}.`;
+			p.state.etag = '"none"';
+		}, 'SIGNATURE'));
+
+	it('a future nbf on a live pull is CLAIMS', () =>
+		refused(
+			async (p) =>
+				void (await p.publish(2, '/a', { nbf: Math.floor(T0 / 1000) + 600 })),
+			'CLAIMS',
+		));
+
+	it('a rules refusal from compilePolicy names the pulled rules', async () => {
+		const { policy, publisher, errors } = await make();
+		track(policy);
+		await settled(policy);
+		publisher.state.body = await publisher.sign({
+			ver: 2,
+			rules: {
+				...rulesFor('/a'),
+				rest: { '/a': { GET: { when: 'nope' } } },
+			},
+		});
+		publisher.state.etag = '"w"';
+		await policy.refresh();
+		expect(codes(errors)).toEqual(['RULES_REFUSED']);
+		expect(errors[0]?.message).toStartWith(
+			'Invalid rules in the pulled rules:',
+		);
+	});
+
+	describe('redirects', () => {
+		const redirecting = (inner: typeof fetch, seen: RequestInit[]) =>
+			(async (input: RequestInfo | URL, init?: RequestInit) => {
+				seen.push({ ...init });
+				if (init?.redirect === 'error' && String(input).endsWith('/rules')) {
+					throw new TypeError('fetch failed', {
+						cause: new Error('unexpected redirect'),
+					});
+				}
+				return inner(input, init);
+			}) as typeof fetch;
+
+		it('asks fetch to refuse a redirect, so the token never follows it', async () => {
+			const seen: RequestInit[] = [];
+			const { policy, errors } = await make({
+				authToken: 'secret-token',
+				wrapFetch: (inner: typeof fetch) => redirecting(inner, seen),
+			});
+			track(policy);
+			await policy.refresh();
+			expect(seen.length).toBeGreaterThan(0);
+			for (const init of seen) expect(init.redirect).toBe('error');
+			expect(codes(errors)[0]).toBe('FETCH_FAILED');
+			expect(errors[0]?.message).toContain('redirect');
+			expect(policy.current()).toBeNull();
+		});
+
+		it('refuses a 3xx answer too', async () => {
+			const { policy, publisher, errors } = await make();
+			track(policy);
+			await settled(policy);
+			publisher.state.status = 302;
+			await policy.refresh();
+			expect(codes(errors)).toEqual(['HTTP_STATUS']);
+			expect(errors[0]?.message).toContain('redirect');
+		});
+	});
+
+	it('a string authToken never reaches a logger call or an onError message', async () => {
+		const token = 'tok-9f3a-very-secret';
+		const logged: string[] = [];
+		const sink = (message: string, data?: Record<string, unknown>) =>
+			void logged.push(message + JSON.stringify(data ?? {}));
+		const { policy, publisher, errors } = await make({
+			authToken: token,
+			logger: { info: sink, warn: sink, error: sink },
+		});
+		track(policy);
+		await settled(policy);
+		publisher.state.down = true;
+		await policy.refresh();
+		publisher.state.down = false;
+		publisher.state.status = 500;
+		await policy.refresh();
+		publisher.state.status = 200;
+		publisher.state.body = 'not a jws';
+		publisher.state.etag = '"bad"';
+		await policy.refresh();
+		expect(errors.length).toBeGreaterThanOrEqual(3);
+		expect(publisher.state.auth).toContain(`Bearer ${token}`);
+		for (const text of [...logged, ...errors.map((e) => e.message)]) {
+			expect(text).not.toContain(token);
+		}
 	});
 });

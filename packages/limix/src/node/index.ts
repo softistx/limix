@@ -1,6 +1,7 @@
 /**
- * The Node-only part of the package: reading a rules file from disk. The main
- * entry and `./coverage` import no `node:` module, so they run in a browser.
+ * The Node-only part of the package: reading a rules file from disk and the
+ * file policy store. The main entry, `./coverage` and `./remote` import no
+ * `node:` module.
  */
 export { loadRules } from '../rules/load';
 export { filePolicyStore } from './file-store';

@@ -42,6 +42,7 @@ async function fetchDocument(
 	const response = await within(
 		options.fetch(url, {
 			headers: { accept: 'application/json' },
+			redirect: 'error',
 			signal: signal
 				? AbortSignal.any([signal, AbortSignal.timeout(options.timeoutMs)])
 				: AbortSignal.timeout(options.timeoutMs),
@@ -126,7 +127,10 @@ export function createKeys(options: KeysOptions): Keys {
 					// `response.json()` outside any timeout and with no size limit.
 					[customFetch]: (url, init) =>
 						within(
-							readWhole(options.fetch(url, init), url),
+							readWhole(
+								options.fetch(url, { ...init, redirect: 'error' }),
+								url,
+							),
 							options.timeoutMs,
 							init?.signal ?? undefined,
 						),

@@ -16,6 +16,15 @@ export interface PullOptions {
 	timeoutMs: number;
 }
 
+/** True when the runtime refused a redirect (`redirect: 'error'`), in the error or its cause. */
+function isRedirectRefusal(error: unknown): boolean {
+	for (let e = error, i = 0; e instanceof Error && i < 3; i++) {
+		if (/redirect/i.test(e.message)) return true;
+		e = e.cause;
+	}
+	return false;
+}
+
 /** One conditional GET of the signed rules. */
 export async function pullSigned(options: PullOptions): Promise<Pulled> {
 	const headers: Record<string, string> = {
@@ -43,7 +52,7 @@ export async function pullSigned(options: PullOptions): Promise<Pulled> {
 	try {
 		const { signal } = options;
 		response = await within(
-			options.fetch(options.url, { headers, signal }),
+			options.fetch(options.url, { headers, signal, redirect: 'error' }),
 			options.timeoutMs,
 			signal,
 		);
@@ -53,6 +62,13 @@ export async function pullSigned(options: PullOptions): Promise<Pulled> {
 		}
 	} catch (error) {
 		if (error instanceof RemotePolicyError) throw error;
+		if (isRedirectRefusal(error)) {
+			throw new RemotePolicyError(
+				'FETCH_FAILED',
+				`${options.url} answered a redirect, which is refused so the bearer token is never sent elsewhere`,
+				{ cause: error },
+			);
+		}
 		throw new RemotePolicyError(
 			'FETCH_FAILED',
 			`could not reach ${options.url}: ${messageOf(error)}`,
@@ -60,6 +76,12 @@ export async function pullSigned(options: PullOptions): Promise<Pulled> {
 		);
 	}
 	if (response.status === 304) return { notModified: true };
+	if (response.status >= 300 && response.status < 400) {
+		throw new RemotePolicyError(
+			'HTTP_STATUS',
+			`${options.url} answered ${response.status}, a redirect, which is refused so the bearer token is never sent elsewhere`,
+		);
+	}
 	if (response.status !== 200) {
 		throw new RemotePolicyError(
 			'HTTP_STATUS',

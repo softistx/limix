@@ -5,16 +5,16 @@ import {
 	DEFAULT_MAX_STALE_MS,
 	DEFAULT_TIMEOUT_MS,
 	DEFAULT_TYP,
+	NOOP_LOGGER,
 } from './defaults';
 import { createHolder } from './holder';
 import { createKeys } from './keys';
 import { createReporter } from './reporter';
 import { restoreFromStore } from './restore';
-import {
-	NOOP_LOGGER,
-	type RemotePolicy,
-	type RemotePolicyLogger,
-	type RemotePolicyOptions,
+import type {
+	RemotePolicy,
+	RemotePolicyLogger,
+	RemotePolicyOptions,
 } from './types';
 import { assertOptions } from './validate';
 
