@@ -1,0 +1,29 @@
+{
+	"name": "limix",
+	"private": true,
+	"type": "module",
+	"workspaces": [
+		"packages/*"
+	],
+	"scripts": {
+		"build": "bun run --filter './packages/*' build",
+		"typecheck": "bun run typecheck:scripts && bun run --filter './packages/*' typecheck",
+		"typecheck:scripts": "bun check -p scripts/tsconfig.json",
+		"test": "bun run --filter './packages/*' test",
+		"fix": "biome check",
+		"changeset": "changeset",
+		"changeset:version": "changeset version && bun install --lockfile-only",
+		"changeset:status": "changeset status --since=origin/develop"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.6.9",
+		"@changesets/changelog-github": "^1.0.1",
+		"@changesets/cli": "^3.0.1",
+		"@types/bun": "^1.4.5",
+		"typescript": "~7.0.2"
+	},
+	"overrides": {
+		"typescript": "~7.0.2"
+	},
+	"packageManager": "bun@1.4.5"
+}

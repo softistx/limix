@@ -1,0 +1,13 @@
+{
+	"extraKnownMarketplaces": {
+		"softistx": {
+			"source": { "source": "github", "repo": "softistx/plugins" }
+		}
+	},
+	"enabledPlugins": {
+		"base@softistx": true,
+		"package@softistx": true,
+		"docs@softistx": true,
+		"review@softistx": true
+	}
+}
