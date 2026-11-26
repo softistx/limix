@@ -3,3 +3,4 @@
  * entry and `./coverage` import no `node:` module, so they run in a browser.
  */
 export { loadRules } from '../rules/load';
+export { filePolicyStore } from './file-store';

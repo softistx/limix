@@ -73,3 +73,25 @@ describe('the main entry', () => {
 		expect(names).not.toContain('load.ts');
 	});
 });
+
+describe('the ./remote subpath', () => {
+	const graph = walk(resolve(import.meta.dir, '../remote/index.ts'));
+	// A message in a string literal can read like an import: keep package-shaped names.
+	const bare = [...graph.values()]
+		.flatMap(runtimeImports)
+		.filter((specifier) => /^[@\w][\w:@./-]*$/.test(specifier))
+		.filter((specifier) => !specifier.startsWith('.'));
+
+	it('imports no node: or bun module, so it runs in a browser or an edge runtime', () => {
+		expect(bare.filter((s) => /^(node|bun):/.test(s))).toEqual([]);
+	});
+
+	it('uses jose and the core only, and leaves the file store to ./node', () => {
+		expect([...new Set(bare)].sort()).toEqual(
+			['jose', 'path-to-regexp', 'zod'].sort(),
+		);
+		const names = [...graph.keys()].map((file) => file.split('/').pop());
+		expect(names).not.toContain('file-store.ts');
+		expect(names).not.toContain('load.ts');
+	});
+});
