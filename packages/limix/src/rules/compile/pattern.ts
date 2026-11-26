@@ -131,19 +131,6 @@ export function parsePattern(pattern: string): PatternToken[] {
 	return readUntil({ chars: [...pattern], index: 0 }, '', pattern);
 }
 
-/** The names a pattern captures, groups included. */
-export function paramNames(
-	tokens: readonly PatternToken[],
-): ReadonlySet<string> {
-	const names = new Set<string>();
-	for (const token of tokens) {
-		if (token.type === 'group') {
-			for (const name of paramNames(token.tokens)) names.add(name);
-		} else if (token.type !== 'text') names.add(token.name);
-	}
-	return names;
-}
-
 /**
  * Whether the pattern stands for more than one segment shape: a wildcard, or
  * an optional group that holds a parameter or a wildcard. A group of plain

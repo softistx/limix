@@ -4,10 +4,10 @@ import {
 	type DuplicateKey,
 	endOfQuoted,
 	KeySet,
+	resetKeyIds,
 	scanFlow,
 	stripComment,
 	stripProps,
-	unquote,
 } from './flow-keys';
 
 /*
@@ -20,10 +20,11 @@ import {
  * what it does not understand is skipped, never guessed:
  * - a mapping holding a merge key `<<` or an alias key is not reported;
  * - a multi-line flow collection is skipped, and its mapping is not reported;
+ *   an unclosed quote inside one stops the scan;
  * - a complex key (`? `) stops the scan at that line;
- * - a second document (`---` after content) is counted, not scanned: the
- *   caller refuses it.
- * Quoted and plain spellings of one key (`a`, "a") are the same key.
+ * - a second document (`---` after content) is counted, not scanned.
+ * Keys are compared as Bun resolves them (see `keyId`); one Bun cannot read
+ * alone skips its mapping.
  */
 
 export interface Scan {
@@ -33,7 +34,6 @@ export interface Scan {
 }
 
 const BLOCK_HEADER = /^[|>][+\-0-9]*$/;
-
 class Scanner {
 	documents = 0;
 	readonly duplicates: DuplicateKey[] = [];
@@ -41,8 +41,8 @@ class Scanner {
 	private content = false;
 	private ended = false;
 	private stopped = false;
-	/** Lines indented deeper than this belong to a block scalar; -1 when none. */
-	private block = -1;
+	/** Lines indented deeper than this belong to a block scalar; null when none. */
+	private block: number | null = null;
 	private quote: string | null = null;
 	private flow = 0;
 
@@ -52,14 +52,17 @@ class Scanner {
 			if (endOfQuoted(this.quote + raw, 0) !== -1) this.quote = null;
 			return;
 		}
-		if (this.block >= 0) {
+		if (this.block !== null) {
 			if (raw.trim() === '' || indentOf(raw) > this.block) return;
-			this.block = -1;
+			this.block = null;
 		}
 		const text = stripComment(raw);
 		if (text.trim() === '') return;
 		if (this.flow > 0) {
-			this.flow = Math.max(0, this.flow + bracketDelta(text));
+			const delta = bracketDelta(text);
+			// An unclosed quote: where the flow ends is a guess, so stop.
+			if (delta === null) this.stopped = true;
+			else this.flow = Math.max(0, this.flow + delta);
 			return;
 		}
 		if (/^---(\s|$)/.test(text)) {
@@ -148,6 +151,13 @@ class Scanner {
 			this.stopped = true;
 			return;
 		}
+		if (BLOCK_HEADER.test(text)) {
+			// A `|` or `>` alone on its line: the block scalar of the key above.
+			this.close(indent);
+			const top = this.stack.at(-1);
+			this.block = top && top.indent < indent ? top.indent : indent - 1;
+			return;
+		}
 		const char = text[0];
 		if (char === '{' || char === '[') {
 			const end = scanFlow(text, 0, n, this.duplicates);
@@ -168,7 +178,7 @@ class Scanner {
 			}
 			const after = text.slice(end).trimStart();
 			if (!/^:(\s|$)/.test(after)) return;
-			key = unquote(text.slice(0, end));
+			key = text.slice(0, end);
 			rest = after.slice(1);
 		} else {
 			const colon = /:(\s|$)/.exec(text);
@@ -197,7 +207,9 @@ class Scanner {
 
 	private openFlow(text: string, indent: number): void {
 		this.mapping(indent).skipped = true;
-		this.flow = Math.max(1, bracketDelta(text));
+		const delta = bracketDelta(text);
+		if (delta === null) this.stopped = true;
+		else this.flow = Math.max(1, delta);
 	}
 }
 
@@ -211,7 +223,9 @@ export function scanYaml(text: string): Scan {
 	const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/);
 	for (let i = 0; i < lines.length; i++)
 		scanner.line(lines[i] as string, i + 1);
-	return scanner.finish();
+	const scan = scanner.finish();
+	resetKeyIds();
+	return scan;
 }
 
 /** Throws a `RulesError` for a rules file with a repeated key or several documents. */

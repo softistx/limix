@@ -218,7 +218,7 @@ const rules = parseRules(JSON.parse(await readFile('rules.json', 'utf8')), 'rule
 
 ## Cannot find module '@softistx/limix/node' or its corresponding type declarations
 
-Also the runtime's `Package subpath './node' is not defined by exports`. The
+Also the runtime's `Package subpath './node' is not defined by "exports" in …/node_modules/@softistx/limix/package.json`. The
 `./node` subpath was renamed `./bun`, because it runs on Bun only. Import from
 `@softistx/limix/bun` (Bun only; elsewhere see [Bun is not defined](#bun-is-not-defined)):
 
@@ -242,13 +242,16 @@ the parser's. Fix the syntax.
 listing every repeat). A YAML parser would keep the last one and drop the
 first, so a rule or a method you wrote could vanish without a trace. Delete or
 merge the repeat:
+
 ```yaml
 rest:
   /documents:
     GET: { roles: [[reader]] }
-    GET: { public: true }   # line 5: duplicate, first at line 4
+    GET: { public: true }   # line 4: duplicate, first at line 3
 ```
-`a`, `"a"` and `'a'` are one key. A repeat inside a merge-key mapping, a
+
+Keys are compared as Bun reads them: `a`, `"a"` and `'a'` are one key, so are `1` and `1.0`
+or `null` and `~`, but `1.0` and `"1.0"` are two. A repeat inside a merge-key mapping, a
 multi-line flow collection or after a complex key is not looked for (see
 [rules.md](./rules.md#duplicate-keys-and-one-document)).
 

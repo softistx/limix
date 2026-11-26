@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import { compileMatcher } from './matcher';
-import {
-	opensPattern,
-	PatternError,
-	paramNames,
-	parsePattern,
-} from './pattern';
+import { opensPattern, PatternError, parsePattern } from './pattern';
 
 const params = (pattern: string, path: string) => {
 	const result = compileMatcher(pattern)(path);
@@ -103,13 +98,6 @@ describe('a pattern that does not parse', () => {
 });
 
 describe('the pattern tokens', () => {
-	it('lists the names captured, groups included', () => {
-		expect([...paramNames(parsePattern('/a/:x{/*rest}'))]).toEqual([
-			'x',
-			'rest',
-		]);
-	});
-
 	it('opens for a wildcard or an optional group holding a capture, not plain text', () => {
 		expect(opensPattern(parsePattern('/f/*p'))).toBe(true);
 		expect(opensPattern(parsePattern('/t{/:id}'))).toBe(true);

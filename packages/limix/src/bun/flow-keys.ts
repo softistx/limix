@@ -12,11 +12,43 @@ export class KeySet {
 	/** Set when the mapping holds something the scanner does not understand. */
 	skipped = false;
 
-	add(key: string, line: number): void {
+	/** Adds a key by its raw text (quotes included), compared as Bun resolves it. */
+	add(raw: string, line: number): void {
+		const key = keyId(raw);
+		if (key === null) {
+			this.skipped = true;
+			return;
+		}
 		const first = this.seen.get(key);
 		if (first === undefined) this.seen.set(key, line);
 		else this.found.push({ key, line, first });
 	}
+}
+
+const ids = new Map<string, string | null>();
+
+/** Forgets the keys resolved so far (one scan's cache). */
+export function resetKeyIds(): void {
+	ids.clear();
+}
+
+/**
+ * What a key is once Bun has read it: `String(Bun.YAML.parse(raw))`, so `1` and
+ * `1.0` are one key, `1.0` and `"1.0"` two, `"\x41"` and `A` one. Null when Bun
+ * cannot read it alone, or reads a collection: the caller skips the mapping.
+ */
+function keyId(raw: string): string | null {
+	const known = ids.get(raw);
+	if (known !== undefined) return known;
+	let id: string | null;
+	try {
+		const value: unknown = Bun.YAML.parse(raw);
+		id = typeof value === 'object' && value !== null ? null : String(value);
+	} catch {
+		id = null;
+	}
+	ids.set(raw, id);
+	return id;
 }
 
 /** The index after the quote that closes the one at `from`, or -1 when it is not closed. */
@@ -30,14 +62,6 @@ export function endOfQuoted(text: string, from: number): number {
 		}
 	}
 	return -1;
-}
-
-/** The value of a quoted scalar. Only `\"` and `\\` are decoded: equal raw text is equal text. */
-export function unquote(raw: string): string {
-	const body = raw.slice(1, -1);
-	return raw[0] === '"'
-		? body.replace(/\\(["\\])/g, '$1')
-		: body.replaceAll("''", "'");
 }
 
 /** `text` without its trailing ` # comment`; quoted scalars are left whole. */
@@ -59,14 +83,21 @@ export function stripComment(text: string): string {
 	return text.trimEnd();
 }
 
-/** Net bracket depth change of a line, quoted scalars ignored. */
-export function bracketDelta(text: string): number {
+/**
+ * Net bracket depth change of a line, quoted scalars ignored; null when a
+ * quote opens and does not close on the line (the caller stops there).
+ */
+export function bracketDelta(text: string): number | null {
 	let depth = 0;
 	for (let i = 0; i < text.length; i++) {
 		const char = text[i] as string;
-		if (char === '"' || char === "'") {
+		const before = text[i - 1];
+		if (
+			(char === '"' || char === "'") &&
+			(!before || ' \t{[,:'.includes(before))
+		) {
 			const end = endOfQuoted(text, i);
-			if (end === -1) break;
+			if (end === -1) return null;
 			i = end - 1;
 		} else if (char === '{' || char === '[') depth++;
 		else if (char === '}' || char === ']') depth--;
@@ -93,7 +124,7 @@ function skipSpace(text: string, from: number): number {
 	return i;
 }
 
-/** One flow node at `from`: its end and, for a scalar that can be compared, its text. */
+/** One flow node at `from`: its end and, for a scalar that can be compared, its raw text. */
 function node(
 	text: string,
 	from: number,
@@ -111,7 +142,7 @@ function node(
 	if (char === '"' || char === "'") {
 		const end = endOfQuoted(text, i);
 		if (end === -1) throw new Bail(true);
-		return { end, text: unquote(text.slice(i, end)) };
+		return { end, text: text.slice(i, end) };
 	}
 	if (char === '?' && /^\?(\s|$)/.test(text.slice(i))) throw new Bail(false);
 	let end = i;
@@ -170,6 +201,7 @@ export function scanFlow(
 		return collection(text, from, line, out);
 	} catch (error) {
 		if (error instanceof Bail) return error.unclosed ? -1 : -2;
-		throw error;
+		// Anything else (a RangeError on a very deep nesting) is "not read".
+		return -2;
 	}
 }

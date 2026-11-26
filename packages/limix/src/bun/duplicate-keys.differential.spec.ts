@@ -53,8 +53,10 @@ const SCALARS = [
 
 const features = new Set<string>();
 let inject = false;
+let written = 0;
 
 function key(word: string): string {
+	written++;
 	const style = random();
 	if (style < 0.6) return word;
 	if (word.startsWith('/') || word.startsWith('x') || /[^\w]/.test(word)) {
@@ -133,15 +135,23 @@ function mapping(depth: number): string[] {
 	return out;
 }
 
+function countKeys(value: unknown): number {
+	if (Array.isArray(value)) return value.reduce((n, v) => n + countKeys(v), 0);
+	if (typeof value !== 'object' || value === null) return 0;
+	return Object.values(value).reduce<number>(
+		(n, v) => n + countKeys(v),
+		Object.keys(value).length,
+	);
+}
+
 describe('scanYaml against the yaml package', () => {
 	it('reports a duplicate exactly when yaml refuses the key', () => {
-		const start = performance.now();
 		let withRepeat = 0;
 		let without = 0;
 		const COUNT = 3000;
-		let scanning = 0;
 		for (let i = 0; i < COUNT; i++) {
 			inject = chance(0.4);
+			written = 0;
 			const text = `${mapping(0).join('\n')}\n`;
 			let refused = false;
 			try {
@@ -154,18 +164,19 @@ describe('scanYaml against the yaml package', () => {
 				}
 				refused = true;
 			}
-			const began = performance.now();
 			const found = scanYaml(text).duplicates.length > 0;
-			scanning += performance.now() - began;
 			if (found !== refused) {
 				throw new Error(
 					`scanner ${found ? 'found' : 'missed'} a duplicate, yaml ${refused ? 'refuses' : 'accepts'}:\n${text}`,
 				);
 			}
+			// Never a false positive: a report must be a real collapse in Bun.
+			const kept = countKeys(Bun.YAML.parse(text));
+			if (found) expect(kept).toBeLessThan(written);
+			else if (!refused) expect(kept).toBe(written);
 			if (refused) withRepeat++;
 			else without++;
 		}
-		const elapsed = performance.now() - start;
 		expect(withRepeat).toBeGreaterThan(400);
 		expect(without).toBeGreaterThan(1500);
 		for (const feature of [
@@ -177,10 +188,24 @@ describe('scanYaml against the yaml package', () => {
 		]) {
 			expect(features.has(feature)).toBe(true);
 		}
-		console.log(
-			`differential: ${COUNT} documents, ${withRepeat} with a duplicate, ${without} without, ${elapsed.toFixed(0)} ms, ${scanning.toFixed(0)} ms in the scanner`,
-		);
-		expect(elapsed).toBeLessThan(3000);
-		expect(scanning).toBeLessThan(1000);
+	});
+});
+
+describe('scanYaml cost', () => {
+	it('grows about linearly: 10k lines cost under 300 times 100 lines (linear is 100)', () => {
+		const doc = (lines: number) =>
+			Array.from(
+				{ length: lines },
+				(_, i) => `k${i}: { a: 1, b: [x, y] }`,
+			).join('\n');
+		const time = (text: string) => {
+			scanYaml(text);
+			const began = performance.now();
+			for (let i = 0; i < 5; i++) scanYaml(text);
+			return performance.now() - began;
+		};
+		const small = time(doc(100));
+		const large = time(doc(10000));
+		expect(large).toBeLessThan(small * 100 * 3);
 	});
 });

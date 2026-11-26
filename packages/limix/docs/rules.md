@@ -76,18 +76,30 @@ A file holding several YAML documents (`---` after content) is refused too:
 `a rules file holds one YAML document`.
 
 The check is a small scanner of its own, run on the text before parsing, and it
-never reports a valid file. It reads block mappings by indentation, block
-sequences (`- key:` opens a mapping), plain, single-quoted and double-quoted
-keys (`a`, `"a"` and `'a'` are one key), comments, block scalars (their content
-is skipped), anchors, aliases and tags, and flow mappings on one line
-(`{ a: 1, b: 2 }`). What it does not read it skips instead of guessing:
+aims never to refuse a valid file: what it does not read it skips instead of
+guessing. It reads block mappings by indentation, block sequences (`- key:`
+opens a mapping), plain, single-quoted and double-quoted keys, comments, block
+scalars (their content is skipped), anchors, aliases and tags, and flow
+mappings on one line (`{ a: 1, b: 2 }`). Keys are compared as Bun reads them
+(`String(Bun.YAML.parse(key))`): `a`, `"a"` and `'a'` are one key, so are `1`
+and `1.0`, `null` and `~`, `"\x41"` and `A`; `1.0` and `"1.0"`, or `~` and
+`"~"`, are two. A key Bun cannot read alone skips its mapping.
 
-- a mapping with a merge key `<<` (Bun applies merges) or an alias used as a key is not checked;
-- a flow collection over several lines is skipped, and so is its mapping;
-- a complex key (`? key`) stops the check at that line;
-- escapes other than `\"` and `\\` in a double-quoted key are compared as written.
+A repeat is not caught in these places, write keys once there too:
 
-So a repeat in one of those places is not caught: write keys once there too.
+- a mapping with a merge key `<<` (Bun applies merges) or an alias used as a key;
+- a flow collection over several lines, and its mapping (an unclosed quote inside one stops the check);
+- anything after a complex key (`? key`), which stops the check at that line;
+- a root block scalar (`--- |`) is skipped to the end of the file, a `---` inside it included;
+- a flow collection used as a key.
+
+Other things to know:
+
+- `---` then `---` then content counts as one document, and the empty-document
+  array Bun returns is refused by `parseRules`, not by this check.
+- A file that is not valid YAML may get the duplicate message first; fix that
+  one and the syntax error follows.
+
 `parseRules` on a value you parsed yourself cannot see duplicates, the parser
 has already dropped them.
 

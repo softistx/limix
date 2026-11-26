@@ -1,4 +1,5 @@
-import { chmod, rename, rm } from 'node:fs/promises';
+import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
 import type { PolicyStore, StoredPolicy } from '../remote/types';
 
 /**
@@ -29,10 +30,12 @@ export function filePolicyStore(path: string): PolicyStore {
 			const mine = ++sequence;
 			const temp = `${path}.${process.pid}.${mine}.${crypto.randomUUID()}.tmp`;
 			try {
-				// Bun.write creates the missing folders on the way.
-				await Bun.write(temp, JSON.stringify(value), { mode: 0o600 });
-				// Bun.write ignores `mode` (the file comes out 0o644 or 0o664), so set it.
-				await chmod(temp, 0o600);
+				await mkdir(dirname(temp), { recursive: true });
+				// `mode` is applied when the file is created, never wider on disk.
+				await writeFile(temp, JSON.stringify(value), {
+					mode: 0o600,
+					flag: 'wx',
+				});
 				// Renames run one at a time, so an abandoned older write never
 				// renames over a newer one.
 				const step = renames.then(async () => {
