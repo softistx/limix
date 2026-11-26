@@ -48,6 +48,19 @@ const policy = compilePolicy(rules, {
 })
 ```
 
+To validate a value you already hold, an object or the result of parsing YAML
+or JSON yourself, call `parseRules`:
+
+```ts
+import { readFile } from 'node:fs/promises'
+import { parse } from 'yaml'
+import { parseRules } from '@softistx/limix'
+
+const rules = parseRules(parse(await readFile('rules.yaml', 'utf8')), 'rules.yaml')
+```
+
+The second argument is only the name the error message shows.
+
 A `RulesError` lists every issue, not the first:
 
 ```
@@ -123,6 +136,9 @@ permissions: [[documents:write], [documents:admin, audit:read]]
 
 An empty list or an empty alternative is refused.
 
+A role name carries no `$`: the `$domain` placeholder of `@softistx/security`
+(a role per tenant) is refused with a hint.
+
 ### `relations`
 
 Per-object checks, answered later through a relations port. The value is a list
@@ -136,7 +152,13 @@ of rungs, checked in order; the first that fails denies. Each rung has:
 
 `from` is `param.<name>`, `query.<name>` or `json.<path>` on REST, and
 `args.<path>` or `source.<path>` on GraphQL. The other transport's spelling is
-refused. When absent it is `param.id` on REST and `args.id` on GraphQL.
+refused. When absent it is `DEFAULT_FROM.rest` (`param.id`) on REST and
+`DEFAULT_FROM.graphql` (`args.id`) on GraphQL; an absent `onDeny` is
+`DEFAULT_ON_DENY` (`NOT_FOUND`). Both constants are exported:
+
+```ts
+import { DEFAULT_FROM, DEFAULT_ON_DENY } from '@softistx/limix'
+```
 
 The caller is the subject of every check, as `{ type, id }` like in janus; it
 comes from the request when rules are evaluated, so a rule names the object
@@ -189,8 +211,10 @@ A name that is not registered throws at `compilePolicy`.
 ### `authenticated` and `public`
 
 `authenticated: true` says the rule needs a signed-in caller and nothing more.
-`public: true` lets anonymous callers through. They cannot be combined, and
-`public` cannot be combined with `relations`: `compilePolicy` throws.
+`public: true` lets anonymous callers through. They cannot be combined. `public`
+admits every caller, so it cannot be combined with `roles`, `permissions`,
+`when` or `relations` either, which would narrow who may reach the rule:
+`compilePolicy` throws, on REST and GraphQL alike.
 
 ## What was removed from `@softistx/security` 5
 
@@ -201,6 +225,8 @@ A name that is not registered throws at `compilePolicy`.
 | `id` of a relation term | `from` |
 | `expression` | `when: [name]` naming a condition registered in code |
 | `authorities` | `roles`, in DNF (outer OR, inner AND) |
+| `$domain` in a role name | removed: per-tenant roles are not in 1.0 |
+| an empty `permissions` or `roles` list meaning "authenticated" | refused: write `authenticated: true` |
 | `cors`, `rateLimit`, `global.providers` | removed: never enforced |
 | `global.unmatched` optional | required |
 | no version key | `limix: 1` |

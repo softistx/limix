@@ -78,9 +78,21 @@ In a relation term, `id` (where the object id is read from) is now `from`.
 ## `from` must be "param.<name>", "query.<name>" or "json.<path>"
 
 A REST relation term reads its id from the request: `param.`, `query.` or
-`json.`. On a GraphQL rule the message ends with `"args.<path>" or
-"source.<path>"`. A rule written for one transport cannot be pasted in the other
-without changing `from`.
+`json.`. A rule written for one transport cannot be pasted in the other without
+changing `from`.
+
+## `from` must be "args.<path>" or "source.<path>"
+
+The GraphQL variant: a relation term on a GraphQL field reads its id from the
+field's `args` or its `source`. Rewrite `param.id` as `args.id`.
+
+## Invalid input: expected string, received number
+
+Zod's own wording, for a value of the wrong type (here at `global.basePath`: a
+number where a string belongs). The path before the colon says where; the
+message says what was expected and what was found. Fix the value's type. The
+same shape covers `expected array, received string`, `expected boolean, ...`
+and the rest.
 
 ## Too small: expected array to have >=1 items
 
@@ -107,6 +119,26 @@ Keep one of the two.
 
 Remove `public: true`, or the `relations`.
 
+## `public` and `roles` are contradictory: a public rule admits every caller, and `roles` would narrow who may reach it
+
+`permissions` and `when` carry the same message with their own name. A public
+rule admits every caller, so a list that narrows who may reach it contradicts
+it. Remove `public: true`, or the list; for a signed-in caller only, write
+`authenticated: true`. It is checked by `compilePolicy`, on REST and GraphQL.
+
+## `$domain` is removed: per-tenant roles are not in 1.0
+
+A role name contains `$`, the placeholder `@softistx/security` 5 replaced with
+the tenant's domain. limix 1.0 has no per-tenant roles: name the role plainly
+and decide the tenant in a condition (`when: [name]`) or a relation.
+
+## invalid path pattern: <reason>
+
+At `rest['<pattern>']`: the path-to-regexp pattern does not parse (an unnamed
+`:`, an unclosed `(`). The reason is the library's, with the index of the
+character. `compilePolicy` skips that route and reports every bad pattern with
+the other issues, so fix them together.
+
 ## unsupported extension `<ext>`: use .yaml, .yml or .json
 
 `loadRules` picks the parser by file extension. Rename the file, or read it
@@ -116,3 +148,21 @@ yourself and pass the value to `parseRules`.
 
 The file has the right extension but is not valid YAML or JSON; the reason is
 the parser's. Fix the syntax.
+
+## ENOENT: no such file or directory, open '<path>'
+
+`loadRules` throws the raw `node:fs` error, not a `RulesError`, when the file is
+missing (`ENOENT`) or unreadable (`EACCES`): the `RulesError` is for what the
+file says, not for reaching it. Check the path (it is resolved from the
+process's working directory) and the permissions, or catch the error where you
+call `loadRules`:
+
+```ts
+try {
+  rules = await loadRules('rules.yaml')
+} catch (error) {
+  if (error instanceof RulesError) /* the file is wrong */
+  else /* the file could not be read */
+  throw error
+}
+```
