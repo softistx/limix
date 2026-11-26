@@ -28,6 +28,20 @@
         "typescript": "^6.0.3 || ^7.0.0",
       },
     },
+    "packages/limix-janus": {
+      "name": "@softistx/limix-janus",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@softistx/janus": "^0.84.0",
+        "@softistx/limix": "workspace:^",
+        "@types/bun": "^1.4.5",
+      },
+      "peerDependencies": {
+        "@softistx/janus": "^0.84.0",
+        "@softistx/limix": "workspace:^",
+        "typescript": "^6.0.3 || ^7.0.0",
+      },
+    },
   },
   "overrides": {
     "typescript": "~7.0.2",
@@ -101,7 +115,11 @@
 
     "@pnpm/deps.graph-sequencer": ["@pnpm/deps.graph-sequencer@1100.0.1", "", {}, "sha512-pOr5+q1fLYKwFN3LAJuGZEnfXDcQ73zqgDHMtGy+K+uIoUqyY+6MeDCWFwfu+4EFuq76I5EPFofoNAI+Bmmq4A=="],
 
+    "@softistx/janus": ["@softistx/janus@0.84.0", "", { "peerDependencies": { "typescript": "^6.0.3 || ^7.0.0" } }, "sha512-x/3eFuSAzI0f/s8hqYoKStj5A4risk/puC3k6pHAgRpfR+NUK0ipxqW5ArfKOIaH/GH0nMqEVP6qKYAjx3+Gng=="],
+
     "@softistx/limix": ["@softistx/limix@workspace:packages/limix"],
+
+    "@softistx/limix-janus": ["@softistx/limix-janus@workspace:packages/limix-janus"],
 
     "@types/bun": ["@types/bun@1.4.5", "", { "dependencies": { "bun-types": "1.4.5" } }, "sha512-DpgwNI9z0L1S0gtb45QLCWgwCUcMLnsHYMJHQvpNj7erGiCGBvpggltAIeARrtobNMKMuy0UP7i56tKKgwFs/Q=="],
 
