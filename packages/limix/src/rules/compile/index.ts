@@ -36,7 +36,16 @@ export function compilePolicy(
 		const pattern = rules.global.basePath
 			? `${rules.global.basePath}${basePattern}`
 			: basePattern;
-		const matcher = match(pattern, { decode: decodeURIComponent });
+		let matcher: CompiledRestRoute['matcher'];
+		try {
+			matcher = match(pattern, { decode: decodeURIComponent });
+		} catch (error) {
+			issues.push({
+				path: formatPath(['rest', basePattern]),
+				message: `invalid path pattern: ${error instanceof Error ? error.message : String(error)}`,
+			});
+			continue;
+		}
 		for (const [method, rule] of Object.entries(methods)) {
 			if (!rule) continue;
 			const where = formatPath(['rest', basePattern, method]);

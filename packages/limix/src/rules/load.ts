@@ -8,7 +8,9 @@ import type { Rules } from './schema';
 /**
  * Reads a rules file (`.yaml`, `.yml` or `.json`, by extension) and validates
  * it. Throws a `RulesError` for a document that is not valid, and for a file
- * that does not parse or has another extension.
+ * that does not parse or has another extension. A file that is missing or
+ * unreadable throws the raw `node:fs` error (`ENOENT`, `EACCES`), not a
+ * `RulesError`.
  */
 export async function loadRules(path: string): Promise<Rules> {
 	const extension = extname(path).toLowerCase();

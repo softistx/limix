@@ -69,7 +69,7 @@ export async function manifestDir(): Promise<string> {
 	const dir = await trackedDir();
 	await writeFile(
 		join(dir, 'package.json'),
-		`${JSON.stringify({ name: '@softistx/x', publishConfig: { registry: npmjs.url, access: 'restricted' } }, null, '\t')}\n`,
+		`${JSON.stringify({ name: '@softistx/x', publishConfig: { registry: npmjs.url, access: 'public' } }, null, '\t')}\n`,
 	);
 	return dir;
 }

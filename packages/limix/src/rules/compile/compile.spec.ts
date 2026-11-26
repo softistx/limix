@@ -120,4 +120,61 @@ describe('compilePolicy', () => {
 			/`public` and `relations` are contradictory/,
 		);
 	});
+
+	it('refuses public beside roles, permissions or when, REST and GraphQL', () => {
+		const rules = definePolicy({
+			limix: 1,
+			global: { unmatched: 'allow' },
+			rest: {
+				'/a': { GET: { public: true, roles: [['admin']] } },
+				'/b': { GET: { public: true, permissions: [['p']], when: ['c'] } },
+			},
+			graphql: { Query: { a: { public: true, roles: [['admin']] } } },
+		});
+		let error: unknown;
+		try {
+			compilePolicy(rules, { conditions: { c: () => true } });
+		} catch (e) {
+			error = e;
+		}
+		expect((error as RulesError).issues.map((i) => i.path)).toEqual([
+			"rest['/a'].GET",
+			"rest['/b'].GET",
+			"rest['/b'].GET",
+			'graphql.Query.a',
+		]);
+		expect((error as RulesError).issues.map((i) => i.message)).toEqual([
+			expect.stringContaining('`public` and `roles` are contradictory'),
+			expect.stringContaining('`public` and `permissions` are contradictory'),
+			expect.stringContaining('`public` and `when` are contradictory'),
+			expect.stringContaining('`public` and `roles` are contradictory'),
+		]);
+	});
+
+	it('reports every invalid path pattern together with the other issues', () => {
+		const rules = definePolicy({
+			limix: 1,
+			global: { unmatched: 'allow' },
+			rest: {
+				'/a/:': { GET: {} },
+				'/ok': { GET: { when: ['gone'] } },
+				'/b/(': { GET: {} },
+			},
+		});
+		let error: unknown;
+		try {
+			compilePolicy(rules);
+		} catch (e) {
+			error = e;
+		}
+		expect(error).toBeInstanceOf(RulesError);
+		const issues = (error as RulesError).issues;
+		expect(issues.map((i) => i.path)).toEqual([
+			"rest['/a/:']",
+			"rest['/ok'].GET.when[0]",
+			"rest['/b/(']",
+		]);
+		expect(issues[0]?.message).toStartWith('invalid path pattern: ');
+		expect(issues[2]?.message).toStartWith('invalid path pattern: ');
+	});
 });

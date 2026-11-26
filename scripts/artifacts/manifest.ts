@@ -40,7 +40,7 @@ import { type Tarball, tarballProblems } from './tarball';
  *     default e-mail fails.
  *   - a **package not published publicly to registry.npmjs.org**: its
  *     `publishConfig` must name `https://registry.npmjs.org/` and
- *     `access: "restricted"`. `bun publish` reads the manifest, not the
+ *     `access: "public"`. `bun publish` reads the manifest, not the
  *     changeset config's `access`, and a scoped package left on the defaults
  *     would be published restricted, or to the wrong registry.
  *   - **test code**: a `*.spec.*` or `*.test.*` file, a snapshot, or a
@@ -86,10 +86,10 @@ export function accessProblems(manifest: Record<string, unknown>): string[] {
 		| Record<string, unknown>
 		| undefined;
 	return config?.['registry'] === 'https://registry.npmjs.org/' &&
-		config['access'] === 'restricted'
+		config['access'] === 'public'
 		? []
 		: [
-				`${name}: publishConfig must be { registry: "https://registry.npmjs.org/", access: "restricted" }; ` +
+				`${name}: publishConfig must be { registry: "https://registry.npmjs.org/", access: "public" }; ` +
 					'these packages publish to npmjs only',
 			];
 }

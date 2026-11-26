@@ -173,4 +173,23 @@ describe('parseRules', () => {
 			);
 		}
 	});
+
+	it('refuses a `$` in a role name with a hint', () => {
+		expect(
+			issuesOf({
+				...base,
+				rest: { '/a': { GET: { roles: [['admin'], ['editor', '$domain']] } } },
+				graphql: { Query: { a: { roles: [['$domain:admin']] } } },
+			}),
+		).toEqual([
+			{
+				path: "rest['/a'].GET.roles[1][1]",
+				message: '`$domain` is removed: per-tenant roles are not in 1.0',
+			},
+			{
+				path: 'graphql.Query.a.roles[0][0]',
+				message: '`$domain` is removed: per-tenant roles are not in 1.0',
+			},
+		]);
+	});
 });

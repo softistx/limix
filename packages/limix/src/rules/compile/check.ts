@@ -49,4 +49,14 @@ export function checkContradictions(
 				'`public` and `relations` are contradictory: a relation check asks what the caller may do to an object, and a public rule admits callers there is nothing to ask about',
 		});
 	}
+	if (rule.public) {
+		for (const key of ['roles', 'permissions', 'when'] as const) {
+			if (rule[key]?.length) {
+				issues.push({
+					path: where,
+					message: `\`public\` and \`${key}\` are contradictory: a public rule admits every caller, and \`${key}\` would narrow who may reach it`,
+				});
+			}
+		}
+	}
 }

@@ -22,6 +22,10 @@ export const RELATION_TERM_HINTS: Readonly<Record<string, string>> = {
 	id: 'renamed: use from',
 };
 
+/** What a `$` in a role name used to mean. */
+export const ROLE_DOMAIN_HINT =
+	'`$domain` is removed: per-tenant roles are not in 1.0';
+
 /** The message for the unknown keys of one object. */
 export function unknownKeysMessage(
 	keys: readonly string[],

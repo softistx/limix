@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { strict } from './hints';
+import { RELATION_TERM_HINTS, ROLE_DOMAIN_HINT, strict } from './hints';
 
 /**
  * A list of alternatives in disjunctive normal form: the OUTER list is OR, each
@@ -8,11 +8,19 @@ import { strict } from './hints';
  */
 export const zAlternatives = z.array(z.array(z.string().min(1)).min(1)).min(1);
 
-export const zRoles = zAlternatives.describe(
-	'Roles in disjunctive normal form: the OUTER list is OR, the INNER list is ' +
-		'AND, so [["admin"], ["editor", "reviewer"]] reads "admin, or editor and ' +
-		'reviewer". A role holds when it is in claims.roles.',
-);
+const zRoleName = z
+	.string()
+	.min(1)
+	.refine((role) => !role.includes('$'), { message: ROLE_DOMAIN_HINT });
+
+export const zRoles = z
+	.array(z.array(zRoleName).min(1))
+	.min(1)
+	.describe(
+		'Roles in disjunctive normal form: the OUTER list is OR, the INNER list is ' +
+			'AND, so [["admin"], ["editor", "reviewer"]] reads "admin, or editor and ' +
+			'reviewer". A role holds when it is in claims.roles.',
+	);
 
 export const zPermissions = zAlternatives.describe(
 	'Permissions in disjunctive normal form: the OUTER list is OR, the INNER ' +
@@ -31,8 +39,22 @@ export const zWhen = z
 
 const DENIALS = ['NOT_FOUND', 'FORBIDDEN'] as const;
 
+/** Where a relation term reads the object id from when it names no `from`. */
+export const DEFAULT_FROM = {
+	rest: 'param.id',
+	graphql: 'args.id',
+} as const;
+
+/** How a failed relations rung is answered when it names no `onDeny`. */
+export const DEFAULT_ON_DENY = 'NOT_FOUND' as const;
+
 /** One relation term: the caller must hold `relation` on an object of `type`. */
-function relationTerm(idPattern: RegExp, idHelp: string, idExamples: string[]) {
+function relationTerm(
+	idPattern: RegExp,
+	idHelp: string,
+	idExamples: string[],
+	defaultFrom: string,
+) {
 	return strict(
 		{
 			relation: z
@@ -50,19 +72,28 @@ function relationTerm(idPattern: RegExp, idHelp: string, idExamples: string[]) {
 				.describe(
 					`Where the object id is read from: ${idHelp} (dotted). A path ` +
 						'resolving to a list requires the relation on every element. ' +
-						`Defaults to "${idExamples[0]}".`,
+						`Defaults to "${defaultFrom}".`,
 				)
 				.meta({ examples: idExamples }),
 		},
-		{ namespace: 'renamed: use type', id: 'renamed: use from' },
+		RELATION_TERM_HINTS,
 	);
 }
 
 /** One rung of the relations ladder, built per transport: only the `from` grammar differs. */
-function relationRung(idPattern: RegExp, idHelp: string, idExamples: string[]) {
+function relationRung(
+	idPattern: RegExp,
+	idHelp: string,
+	idExamples: string[],
+	defaultFrom: string,
+) {
 	return strict({
 		require: z
-			.array(z.array(relationTerm(idPattern, idHelp, idExamples)).min(1))
+			.array(
+				z
+					.array(relationTerm(idPattern, idHelp, idExamples, defaultFrom))
+					.min(1),
+			)
 			.min(1)
 			.describe(
 				'Requirement in disjunctive normal form: the OUTER list is OR, the ' +
@@ -72,7 +103,7 @@ function relationRung(idPattern: RegExp, idHelp: string, idExamples: string[]) {
 			.enum(DENIALS)
 			.optional()
 			.describe(
-				'How a failure of this rung is answered. NOT_FOUND (the default) is ' +
+				`How a failure of this rung is answered. ${DEFAULT_ON_DENY} (the default) is ` +
 					'the same answer as for an id that never existed; FORBIDDEN is for ' +
 					'a second rung on an object the caller can already see.',
 			),
@@ -84,12 +115,14 @@ export const zRestRelationRung = relationRung(
 	/^(param|query|json)(\.[A-Za-z0-9_]+)+$/,
 	'"param.<name>", "query.<name>" or "json.<path>"',
 	['param.id', 'query.projectId', 'json.bookmarkId'],
+	DEFAULT_FROM.rest,
 );
 
 export const zGraphqlRelationRung = relationRung(
 	/^(args|source)(\.[A-Za-z0-9_]+)+$/,
 	'"args.<path>" or "source.<path>"',
 	['args.id', 'args.input.noteId', 'source.id'],
+	DEFAULT_FROM.graphql,
 );
 
 /** The keys every rule carries, REST or GraphQL. */
@@ -110,6 +143,6 @@ export const entryShape = {
 		.describe(
 			'Lets anonymous callers reach the rule. Only for routes that carry ' +
 				'their own credential. Cannot be combined with `authenticated: true` ' +
-				'or `relations`.',
+				'`roles`, `permissions`, `when` or `relations`.',
 		),
 };

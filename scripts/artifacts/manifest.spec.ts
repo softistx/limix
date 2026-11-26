@@ -77,19 +77,19 @@ describe('accessProblems', () => {
 				name: '@softistx/janus',
 				publishConfig: {
 					registry: 'https://registry.npmjs.org/',
-					access: 'restricted',
+					access: 'public',
 				},
 			}),
 		).toEqual([]);
 	});
 
-	test('refuses a package published as restricted on another registry', () => {
+	test('refuses a package published on another registry', () => {
 		expect(
 			accessProblems({
 				name: '@softistx/janus',
 				publishConfig: {
 					registry: 'https://registry.example.test/',
-					access: 'restricted',
+					access: 'public',
 				},
 			}),
 		).toHaveLength(1);

@@ -38,7 +38,7 @@
 	},
 	"publishConfig": {
 		"registry": "https://registry.npmjs.org/",
-		"access": "restricted"
+		"access": "public"
 	},
 	"scripts": {
 		"build": "bun run ../../build.ts",
