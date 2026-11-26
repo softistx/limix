@@ -161,7 +161,7 @@ the other issues, so fix them together.
 
 ## unsupported extension `<ext>`: use .yaml, .yml or .json
 
-`loadRules` picks the parser by file extension. Rename the file, or read it
+`loadRules` (`@softistx/limix/node`) picks the parser by file extension. Rename the file, or read it
 yourself and pass the value to `parseRules`.
 
 ## not readable: <reason>
@@ -286,10 +286,32 @@ coverage(policy, [
 ])
 ```
 
-## an operation is uncovered and its rule stale, though they look the same
+## coverage: `operations` must be an array
 
-The operation's `path` is not spelled as the rules file spells it, so no rule
-matches it and the rule matches no operation. Typical: an OpenAPI path
-(`/things/{id}`) against a rule on `/things/:id`, or another parameter name
-(`/things/:thingId`). Convert the path to the rules-file pattern when you build
-the list. A `global.basePath` may be in front or not.
+`coverage(policy, operations)` was given something other than an array: the
+list is the second argument, and `undefined` (a list an integration failed to
+build), a single operation or an object is refused before anything is read.
+
+```ts
+coverage(policy, [{ kind: 'rest', method: 'GET', path: '/things/:id' }])
+```
+
+## an operation is reported `match: 'pattern'`
+
+Not an error: a rule enforces the operation, but through its matcher, not its
+own pattern, as `evaluateRest` does for a request path. The operation's `path`
+is spelled another way than the rule (`/things/{id}` or `/things/:thingId`
+against `/things/:id`). Spell it as the rules file does (`rulesPathOf` from
+`@softistx/limix/coverage` converts an OpenAPI path), or gate the build on
+`summary.byPattern` to keep the spellings in line. The rule is used, never
+stale.
+
+## `loadRules` is not exported by `@softistx/limix`
+
+`loadRules` moved to `@softistx/limix/node`: it reads the disk with `node:fs`,
+and the main entry imports no `node:` module so it runs in a browser or an edge
+runtime. Change the import:
+
+```ts
+import { loadRules } from '@softistx/limix/node'
+```

@@ -35,12 +35,13 @@ export const rules = definePolicy({
 | Function | What it does |
 | --- | --- |
 | `parseRules(input)` | Validates a value, returns `Rules`, throws a `RulesError` listing every issue with its path |
-| `loadRules(path)` | Reads a `.yaml`, `.yml` or `.json` file, then `parseRules` |
+| `loadRules(path)` from `@softistx/limix/node` | Reads a `.yaml`, `.yml` or `.json` file, then `parseRules` |
 | `definePolicy(rules)` | Writes the document in code: the identity at run time, a compile error on a typo |
 | `compilePolicy(rules, { conditions })` | Precompiles the route table and the field table into a `CompiledPolicy` |
 
 ```ts
-import { compilePolicy, loadRules } from '@softistx/limix'
+import { compilePolicy } from '@softistx/limix'
+import { loadRules } from '@softistx/limix/node'
 
 const rules = await loadRules('rules.yaml')
 const policy = compilePolicy(rules, {

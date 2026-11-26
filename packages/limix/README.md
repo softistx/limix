@@ -19,12 +19,21 @@ bun add @softistx/limix
 does (`"moduleResolution": "bundler"`, which Bun and every bundler use): the
 declarations import without extensions, so `nodenext` is not supported.
 
+## Subpaths
+
+| Import | What it holds | Runs in a browser |
+| --- | --- | --- |
+| `@softistx/limix` | Rules, evaluation, sources, relations | yes (imports no `node:` module) |
+| `@softistx/limix/coverage` | `coverage`, `rulesPathOf` and the operation types | yes |
+| `@softistx/limix/node` | `loadRules`, which reads a rules file from disk | no (`node:fs`) |
+| `@softistx/limix/rules.schema.json` | The JSON schema of a rules document | n/a |
+
 ## Usage
 
 | Export | What it is |
 | --- | --- |
 | `parseRules(input, source?)` | Validates a value (an object, or a YAML or JSON text you parsed), returns `Rules` |
-| `loadRules(path)` | Reads a `.yaml`, `.yml` or `.json` file, then `parseRules` |
+| `loadRules(path)` from `@softistx/limix/node` | Reads a `.yaml`, `.yml` or `.json` file, then `parseRules` |
 | `definePolicy(rules)` | Writes the document in code; a typo fails to compile |
 | `compilePolicy(rules, { conditions })` | Precompiles the route and field tables into a `CompiledPolicy` |
 | `evaluateRest(policy, input)` | Decides a REST request (`method`, `route` or `path`, `claims`, `request`, `relations`, `info`): `{ allow: true }` or `{ allow: false, refusal }` |
@@ -38,6 +47,7 @@ declarations import without extensions, so `nodenext` is not supported.
 | `LIMIX_FORMAT_VERSION` | The format version, `1` |
 | `DEFAULT_FROM`, `DEFAULT_ON_DENY` | What a relation term reads when it names no `from` (`param.id` on REST, `args.id` on GraphQL) and how a rung answers when it names no `onDeny` (`NOT_FOUND`) |
 | types `Claims`, `Subject`, `Decision`, `RelationChecker`, `RelationQuery`, `PolicyInput`, `PolicySource`, `MutableSource`, `Explanation`, `Step`, `StepKind`, `TermStep`, `RestInput`, `RestRequest`, `FieldInput`, `Rules`, `RulesIssue`, `CompileOptions`, `Condition`, `ConditionContext`, `CompiledPolicy`, `CompiledRestRoute`, `CompiledGraphqlEntry` | The shapes the functions take and return |
+| `rulesPathOf(openApiPath)` from `@softistx/limix/coverage` | `/things/{id}` to `/things/:id`, to build an operation list |
 | `coverage(policy, operations)` from `@softistx/limix/coverage` | Which operations the rules cover, leave public or leave to `global.unmatched`, and which rules are stale; runs in a browser or an edge runtime |
 | types `Operation`, `RestOperation`, `GraphqlOperation`, `CoverageReport`, `OperationCoverage`, `CoverageStatus`, `CoverageSummary`, `StaleRule` from `@softistx/limix/coverage` | The shapes coverage takes and returns |
 | `@softistx/limix/rules.schema.json` | The JSON schema of a rules document, for editor completion |
@@ -91,14 +101,15 @@ try {
 }
 ```
 
-To read the rules from a file, `loadRules` takes a path; `parseRules` takes a
+To read the rules from a file, `loadRules` (from `@softistx/limix/node`, the only part that reads the disk) takes a path; `parseRules` takes a
 value, an object or the result of parsing YAML or JSON yourself, and an
 optional source name for the error message:
 
 ```ts
 import { readFile } from 'node:fs/promises'
 import { parse } from 'yaml'
-import { loadRules, parseRules } from '@softistx/limix'
+import { parseRules } from '@softistx/limix'
+import { loadRules } from '@softistx/limix/node'
 
 const fromFile = await loadRules('rules.yaml')
 const fromText = parseRules(parse(await readFile('rules.yaml', 'utf8')), 'rules.yaml')
@@ -127,9 +138,9 @@ import {
   evaluateRest,
   explain,
   isLimixRefusal,
-  loadRules,
   type RelationChecker,
 } from '@softistx/limix'
+import { loadRules } from '@softistx/limix/node'
 
 const policy = compilePolicy(await loadRules('rules.yaml'), {
   conditions: { workingHours: ({ claims }) => claims['shift'] === 'day' },
@@ -214,20 +225,44 @@ longer exists? `coverage` takes the compiled policy and a list of operations
 (an integration builds it from the schema or the routes) and reports, per
 operation, `covered`, `public` or `uncovered` (with what `global.unmatched`
 does to it), plus the `stale` rules. It lives on its own subpath, free of Node,
-so it also runs in a browser:
+so it also runs in a browser (a spec of the repository proves, on the source,
+that neither it nor the main entry imports a `node:` module):
 
 ```ts
+import { compilePolicy, definePolicy } from '@softistx/limix'
 import { coverage } from '@softistx/limix/coverage'
+
+const policy = compilePolicy(
+  definePolicy({
+    limix: 1,
+    global: { unmatched: 'deny' },
+    rest: { '/documents/:id': { GET: { authenticated: true } } },
+  }),
+)
 
 const report = coverage(policy, [
   { kind: 'rest', method: 'GET', path: '/documents/:id' },
   { kind: 'graphql', type: 'Query', field: 'me', root: true },
 ])
 
-if (report.summary.uncovered > 0 || report.stale.length > 0) process.exit(1)
+// report.operations[0]
+// { operation: { kind: 'rest', ... }, label: 'GET /documents/:id',
+//   status: 'covered', match: 'exact' }
+// report.summary
+// { total: 2, covered: 1, public: 0, uncovered: 1, refused: 1, open: 0,
+//   byPattern: 0, stale: 0 }
+
+// The CI gate: fail on what the guard would refuse, on a stale rule, and on a
+// rule reached only through its matcher (a spelling to bring into line).
+// A GraphQL field that is not a root is open by design and does not fail.
+if (report.summary.refused > 0 || report.stale.length > 0 || report.summary.byPattern >  {
+  process.exit(1)
+}
 ```
 
-A REST `path` is the pattern as the rules file spells it. See
+A REST `path` is best the pattern as the rules file spells it (`rulesPathOf`
+converts an OpenAPI `{id}` path); another spelling is reached through the rule's
+matcher and reported `match: 'pattern'`. See
 [coverage](docs/coverage.md).
 
 ## Documentation

@@ -8,7 +8,8 @@ or this GraphQL field? `evaluateRest` and `evaluateField` answer it with a
 > define (`claims`, `relations`, `info`, `source`, `body`, `logger`, `myBackend`), read it as yours.
 
 ```ts
-import { compilePolicy, evaluateRest, loadRules } from '@softistx/limix'
+import { compilePolicy, evaluateRest } from '@softistx/limix'
+import { loadRules } from '@softistx/limix/node'
 
 const policy = compilePolicy(await loadRules('rules.yaml'), {
   conditions: { workingHours: ({ claims }) => claims['shift'] === 'day' },
