@@ -8,8 +8,19 @@
         "@biomejs/biome": "^2.6.9",
         "@changesets/changelog-github": "^1.0.1",
         "@changesets/cli": "^3.0.1",
+        "@changesets/parse": "^1.0.0",
         "@types/bun": "^1.4.5",
         "typescript": "~7.0.2",
+      },
+    },
+    "packages/limix": {
+      "name": "@softistx/limix",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@types/bun": "^1.4.5",
+      },
+      "peerDependencies": {
+        "typescript": "^6.0.3 || ^7.0.0",
       },
     },
   },
@@ -84,6 +95,8 @@
     "@manypkg/tools": ["@manypkg/tools@2.1.2", "", { "dependencies": { "jju": "^1.4.0", "tinyglobby": "^0.2.13", "yaml": "^2.9.0" } }, "sha512-6QEf6yqFbETdwGITKq57aYoPfX/3K8XFNwsAlx0C1M7o8cb79sv1M3w+tWuWvIcSbNqrLF7OD7YpZMVVz335hQ=="],
 
     "@pnpm/deps.graph-sequencer": ["@pnpm/deps.graph-sequencer@1100.0.1", "", {}, "sha512-pOr5+q1fLYKwFN3LAJuGZEnfXDcQ73zqgDHMtGy+K+uIoUqyY+6MeDCWFwfu+4EFuq76I5EPFofoNAI+Bmmq4A=="],
+
+    "@softistx/limix": ["@softistx/limix@workspace:packages/limix"],
 
     "@types/bun": ["@types/bun@1.4.5", "", { "dependencies": { "bun-types": "1.4.5" } }, "sha512-DpgwNI9z0L1S0gtb45QLCWgwCUcMLnsHYMJHQvpNj7erGiCGBvpggltAIeARrtobNMKMuy0UP7i56tKKgwFs/Q=="],
 

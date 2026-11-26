@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  pull_request:
+    # `feat/**` too: an effort built with large-feature-branch-workflow merges
+    # each slice into its integration branch `feat/<slug>`, and those slices
+    # are merged without waiting for a human. Without this they merged with no
+    # CI at all — no tests, no artifact check.
+    branches: [develop, main, 'feat/**']
+
+# A pull request's new push supersedes its run in progress.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# ONE light job per pull request ("CI stays light"): Biome, build, type
+# checking, and the tests of the packages the change touches and of those that
+# depend on them (`scripts/affected.ts`), never the whole workspace, and
+# `verify:artifacts` when a package is selected.
+# Reads @softistx from npmjs (bunfig.toml).
+env:
+  NPM_SOFTISTX_READ_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+jobs:
+  ci:
+    name: CI
+    # The runner comes from the org variable CI_RUNNER_LIBS, JSON: a string or a label
+    # array; ubuntu-latest when unset.
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LIBS || '"ubuntu-latest"') }}
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # `scripts/affected.ts` and `changeset status` diff against the base
+          # branch.
+          fetch-depth: 0
+      - name: Setup
+        uses: ./.github/actions/setup
+      # The Biome bun.lock resolved, as `bun run fix` runs it locally: one
+      # version, the one biome.json's $schema names, and never `latest`.
+      - name: Lint code
+        run: bunx biome ci
+      # A changeset naming a private package is consumed by `changeset
+      # version` and published by nothing: the release stays in version mode.
+      # A typo in a package name is the same release that never happens. It
+      # takes milliseconds. The release branch has no changesets left, so it
+      # passes there.
+      - name: Changesets name published packages
+        run: bun run changeset:private
+      # Build FIRST, every package. Every package's `exports` points at
+      # `./dist/*`, so on a clean checkout a package that imports a sibling
+      # resolves it to nothing and typecheck reports phantom TS2307s.
+      # `bun run --filter` builds in dependency order.
+      - name: Build packages
+        run: bun run build
+      # The packages holding a changed file, plus every package that needs one
+      # of them. A change outside packages/ that can alter any result (the
+      # lockfile, root manifests, tsconfigs, Biome, build.ts, .github/,
+      # scripts/) selects them all.
+      - name: Select the affected packages
+        run: bun scripts/affected.ts --since="origin/$BASE" --github-output
+        id: affected
+        env:
+          BASE: ${{ github.base_ref }}
+      - name: Type checking
+        run: |
+          bun run typecheck:scripts
+          bun scripts/affected.ts --since="origin/$BASE" --run typecheck
+        env:
+          BASE: ${{ github.base_ref }}
+      # The selected packages' own specs, then the scripts' (under a second).
+      # The Version PR only moves versions and changelogs; its code was tested on its own PRs.
+      - name: Run tests
+        if: github.head_ref != 'changeset-release/develop'
+        run: |
+          bun scripts/affected.ts --since="origin/$BASE" --run test
+          bun test ./scripts/
+        env:
+          BASE: ${{ github.base_ref }}
+      # The build exits 0 on packages that throw the instant they are
+      # imported. This packs the packages, installs them as a consumer does
+      # and imports every declared subpath; skipped when the change selects no
+      # package. Also in release.yml and publish.yml.
+      - name: Verify the built artifacts load
+        if: steps.affected.outputs.packages != '0'
+        run: bun run verify:artifacts
+      # A change to a package without a changeset is a change that never
+      # reaches a consumer: the release workflow has nothing to version.
+      #
+      # Except on the release branch itself. "Version packages" is the PR that
+      # *consumes* the changesets: it rewrites every version, deletes the
+      # `.changeset/*.md` that justified them, and so trips this check on its
+      # own output.
+      - name: Changeset present
+        if: github.head_ref != 'changeset-release/develop'
+        run: bun run changeset:status

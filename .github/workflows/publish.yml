@@ -1,0 +1,116 @@
+name: Publish
+
+# Every public @softistx/limix* package publishes to registry.npmjs.org, and
+# nowhere else (owner, 2026-11-19), from a tag. Versions are made locally
+# (`bun run changeset:version`, merged as a "Version packages" PR). The release
+# owner then tags from an up-to-date `develop` (`bunx changeset tag &&
+# git push --follow-tags`): a tag `v*` or `<pkg>@<x.y.z>` publishes every public
+# package whose version is not on npm yet. GitHub creates no push event when
+# more than three tags are pushed at once, so then run
+# `gh workflow run publish.yml --ref develop` (idempotent, and the sha
+# concurrency group dedupes it with any tag-triggered run). CI never tags. Several tags of one
+# commit share the sha concurrency group, so the commit publishes once.
+# scripts/publish.ts skips versions already on npmjs, so a re-run resumes.
+# `release.yml` only opens the Version PR and publishes nothing.
+on:
+  push:
+    tags: ["v*", "**@*"]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+concurrency:
+  group: publish-${{ github.sha }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+# Reads @softistx from npmjs (bunfig.toml), softistx/plugins#233.
+env:
+  NPM_SOFTISTX_READ_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+jobs:
+  publish:
+    name: Publish
+    # The runner comes from the org variable CI_RUNNER_LIBS (AGENTS.md).
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LIBS || '"ubuntu-latest"') }}
+    timeout-minutes: 20
+    # Read by close-issues below: a JSON array of { name, version }, empty when
+    # nothing new went out.
+    outputs:
+      published-packages: ${{ steps.published.outputs.packages }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # Only a commit already on develop publishes (a tag on a branch that was
+      # never reviewed must not reach npm).
+      - name: Require the commit on develop
+        run: |
+          git fetch origin develop
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/develop
+      - name: Setup
+        uses: ./.github/actions/setup
+      - name: Build packages
+        run: bun run build
+      - name: Verify the artifacts
+        run: bun run verify:artifacts
+      # `scripts/publish.ts` hands `bun publish` a throwaway bunfig holding
+      # $NPM_TOKEN (the softistx org secret; no `environment:`).
+      # CHANGESETS_OUTPUT collects one `git-tag` event per version published
+      # now (never one already on npm).
+      - name: Publish to npmjs
+        run: bun run scripts/publish.ts
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          CHANGESETS_OUTPUT: ${{ runner.temp }}/changesets-output.ndjson
+      - name: List the published packages
+        id: published
+        if: ${{ !cancelled() }}
+        run: |
+          file="$RUNNER_TEMP/changesets-output.ndjson"
+          if [ -s "$file" ]; then
+            packages=$(jq -sc '[.[] | select(.type == "git-tag") | {name: .packageName, version: (.tag | sub("^.*@"; ""))}]' "$file")
+          else
+            packages='[]'
+          fi
+          echo "packages=$packages" >> "$GITHUB_OUTPUT"
+
+  # Closes the issues filed here that this release fixed: labels each
+  # `released`, closes it, and comments "Fixed in <pkg>@<ver>" once. The
+  # scripts are byte copies of softistx/plugins' plugins/nxgt-base/scripts/issues/release/
+  # ("The library-repository recipe" in its README); re-copy them, never edit.
+  # A job of its own, so `issues: write` never sits beside the publish token;
+  # its `permissions` replace the workflow's, so it lists all three it needs.
+  # `!cancelled()` still runs it when the publish failed part-way after
+  # publishing, and `continue-on-error` keeps a failure here from turning the
+  # run red.
+  close-issues:
+    name: Close released issues
+    needs: publish
+    if: ${{ !cancelled() && needs.publish.outputs.published-packages != '' && needs.publish.outputs.published-packages != '[]' }}
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LIBS || '"ubuntu-latest"') }}
+    # Cutting this one short loses nothing: a manual `issues.ts released`
+    # redoes what it did not.
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: write
+    steps:
+      # The history and the tags tell apart a PR several changelogs list.
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup
+        uses: ./.github/actions/setup
+      # The JSON goes through env, never into the command line.
+      - name: Close the issues this release fixed
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PUBLISHED: ${{ needs.publish.outputs.published-packages }}
+        run: bun scripts/close-released-issues.ts --published "$PUBLISHED"

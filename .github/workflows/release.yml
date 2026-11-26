@@ -1,0 +1,71 @@
+name: Release
+
+# Every consumer of these packages installs a published version, so a merge to
+# develop that changes a package is only half a change until it is on the
+# registry. This workflow is the first half of the other half: it turns the
+# changesets sitting in .changeset/ into version bumps. Publishing, and closing
+# the issues the published versions fixed, are `publish.yml`.
+#
+# It opens a "Version Packages" pull request rather than publishing straight
+# from develop; merging that PR is what releases. That keeps the version bump
+# and the changelog reviewable, and keeps an accidental merge from publishing.
+#
+# A package carrying `"private": true` — every one until v0.1, and a new one
+# still — is never published: `scripts/publish.ts` skips it, and
+# `verify:artifacts` does NOT — it globs `packages/*/package.json` regardless, so
+# the one-class-per-entry scan keeps running on every push. Removing that flag is
+# what makes a package publishable, and it is a deliberate commit of its own.
+
+on:
+  push:
+    branches: [develop]
+
+# One release at a time, and a run under way is never cancelled: it may be
+# half-way through a publish. A run still *pending* here is replaced by a newer
+# push's, which is harmless — each run publishes every version the registry
+# lacks, so the newer one does the older one's work. No `timeout-minutes` for
+# the same reason: killing a publish half-way is worse than waiting on it.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+# This workflow publishes nothing: every version goes to registry.npmjs.org
+# only, through `publish.yml` (a tag, `NPM_TOKEN`).
+permissions:
+  contents: write
+  pull-requests: write
+
+# Reads @softistx from npmjs (bunfig.toml), softistx/plugins#233.
+env:
+  NPM_SOFTISTX_READ_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+jobs:
+  release:
+    name: Release
+    # The runner comes from the org variable CI_RUNNER_LIBS (AGENTS.md).
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LIBS || '"ubuntu-latest"') }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup
+        uses: ./.github/actions/setup
+      - name: Build packages
+        run: bun run build
+      - name: Verify the artifacts
+        run: bun run verify:artifacts
+      # No publish-script: the action only opens (or updates) the Version PR.
+      # Publishing is `publish.yml`, on a tag.
+      - name: Version
+        id: changesets
+        uses: changesets/action@v2
+        with:
+          version-script: bun run changeset:version
+          pr-title: 'chore: Version packages'
+          commit-message: 'chore: Version packages'
+          # v2 ignores GITHUB_TOKEN in env for its own GitHub API calls.
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          # changelog-github reads GITHUB_TOKEN while versioning.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
