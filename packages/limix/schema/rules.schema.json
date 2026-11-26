@@ -1,0 +1,1861 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"description": "A limix rules document: REST and/or GraphQL access rules. Unknown top-level keys are rejected; keys starting with `x-` are accepted for YAML anchors and dropped.",
+	"type": "object",
+	"properties": {
+		"limix": {
+			"type": "number",
+			"const": 1,
+			"description": "The version of the rules format. Always 1."
+		},
+		"global": {
+			"type": "object",
+			"properties": {
+				"basePath": {
+					"description": "Prefix prepended to every REST path pattern, e.g. \"/api\".",
+					"type": "string"
+				},
+				"unmatched": {
+					"type": "string",
+					"enum": ["allow", "deny"],
+					"description": "What a REST request, or a GraphQL root field, that no rule names is answered. \"allow\" lets it through; \"deny\" makes the file the exhaustive statement of what the service exposes: an unnamed path is refused, 401 for an anonymous caller and 403 otherwise. Required, so that leaving a door open is a decision written down."
+				}
+			},
+			"required": ["unmatched"],
+			"additionalProperties": false,
+			"description": "Settings applied across the whole document."
+		},
+		"rest": {
+			"type": "object",
+			"propertyNames": {
+				"type": "string",
+				"description": "Path pattern in path-to-regexp syntax, e.g. \"/users/:id\"."
+			},
+			"additionalProperties": {
+				"type": "object",
+				"properties": {
+					"GET": {
+						"type": "object",
+						"properties": {
+							"roles": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"type": "string",
+												"minLength": 1
+											}
+										},
+										"description": "Roles in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"admin\"], [\"editor\", \"reviewer\"]] reads \"admin, or editor and reviewer\". A role holds when it is in claims.roles."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"permissions": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"type": "string",
+												"minLength": 1
+											}
+										},
+										"description": "Permissions in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"a\"], [\"b\", \"c\"]] reads \"a, or b and c\". A permission holds when it is in claims.scope (space separated) and, when the caller carries a claims.permissions list, also in that list."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"when": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"type": "string",
+											"minLength": 1
+										},
+										"description": "Names of conditions registered in code (compilePolicy({ conditions })). Every named condition must hold. An unknown name fails at compile time."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"authenticated": {
+								"description": "Declares that the rule needs a signed-in caller and nothing more. Cannot be combined with `public: true`.",
+								"type": ["boolean", "null"]
+							},
+							"public": {
+								"description": "Lets anonymous callers reach the rule. Only for routes that carry their own credential. Cannot be combined with `authenticated: true` or `relations`.",
+								"type": ["boolean", "null"]
+							},
+							"relations": {
+								"description": "Per-object relation checks, one rung after the other: the first that fails denies, which is how the 404-then-403 ladder is written.",
+								"minItems": 1,
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"require": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"minItems": 1,
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"relation": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The relation the caller must hold, e.g. \"view\" or \"edit\"."
+														},
+														"type": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The type of the object, e.g. \"bookmark\"."
+														},
+														"from": {
+															"description": "Where the object id is read from: \"param.<name>\", \"query.<name>\" or \"json.<path>\" (dotted). A path resolving to a list requires the relation on every element. Defaults to \"param.id\".",
+															"examples": [
+																"param.id",
+																"query.projectId",
+																"json.bookmarkId"
+															],
+															"type": "string",
+															"pattern": "^(param|query|json)(\\.[A-Za-z0-9_]+)+$"
+														}
+													},
+													"required": ["relation", "type"],
+													"additionalProperties": false
+												}
+											},
+											"description": "Requirement in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[A, B], [C]] reads \"(A and B) or C\"."
+										},
+										"onDeny": {
+											"description": "How a failure of this rung is answered. NOT_FOUND (the default) is the same answer as for an id that never existed; FORBIDDEN is for a second rung on an object the caller can already see.",
+											"type": "string",
+											"enum": ["NOT_FOUND", "FORBIDDEN"]
+										},
+										"message": {
+											"description": "The i18n key the denial carries.",
+											"type": "string"
+										}
+									},
+									"required": ["require"],
+									"additionalProperties": false
+								}
+							}
+						},
+						"additionalProperties": false
+					},
+					"POST": {
+						"type": "object",
+						"properties": {
+							"roles": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"type": "string",
+												"minLength": 1
+											}
+										},
+										"description": "Roles in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"admin\"], [\"editor\", \"reviewer\"]] reads \"admin, or editor and reviewer\". A role holds when it is in claims.roles."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"permissions": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"type": "string",
+												"minLength": 1
+											}
+										},
+										"description": "Permissions in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"a\"], [\"b\", \"c\"]] reads \"a, or b and c\". A permission holds when it is in claims.scope (space separated) and, when the caller carries a claims.permissions list, also in that list."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"when": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"type": "string",
+											"minLength": 1
+										},
+										"description": "Names of conditions registered in code (compilePolicy({ conditions })). Every named condition must hold. An unknown name fails at compile time."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"authenticated": {
+								"description": "Declares that the rule needs a signed-in caller and nothing more. Cannot be combined with `public: true`.",
+								"type": ["boolean", "null"]
+							},
+							"public": {
+								"description": "Lets anonymous callers reach the rule. Only for routes that carry their own credential. Cannot be combined with `authenticated: true` or `relations`.",
+								"type": ["boolean", "null"]
+							},
+							"relations": {
+								"description": "Per-object relation checks, one rung after the other: the first that fails denies, which is how the 404-then-403 ladder is written.",
+								"minItems": 1,
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"require": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"minItems": 1,
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"relation": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The relation the caller must hold, e.g. \"view\" or \"edit\"."
+														},
+														"type": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The type of the object, e.g. \"bookmark\"."
+														},
+														"from": {
+															"description": "Where the object id is read from: \"param.<name>\", \"query.<name>\" or \"json.<path>\" (dotted). A path resolving to a list requires the relation on every element. Defaults to \"param.id\".",
+															"examples": [
+																"param.id",
+																"query.projectId",
+																"json.bookmarkId"
+															],
+															"type": "string",
+															"pattern": "^(param|query|json)(\\.[A-Za-z0-9_]+)+$"
+														}
+													},
+													"required": ["relation", "type"],
+													"additionalProperties": false
+												}
+											},
+											"description": "Requirement in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[A, B], [C]] reads \"(A and B) or C\"."
+										},
+										"onDeny": {
+											"description": "How a failure of this rung is answered. NOT_FOUND (the default) is the same answer as for an id that never existed; FORBIDDEN is for a second rung on an object the caller can already see.",
+											"type": "string",
+											"enum": ["NOT_FOUND", "FORBIDDEN"]
+										},
+										"message": {
+											"description": "The i18n key the denial carries.",
+											"type": "string"
+										}
+									},
+									"required": ["require"],
+									"additionalProperties": false
+								}
+							}
+						},
+						"additionalProperties": false
+					},
+					"PUT": {
+						"type": "object",
+						"properties": {
+							"roles": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"type": "string",
+												"minLength": 1
+											}
+										},
+										"description": "Roles in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"admin\"], [\"editor\", \"reviewer\"]] reads \"admin, or editor and reviewer\". A role holds when it is in claims.roles."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"permissions": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"type": "string",
+												"minLength": 1
+											}
+										},
+										"description": "Permissions in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"a\"], [\"b\", \"c\"]] reads \"a, or b and c\". A permission holds when it is in claims.scope (space separated) and, when the caller carries a claims.permissions list, also in that list."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"when": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"type": "string",
+											"minLength": 1
+										},
+										"description": "Names of conditions registered in code (compilePolicy({ conditions })). Every named condition must hold. An unknown name fails at compile time."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"authenticated": {
+								"description": "Declares that the rule needs a signed-in caller and nothing more. Cannot be combined with `public: true`.",
+								"type": ["boolean", "null"]
+							},
+							"public": {
+								"description": "Lets anonymous callers reach the rule. Only for routes that carry their own credential. Cannot be combined with `authenticated: true` or `relations`.",
+								"type": ["boolean", "null"]
+							},
+							"relations": {
+								"description": "Per-object relation checks, one rung after the other: the first that fails denies, which is how the 404-then-403 ladder is written.",
+								"minItems": 1,
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"require": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"minItems": 1,
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"relation": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The relation the caller must hold, e.g. \"view\" or \"edit\"."
+														},
+														"type": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The type of the object, e.g. \"bookmark\"."
+														},
+														"from": {
+															"description": "Where the object id is read from: \"param.<name>\", \"query.<name>\" or \"json.<path>\" (dotted). A path resolving to a list requires the relation on every element. Defaults to \"param.id\".",
+															"examples": [
+																"param.id",
+																"query.projectId",
+																"json.bookmarkId"
+															],
+															"type": "string",
+															"pattern": "^(param|query|json)(\\.[A-Za-z0-9_]+)+$"
+														}
+													},
+													"required": ["relation", "type"],
+													"additionalProperties": false
+												}
+											},
+											"description": "Requirement in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[A, B], [C]] reads \"(A and B) or C\"."
+										},
+										"onDeny": {
+											"description": "How a failure of this rung is answered. NOT_FOUND (the default) is the same answer as for an id that never existed; FORBIDDEN is for a second rung on an object the caller can already see.",
+											"type": "string",
+											"enum": ["NOT_FOUND", "FORBIDDEN"]
+										},
+										"message": {
+											"description": "The i18n key the denial carries.",
+											"type": "string"
+										}
+									},
+									"required": ["require"],
+									"additionalProperties": false
+								}
+							}
+						},
+						"additionalProperties": false
+					},
+					"PATCH": {
+						"type": "object",
+						"properties": {
+							"roles": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"type": "string",
+												"minLength": 1
+											}
+										},
+										"description": "Roles in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"admin\"], [\"editor\", \"reviewer\"]] reads \"admin, or editor and reviewer\". A role holds when it is in claims.roles."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"permissions": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"type": "string",
+												"minLength": 1
+											}
+										},
+										"description": "Permissions in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"a\"], [\"b\", \"c\"]] reads \"a, or b and c\". A permission holds when it is in claims.scope (space separated) and, when the caller carries a claims.permissions list, also in that list."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"when": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"type": "string",
+											"minLength": 1
+										},
+										"description": "Names of conditions registered in code (compilePolicy({ conditions })). Every named condition must hold. An unknown name fails at compile time."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"authenticated": {
+								"description": "Declares that the rule needs a signed-in caller and nothing more. Cannot be combined with `public: true`.",
+								"type": ["boolean", "null"]
+							},
+							"public": {
+								"description": "Lets anonymous callers reach the rule. Only for routes that carry their own credential. Cannot be combined with `authenticated: true` or `relations`.",
+								"type": ["boolean", "null"]
+							},
+							"relations": {
+								"description": "Per-object relation checks, one rung after the other: the first that fails denies, which is how the 404-then-403 ladder is written.",
+								"minItems": 1,
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"require": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"minItems": 1,
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"relation": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The relation the caller must hold, e.g. \"view\" or \"edit\"."
+														},
+														"type": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The type of the object, e.g. \"bookmark\"."
+														},
+														"from": {
+															"description": "Where the object id is read from: \"param.<name>\", \"query.<name>\" or \"json.<path>\" (dotted). A path resolving to a list requires the relation on every element. Defaults to \"param.id\".",
+															"examples": [
+																"param.id",
+																"query.projectId",
+																"json.bookmarkId"
+															],
+															"type": "string",
+															"pattern": "^(param|query|json)(\\.[A-Za-z0-9_]+)+$"
+														}
+													},
+													"required": ["relation", "type"],
+													"additionalProperties": false
+												}
+											},
+											"description": "Requirement in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[A, B], [C]] reads \"(A and B) or C\"."
+										},
+										"onDeny": {
+											"description": "How a failure of this rung is answered. NOT_FOUND (the default) is the same answer as for an id that never existed; FORBIDDEN is for a second rung on an object the caller can already see.",
+											"type": "string",
+											"enum": ["NOT_FOUND", "FORBIDDEN"]
+										},
+										"message": {
+											"description": "The i18n key the denial carries.",
+											"type": "string"
+										}
+									},
+									"required": ["require"],
+									"additionalProperties": false
+								}
+							}
+						},
+						"additionalProperties": false
+					},
+					"DELETE": {
+						"type": "object",
+						"properties": {
+							"roles": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"type": "string",
+												"minLength": 1
+											}
+										},
+										"description": "Roles in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"admin\"], [\"editor\", \"reviewer\"]] reads \"admin, or editor and reviewer\". A role holds when it is in claims.roles."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"permissions": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"type": "string",
+												"minLength": 1
+											}
+										},
+										"description": "Permissions in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"a\"], [\"b\", \"c\"]] reads \"a, or b and c\". A permission holds when it is in claims.scope (space separated) and, when the caller carries a claims.permissions list, also in that list."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"when": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"type": "string",
+											"minLength": 1
+										},
+										"description": "Names of conditions registered in code (compilePolicy({ conditions })). Every named condition must hold. An unknown name fails at compile time."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"authenticated": {
+								"description": "Declares that the rule needs a signed-in caller and nothing more. Cannot be combined with `public: true`.",
+								"type": ["boolean", "null"]
+							},
+							"public": {
+								"description": "Lets anonymous callers reach the rule. Only for routes that carry their own credential. Cannot be combined with `authenticated: true` or `relations`.",
+								"type": ["boolean", "null"]
+							},
+							"relations": {
+								"description": "Per-object relation checks, one rung after the other: the first that fails denies, which is how the 404-then-403 ladder is written.",
+								"minItems": 1,
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"require": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"minItems": 1,
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"relation": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The relation the caller must hold, e.g. \"view\" or \"edit\"."
+														},
+														"type": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The type of the object, e.g. \"bookmark\"."
+														},
+														"from": {
+															"description": "Where the object id is read from: \"param.<name>\", \"query.<name>\" or \"json.<path>\" (dotted). A path resolving to a list requires the relation on every element. Defaults to \"param.id\".",
+															"examples": [
+																"param.id",
+																"query.projectId",
+																"json.bookmarkId"
+															],
+															"type": "string",
+															"pattern": "^(param|query|json)(\\.[A-Za-z0-9_]+)+$"
+														}
+													},
+													"required": ["relation", "type"],
+													"additionalProperties": false
+												}
+											},
+											"description": "Requirement in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[A, B], [C]] reads \"(A and B) or C\"."
+										},
+										"onDeny": {
+											"description": "How a failure of this rung is answered. NOT_FOUND (the default) is the same answer as for an id that never existed; FORBIDDEN is for a second rung on an object the caller can already see.",
+											"type": "string",
+											"enum": ["NOT_FOUND", "FORBIDDEN"]
+										},
+										"message": {
+											"description": "The i18n key the denial carries.",
+											"type": "string"
+										}
+									},
+									"required": ["require"],
+									"additionalProperties": false
+								}
+							}
+						},
+						"additionalProperties": false
+					},
+					"HEAD": {
+						"type": "object",
+						"properties": {
+							"roles": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"type": "string",
+												"minLength": 1
+											}
+										},
+										"description": "Roles in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"admin\"], [\"editor\", \"reviewer\"]] reads \"admin, or editor and reviewer\". A role holds when it is in claims.roles."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"permissions": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"type": "string",
+												"minLength": 1
+											}
+										},
+										"description": "Permissions in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"a\"], [\"b\", \"c\"]] reads \"a, or b and c\". A permission holds when it is in claims.scope (space separated) and, when the caller carries a claims.permissions list, also in that list."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"when": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"type": "string",
+											"minLength": 1
+										},
+										"description": "Names of conditions registered in code (compilePolicy({ conditions })). Every named condition must hold. An unknown name fails at compile time."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"authenticated": {
+								"description": "Declares that the rule needs a signed-in caller and nothing more. Cannot be combined with `public: true`.",
+								"type": ["boolean", "null"]
+							},
+							"public": {
+								"description": "Lets anonymous callers reach the rule. Only for routes that carry their own credential. Cannot be combined with `authenticated: true` or `relations`.",
+								"type": ["boolean", "null"]
+							},
+							"relations": {
+								"description": "Per-object relation checks, one rung after the other: the first that fails denies, which is how the 404-then-403 ladder is written.",
+								"minItems": 1,
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"require": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"minItems": 1,
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"relation": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The relation the caller must hold, e.g. \"view\" or \"edit\"."
+														},
+														"type": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The type of the object, e.g. \"bookmark\"."
+														},
+														"from": {
+															"description": "Where the object id is read from: \"param.<name>\", \"query.<name>\" or \"json.<path>\" (dotted). A path resolving to a list requires the relation on every element. Defaults to \"param.id\".",
+															"examples": [
+																"param.id",
+																"query.projectId",
+																"json.bookmarkId"
+															],
+															"type": "string",
+															"pattern": "^(param|query|json)(\\.[A-Za-z0-9_]+)+$"
+														}
+													},
+													"required": ["relation", "type"],
+													"additionalProperties": false
+												}
+											},
+											"description": "Requirement in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[A, B], [C]] reads \"(A and B) or C\"."
+										},
+										"onDeny": {
+											"description": "How a failure of this rung is answered. NOT_FOUND (the default) is the same answer as for an id that never existed; FORBIDDEN is for a second rung on an object the caller can already see.",
+											"type": "string",
+											"enum": ["NOT_FOUND", "FORBIDDEN"]
+										},
+										"message": {
+											"description": "The i18n key the denial carries.",
+											"type": "string"
+										}
+									},
+									"required": ["require"],
+									"additionalProperties": false
+								}
+							}
+						},
+						"additionalProperties": false
+					},
+					"OPTIONS": {
+						"type": "object",
+						"properties": {
+							"roles": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"type": "string",
+												"minLength": 1
+											}
+										},
+										"description": "Roles in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"admin\"], [\"editor\", \"reviewer\"]] reads \"admin, or editor and reviewer\". A role holds when it is in claims.roles."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"permissions": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"type": "string",
+												"minLength": 1
+											}
+										},
+										"description": "Permissions in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"a\"], [\"b\", \"c\"]] reads \"a, or b and c\". A permission holds when it is in claims.scope (space separated) and, when the caller carries a claims.permissions list, also in that list."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"when": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"type": "string",
+											"minLength": 1
+										},
+										"description": "Names of conditions registered in code (compilePolicy({ conditions })). Every named condition must hold. An unknown name fails at compile time."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"authenticated": {
+								"description": "Declares that the rule needs a signed-in caller and nothing more. Cannot be combined with `public: true`.",
+								"type": ["boolean", "null"]
+							},
+							"public": {
+								"description": "Lets anonymous callers reach the rule. Only for routes that carry their own credential. Cannot be combined with `authenticated: true` or `relations`.",
+								"type": ["boolean", "null"]
+							},
+							"relations": {
+								"description": "Per-object relation checks, one rung after the other: the first that fails denies, which is how the 404-then-403 ladder is written.",
+								"minItems": 1,
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"require": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"minItems": 1,
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"relation": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The relation the caller must hold, e.g. \"view\" or \"edit\"."
+														},
+														"type": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The type of the object, e.g. \"bookmark\"."
+														},
+														"from": {
+															"description": "Where the object id is read from: \"param.<name>\", \"query.<name>\" or \"json.<path>\" (dotted). A path resolving to a list requires the relation on every element. Defaults to \"param.id\".",
+															"examples": [
+																"param.id",
+																"query.projectId",
+																"json.bookmarkId"
+															],
+															"type": "string",
+															"pattern": "^(param|query|json)(\\.[A-Za-z0-9_]+)+$"
+														}
+													},
+													"required": ["relation", "type"],
+													"additionalProperties": false
+												}
+											},
+											"description": "Requirement in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[A, B], [C]] reads \"(A and B) or C\"."
+										},
+										"onDeny": {
+											"description": "How a failure of this rung is answered. NOT_FOUND (the default) is the same answer as for an id that never existed; FORBIDDEN is for a second rung on an object the caller can already see.",
+											"type": "string",
+											"enum": ["NOT_FOUND", "FORBIDDEN"]
+										},
+										"message": {
+											"description": "The i18n key the denial carries.",
+											"type": "string"
+										}
+									},
+									"required": ["require"],
+									"additionalProperties": false
+								}
+							}
+						},
+						"additionalProperties": false
+					},
+					"CONNECT": {
+						"type": "object",
+						"properties": {
+							"roles": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"type": "string",
+												"minLength": 1
+											}
+										},
+										"description": "Roles in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"admin\"], [\"editor\", \"reviewer\"]] reads \"admin, or editor and reviewer\". A role holds when it is in claims.roles."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"permissions": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"type": "string",
+												"minLength": 1
+											}
+										},
+										"description": "Permissions in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"a\"], [\"b\", \"c\"]] reads \"a, or b and c\". A permission holds when it is in claims.scope (space separated) and, when the caller carries a claims.permissions list, also in that list."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"when": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"type": "string",
+											"minLength": 1
+										},
+										"description": "Names of conditions registered in code (compilePolicy({ conditions })). Every named condition must hold. An unknown name fails at compile time."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"authenticated": {
+								"description": "Declares that the rule needs a signed-in caller and nothing more. Cannot be combined with `public: true`.",
+								"type": ["boolean", "null"]
+							},
+							"public": {
+								"description": "Lets anonymous callers reach the rule. Only for routes that carry their own credential. Cannot be combined with `authenticated: true` or `relations`.",
+								"type": ["boolean", "null"]
+							},
+							"relations": {
+								"description": "Per-object relation checks, one rung after the other: the first that fails denies, which is how the 404-then-403 ladder is written.",
+								"minItems": 1,
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"require": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"minItems": 1,
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"relation": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The relation the caller must hold, e.g. \"view\" or \"edit\"."
+														},
+														"type": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The type of the object, e.g. \"bookmark\"."
+														},
+														"from": {
+															"description": "Where the object id is read from: \"param.<name>\", \"query.<name>\" or \"json.<path>\" (dotted). A path resolving to a list requires the relation on every element. Defaults to \"param.id\".",
+															"examples": [
+																"param.id",
+																"query.projectId",
+																"json.bookmarkId"
+															],
+															"type": "string",
+															"pattern": "^(param|query|json)(\\.[A-Za-z0-9_]+)+$"
+														}
+													},
+													"required": ["relation", "type"],
+													"additionalProperties": false
+												}
+											},
+											"description": "Requirement in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[A, B], [C]] reads \"(A and B) or C\"."
+										},
+										"onDeny": {
+											"description": "How a failure of this rung is answered. NOT_FOUND (the default) is the same answer as for an id that never existed; FORBIDDEN is for a second rung on an object the caller can already see.",
+											"type": "string",
+											"enum": ["NOT_FOUND", "FORBIDDEN"]
+										},
+										"message": {
+											"description": "The i18n key the denial carries.",
+											"type": "string"
+										}
+									},
+									"required": ["require"],
+									"additionalProperties": false
+								}
+							}
+						},
+						"additionalProperties": false
+					},
+					"TRACE": {
+						"type": "object",
+						"properties": {
+							"roles": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"type": "string",
+												"minLength": 1
+											}
+										},
+										"description": "Roles in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"admin\"], [\"editor\", \"reviewer\"]] reads \"admin, or editor and reviewer\". A role holds when it is in claims.roles."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"permissions": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"type": "string",
+												"minLength": 1
+											}
+										},
+										"description": "Permissions in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"a\"], [\"b\", \"c\"]] reads \"a, or b and c\". A permission holds when it is in claims.scope (space separated) and, when the caller carries a claims.permissions list, also in that list."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"when": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"type": "string",
+											"minLength": 1
+										},
+										"description": "Names of conditions registered in code (compilePolicy({ conditions })). Every named condition must hold. An unknown name fails at compile time."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"authenticated": {
+								"description": "Declares that the rule needs a signed-in caller and nothing more. Cannot be combined with `public: true`.",
+								"type": ["boolean", "null"]
+							},
+							"public": {
+								"description": "Lets anonymous callers reach the rule. Only for routes that carry their own credential. Cannot be combined with `authenticated: true` or `relations`.",
+								"type": ["boolean", "null"]
+							},
+							"relations": {
+								"description": "Per-object relation checks, one rung after the other: the first that fails denies, which is how the 404-then-403 ladder is written.",
+								"minItems": 1,
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"require": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"minItems": 1,
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"relation": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The relation the caller must hold, e.g. \"view\" or \"edit\"."
+														},
+														"type": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The type of the object, e.g. \"bookmark\"."
+														},
+														"from": {
+															"description": "Where the object id is read from: \"param.<name>\", \"query.<name>\" or \"json.<path>\" (dotted). A path resolving to a list requires the relation on every element. Defaults to \"param.id\".",
+															"examples": [
+																"param.id",
+																"query.projectId",
+																"json.bookmarkId"
+															],
+															"type": "string",
+															"pattern": "^(param|query|json)(\\.[A-Za-z0-9_]+)+$"
+														}
+													},
+													"required": ["relation", "type"],
+													"additionalProperties": false
+												}
+											},
+											"description": "Requirement in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[A, B], [C]] reads \"(A and B) or C\"."
+										},
+										"onDeny": {
+											"description": "How a failure of this rung is answered. NOT_FOUND (the default) is the same answer as for an id that never existed; FORBIDDEN is for a second rung on an object the caller can already see.",
+											"type": "string",
+											"enum": ["NOT_FOUND", "FORBIDDEN"]
+										},
+										"message": {
+											"description": "The i18n key the denial carries.",
+											"type": "string"
+										}
+									},
+									"required": ["require"],
+									"additionalProperties": false
+								}
+							}
+						},
+						"additionalProperties": false
+					},
+					"QUERY": {
+						"type": "object",
+						"properties": {
+							"roles": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"type": "string",
+												"minLength": 1
+											}
+										},
+										"description": "Roles in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"admin\"], [\"editor\", \"reviewer\"]] reads \"admin, or editor and reviewer\". A role holds when it is in claims.roles."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"permissions": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"type": "string",
+												"minLength": 1
+											}
+										},
+										"description": "Permissions in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"a\"], [\"b\", \"c\"]] reads \"a, or b and c\". A permission holds when it is in claims.scope (space separated) and, when the caller carries a claims.permissions list, also in that list."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"when": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"type": "string",
+											"minLength": 1
+										},
+										"description": "Names of conditions registered in code (compilePolicy({ conditions })). Every named condition must hold. An unknown name fails at compile time."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"authenticated": {
+								"description": "Declares that the rule needs a signed-in caller and nothing more. Cannot be combined with `public: true`.",
+								"type": ["boolean", "null"]
+							},
+							"public": {
+								"description": "Lets anonymous callers reach the rule. Only for routes that carry their own credential. Cannot be combined with `authenticated: true` or `relations`.",
+								"type": ["boolean", "null"]
+							},
+							"relations": {
+								"description": "Per-object relation checks, one rung after the other: the first that fails denies, which is how the 404-then-403 ladder is written.",
+								"minItems": 1,
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"require": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"minItems": 1,
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"relation": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The relation the caller must hold, e.g. \"view\" or \"edit\"."
+														},
+														"type": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The type of the object, e.g. \"bookmark\"."
+														},
+														"from": {
+															"description": "Where the object id is read from: \"param.<name>\", \"query.<name>\" or \"json.<path>\" (dotted). A path resolving to a list requires the relation on every element. Defaults to \"param.id\".",
+															"examples": [
+																"param.id",
+																"query.projectId",
+																"json.bookmarkId"
+															],
+															"type": "string",
+															"pattern": "^(param|query|json)(\\.[A-Za-z0-9_]+)+$"
+														}
+													},
+													"required": ["relation", "type"],
+													"additionalProperties": false
+												}
+											},
+											"description": "Requirement in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[A, B], [C]] reads \"(A and B) or C\"."
+										},
+										"onDeny": {
+											"description": "How a failure of this rung is answered. NOT_FOUND (the default) is the same answer as for an id that never existed; FORBIDDEN is for a second rung on an object the caller can already see.",
+											"type": "string",
+											"enum": ["NOT_FOUND", "FORBIDDEN"]
+										},
+										"message": {
+											"description": "The i18n key the denial carries.",
+											"type": "string"
+										}
+									},
+									"required": ["require"],
+									"additionalProperties": false
+								}
+							}
+						},
+						"additionalProperties": false
+					}
+				},
+				"additionalProperties": false,
+				"description": "Rules keyed by HTTP method for this path pattern."
+			},
+			"description": "REST rules, keyed by path pattern then HTTP method. The first pattern that matches the request path, in document order, is used."
+		},
+		"graphql": {
+			"type": "object",
+			"properties": {
+				"Query": {
+					"type": "object",
+					"propertyNames": {
+						"type": "string",
+						"description": "Field name on this GraphQL type, e.g. \"createUser\"."
+					},
+					"additionalProperties": {
+						"type": "object",
+						"properties": {
+							"roles": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"type": "string",
+												"minLength": 1
+											}
+										},
+										"description": "Roles in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"admin\"], [\"editor\", \"reviewer\"]] reads \"admin, or editor and reviewer\". A role holds when it is in claims.roles."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"permissions": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"type": "string",
+												"minLength": 1
+											}
+										},
+										"description": "Permissions in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"a\"], [\"b\", \"c\"]] reads \"a, or b and c\". A permission holds when it is in claims.scope (space separated) and, when the caller carries a claims.permissions list, also in that list."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"when": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"type": "string",
+											"minLength": 1
+										},
+										"description": "Names of conditions registered in code (compilePolicy({ conditions })). Every named condition must hold. An unknown name fails at compile time."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"authenticated": {
+								"description": "Declares that the rule needs a signed-in caller and nothing more. Cannot be combined with `public: true`.",
+								"type": ["boolean", "null"]
+							},
+							"public": {
+								"description": "Lets anonymous callers reach the rule. Only for routes that carry their own credential. Cannot be combined with `authenticated: true` or `relations`.",
+								"type": ["boolean", "null"]
+							},
+							"relations": {
+								"description": "Per-object relation checks, one rung after the other. Ids are read from `args.<path>` or `source.<path>`.",
+								"minItems": 1,
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"require": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"minItems": 1,
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"relation": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The relation the caller must hold, e.g. \"view\" or \"edit\"."
+														},
+														"type": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The type of the object, e.g. \"bookmark\"."
+														},
+														"from": {
+															"description": "Where the object id is read from: \"args.<path>\" or \"source.<path>\" (dotted). A path resolving to a list requires the relation on every element. Defaults to \"args.id\".",
+															"examples": [
+																"args.id",
+																"args.input.noteId",
+																"source.id"
+															],
+															"type": "string",
+															"pattern": "^(args|source)(\\.[A-Za-z0-9_]+)+$"
+														}
+													},
+													"required": ["relation", "type"],
+													"additionalProperties": false
+												}
+											},
+											"description": "Requirement in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[A, B], [C]] reads \"(A and B) or C\"."
+										},
+										"onDeny": {
+											"description": "How a failure of this rung is answered. NOT_FOUND (the default) is the same answer as for an id that never existed; FORBIDDEN is for a second rung on an object the caller can already see.",
+											"type": "string",
+											"enum": ["NOT_FOUND", "FORBIDDEN"]
+										},
+										"message": {
+											"description": "The i18n key the denial carries.",
+											"type": "string"
+										}
+									},
+									"required": ["require"],
+									"additionalProperties": false
+								}
+							}
+						},
+						"additionalProperties": false
+					}
+				},
+				"Mutation": {
+					"type": "object",
+					"propertyNames": {
+						"type": "string",
+						"description": "Field name on this GraphQL type, e.g. \"createUser\"."
+					},
+					"additionalProperties": {
+						"type": "object",
+						"properties": {
+							"roles": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"type": "string",
+												"minLength": 1
+											}
+										},
+										"description": "Roles in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"admin\"], [\"editor\", \"reviewer\"]] reads \"admin, or editor and reviewer\". A role holds when it is in claims.roles."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"permissions": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"type": "string",
+												"minLength": 1
+											}
+										},
+										"description": "Permissions in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"a\"], [\"b\", \"c\"]] reads \"a, or b and c\". A permission holds when it is in claims.scope (space separated) and, when the caller carries a claims.permissions list, also in that list."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"when": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"type": "string",
+											"minLength": 1
+										},
+										"description": "Names of conditions registered in code (compilePolicy({ conditions })). Every named condition must hold. An unknown name fails at compile time."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"authenticated": {
+								"description": "Declares that the rule needs a signed-in caller and nothing more. Cannot be combined with `public: true`.",
+								"type": ["boolean", "null"]
+							},
+							"public": {
+								"description": "Lets anonymous callers reach the rule. Only for routes that carry their own credential. Cannot be combined with `authenticated: true` or `relations`.",
+								"type": ["boolean", "null"]
+							},
+							"relations": {
+								"description": "Per-object relation checks, one rung after the other. Ids are read from `args.<path>` or `source.<path>`.",
+								"minItems": 1,
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"require": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"minItems": 1,
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"relation": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The relation the caller must hold, e.g. \"view\" or \"edit\"."
+														},
+														"type": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The type of the object, e.g. \"bookmark\"."
+														},
+														"from": {
+															"description": "Where the object id is read from: \"args.<path>\" or \"source.<path>\" (dotted). A path resolving to a list requires the relation on every element. Defaults to \"args.id\".",
+															"examples": [
+																"args.id",
+																"args.input.noteId",
+																"source.id"
+															],
+															"type": "string",
+															"pattern": "^(args|source)(\\.[A-Za-z0-9_]+)+$"
+														}
+													},
+													"required": ["relation", "type"],
+													"additionalProperties": false
+												}
+											},
+											"description": "Requirement in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[A, B], [C]] reads \"(A and B) or C\"."
+										},
+										"onDeny": {
+											"description": "How a failure of this rung is answered. NOT_FOUND (the default) is the same answer as for an id that never existed; FORBIDDEN is for a second rung on an object the caller can already see.",
+											"type": "string",
+											"enum": ["NOT_FOUND", "FORBIDDEN"]
+										},
+										"message": {
+											"description": "The i18n key the denial carries.",
+											"type": "string"
+										}
+									},
+									"required": ["require"],
+									"additionalProperties": false
+								}
+							}
+						},
+						"additionalProperties": false
+					}
+				},
+				"Subscription": {
+					"type": "object",
+					"propertyNames": {
+						"type": "string",
+						"description": "Field name on this GraphQL type, e.g. \"createUser\"."
+					},
+					"additionalProperties": {
+						"type": "object",
+						"properties": {
+							"roles": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"type": "string",
+												"minLength": 1
+											}
+										},
+										"description": "Roles in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"admin\"], [\"editor\", \"reviewer\"]] reads \"admin, or editor and reviewer\". A role holds when it is in claims.roles."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"permissions": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"type": "string",
+												"minLength": 1
+											}
+										},
+										"description": "Permissions in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"a\"], [\"b\", \"c\"]] reads \"a, or b and c\". A permission holds when it is in claims.scope (space separated) and, when the caller carries a claims.permissions list, also in that list."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"when": {
+								"anyOf": [
+									{
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"type": "string",
+											"minLength": 1
+										},
+										"description": "Names of conditions registered in code (compilePolicy({ conditions })). Every named condition must hold. An unknown name fails at compile time."
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"authenticated": {
+								"description": "Declares that the rule needs a signed-in caller and nothing more. Cannot be combined with `public: true`.",
+								"type": ["boolean", "null"]
+							},
+							"public": {
+								"description": "Lets anonymous callers reach the rule. Only for routes that carry their own credential. Cannot be combined with `authenticated: true` or `relations`.",
+								"type": ["boolean", "null"]
+							},
+							"relations": {
+								"description": "Per-object relation checks, one rung after the other. Ids are read from `args.<path>` or `source.<path>`.",
+								"minItems": 1,
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"require": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"minItems": 1,
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"relation": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The relation the caller must hold, e.g. \"view\" or \"edit\"."
+														},
+														"type": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The type of the object, e.g. \"bookmark\"."
+														},
+														"from": {
+															"description": "Where the object id is read from: \"args.<path>\" or \"source.<path>\" (dotted). A path resolving to a list requires the relation on every element. Defaults to \"args.id\".",
+															"examples": [
+																"args.id",
+																"args.input.noteId",
+																"source.id"
+															],
+															"type": "string",
+															"pattern": "^(args|source)(\\.[A-Za-z0-9_]+)+$"
+														}
+													},
+													"required": ["relation", "type"],
+													"additionalProperties": false
+												}
+											},
+											"description": "Requirement in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[A, B], [C]] reads \"(A and B) or C\"."
+										},
+										"onDeny": {
+											"description": "How a failure of this rung is answered. NOT_FOUND (the default) is the same answer as for an id that never existed; FORBIDDEN is for a second rung on an object the caller can already see.",
+											"type": "string",
+											"enum": ["NOT_FOUND", "FORBIDDEN"]
+										},
+										"message": {
+											"description": "The i18n key the denial carries.",
+											"type": "string"
+										}
+									},
+									"required": ["require"],
+									"additionalProperties": false
+								}
+							}
+						},
+						"additionalProperties": false
+					}
+				}
+			},
+			"additionalProperties": {
+				"type": "object",
+				"propertyNames": {
+					"type": "string",
+					"description": "Field name on this GraphQL type, e.g. \"createUser\"."
+				},
+				"additionalProperties": {
+					"type": "object",
+					"properties": {
+						"roles": {
+							"anyOf": [
+								{
+									"minItems": 1,
+									"type": "array",
+									"items": {
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"type": "string",
+											"minLength": 1
+										}
+									},
+									"description": "Roles in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"admin\"], [\"editor\", \"reviewer\"]] reads \"admin, or editor and reviewer\". A role holds when it is in claims.roles."
+								},
+								{
+									"type": "null"
+								}
+							]
+						},
+						"permissions": {
+							"anyOf": [
+								{
+									"minItems": 1,
+									"type": "array",
+									"items": {
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"type": "string",
+											"minLength": 1
+										}
+									},
+									"description": "Permissions in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"a\"], [\"b\", \"c\"]] reads \"a, or b and c\". A permission holds when it is in claims.scope (space separated) and, when the caller carries a claims.permissions list, also in that list."
+								},
+								{
+									"type": "null"
+								}
+							]
+						},
+						"when": {
+							"anyOf": [
+								{
+									"minItems": 1,
+									"type": "array",
+									"items": {
+										"type": "string",
+										"minLength": 1
+									},
+									"description": "Names of conditions registered in code (compilePolicy({ conditions })). Every named condition must hold. An unknown name fails at compile time."
+								},
+								{
+									"type": "null"
+								}
+							]
+						},
+						"authenticated": {
+							"description": "Declares that the rule needs a signed-in caller and nothing more. Cannot be combined with `public: true`.",
+							"type": ["boolean", "null"]
+						},
+						"public": {
+							"description": "Lets anonymous callers reach the rule. Only for routes that carry their own credential. Cannot be combined with `authenticated: true` or `relations`.",
+							"type": ["boolean", "null"]
+						},
+						"relations": {
+							"description": "Per-object relation checks, one rung after the other. Ids are read from `args.<path>` or `source.<path>`.",
+							"minItems": 1,
+							"type": "array",
+							"items": {
+								"type": "object",
+								"properties": {
+									"require": {
+										"minItems": 1,
+										"type": "array",
+										"items": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"type": "object",
+												"properties": {
+													"relation": {
+														"type": "string",
+														"minLength": 1,
+														"description": "The relation the caller must hold, e.g. \"view\" or \"edit\"."
+													},
+													"type": {
+														"type": "string",
+														"minLength": 1,
+														"description": "The type of the object, e.g. \"bookmark\"."
+													},
+													"from": {
+														"description": "Where the object id is read from: \"args.<path>\" or \"source.<path>\" (dotted). A path resolving to a list requires the relation on every element. Defaults to \"args.id\".",
+														"examples": [
+															"args.id",
+															"args.input.noteId",
+															"source.id"
+														],
+														"type": "string",
+														"pattern": "^(args|source)(\\.[A-Za-z0-9_]+)+$"
+													}
+												},
+												"required": ["relation", "type"],
+												"additionalProperties": false
+											}
+										},
+										"description": "Requirement in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[A, B], [C]] reads \"(A and B) or C\"."
+									},
+									"onDeny": {
+										"description": "How a failure of this rung is answered. NOT_FOUND (the default) is the same answer as for an id that never existed; FORBIDDEN is for a second rung on an object the caller can already see.",
+										"type": "string",
+										"enum": ["NOT_FOUND", "FORBIDDEN"]
+									},
+									"message": {
+										"description": "The i18n key the denial carries.",
+										"type": "string"
+									}
+								},
+								"required": ["require"],
+								"additionalProperties": false
+							}
+						}
+					},
+					"additionalProperties": false
+				}
+			},
+			"description": "GraphQL rules, keyed by type name then field name. Query, Mutation and Subscription cover root fields; any other type name targets fields on that type wherever it appears."
+		}
+	},
+	"required": ["limix", "global"],
+	"additionalProperties": false,
+	"patternProperties": {
+		"^x-": {}
+	}
+}
