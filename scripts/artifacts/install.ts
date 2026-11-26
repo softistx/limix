@@ -111,7 +111,7 @@ export async function installAsConsumer(
 		`${JSON.stringify(probe, null, 2)}\n`,
 	);
 	// The probe sits outside the repository, so it does not see its bunfig.toml:
-	// without it the @softistx scope is read anonymously and 404s.
+	// without it the restricted @softistx scope is read anonymously and 404s.
 	// A laptop hides this through ~/.bunfig.toml; CI does not.
 	await Bun.write(join(workdir, 'bunfig.toml'), Bun.file(REPO_BUNFIG));
 

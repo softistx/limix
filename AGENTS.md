@@ -27,7 +27,9 @@ fixes only on 5.x) until nothing imports it, then `npm deprecate`d.
   `@softistx/alxia-access` fit together, moving core's `shared-hono` and
   `shared-graphql` off `@softistx/security`, and a type-safe rules editor built
   on `@softistx/material`.
-- The repository is public; versions stay 0.x until the pilot runs on them.
+- The repository is public, the npm packages are private (`access:
+  "restricted"`, owner, 2026-11-26); versions stay 0.x until the pilot runs on
+  them.
 
 ## Layout
 
@@ -66,10 +68,6 @@ Declared divergences from janus:
 - No `typecheck:tsc` script: limix typechecks with `bun check` alone.
 - No "generated code is committed" CI step: no package generates code.
 - No `format` or `lint` root scripts: `fix` covers both.
-- npm access is `public` (owner, 2026-11-26): `publishConfig.access`, the
-  changeset `access` and `accessProblems` in `scripts/artifacts/manifest.ts`
-  (with its spec and the publish-registries fixtures) say `public` where
-  janus says `restricted`.
 - A change to a private package needs no changeset (changesets ignores private
   packages, and `check-changesets` refuses one naming it).
 
@@ -91,7 +89,7 @@ Declared divergences from janus:
   resumes, and never builds: run `bun run build` first. Nothing publishes while
   every package is `"private": true`.
 - **`verify:artifacts`** packs each package and loads the tarball. It refuses a
-  scoped package not published as public, a build exiting 0 whose artifact does
+  package whose `publishConfig` is not npmjs with `access: "restricted"`, a build exiting 0 whose artifact does
   not load, declarations that no longer compile, an import not declared as a
   dependency or peer, a runtime dependency that only types need, and duplicate
   classes (the highest packaging risk: two copies of a class break `instanceof`).

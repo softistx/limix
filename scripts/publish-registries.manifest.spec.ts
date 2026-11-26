@@ -21,7 +21,7 @@ describe('withPublishRegistry', () => {
 		const seen = await withPublishRegistry(dir, npmjs.url, () =>
 			publishConfigOf(dir),
 		);
-		expect(seen).toEqual({ registry: npmjs.url, access: 'public' });
+		expect(seen).toEqual({ registry: npmjs.url, access: 'restricted' });
 	});
 
 	test('restores the manifest byte for byte after a success', async () => {
