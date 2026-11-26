@@ -70,7 +70,7 @@ Declared divergences from janus:
 - No `format` or `lint` root scripts: `fix` covers both.
 - `.gitignore` re-includes `packages/*/src/coverage/` (the `./coverage` subpath's
   source), which janus's `coverage` line, a test-report folder, would ignore, until
-  softistx/janus anchors its `coverage` pattern (issue to come).
+  softistx/janus anchors its `coverage` pattern (softistx/janus#1081).
 - A change to a private package needs no changeset (changesets ignores private
   packages, and `check-changesets` refuses one naming it).
 
