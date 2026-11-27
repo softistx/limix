@@ -14,6 +14,16 @@ describe('definePolicy', () => {
 		expect(parseRules(EXAMPLE_POLICY)).toEqual(EXAMPLE_POLICY);
 	});
 
+	it('accepts any path and type while nothing is registered', () => {
+		const rules = definePolicy({
+			limix: 1,
+			global: { unmatched: 'deny' },
+			rest: { '/any/:thing': { GET: { authenticated: true } } },
+			graphql: { AnyType: { anyField: { authenticated: true } } },
+		});
+		expect(rules.rest).toBeDefined();
+	});
+
 	it('fails to compile on a typo', () => {
 		// Each line below is refused by the compiler; typecheck is the assertion.
 		definePolicy({

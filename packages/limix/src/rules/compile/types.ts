@@ -1,4 +1,5 @@
 import type { GraphqlRule } from '../graphql';
+import type { ConditionMap, Register } from '../register';
 import type { RestRule } from '../rest';
 import type { Rules } from '../schema';
 import type { RouteMatcher } from './matcher';
@@ -46,7 +47,7 @@ export interface CompiledPolicy {
 	usesRelations: boolean;
 }
 
-export interface CompileOptions {
-	/** The predicates `when` may name, by name. */
-	conditions?: Readonly<Record<string, Condition>>;
+export interface CompileOptions<R = Register> {
+	/** The predicates `when` may name, by name (the registered names, when `Register` holds them). */
+	conditions?: ConditionMap<R>;
 }
