@@ -78,11 +78,13 @@ const issues = checkModel(policy, model)
 
 It lists every relation term whose `type` is not an object type of the model,
 or whose `relation` is neither a relation nor a permission of that type. Empty
-means consistent. Each issue has a `kind` (`ModelIssueKind`): `unknown-type`,
-`unknown-relation` or `from-field`; a new kind is a minor release. Call it at startup or in a spec. Paths for REST rules carry
+means consistent. Call it at startup or in a spec. Paths for REST rules carry
 the pattern as the rules file writes it, without `global.basePath`, as core's
 rules issues do. A relation term that names a `fromField` relation is reported
 too, since the adapter cannot answer it.
+
+Each issue has a `kind` (`ModelIssueKind`): `unknown-type`, `unknown-relation`
+or `from-field`. A new kind is a minor release.
 
 ## Limits
 
