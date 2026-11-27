@@ -17,6 +17,9 @@ export interface OperationRoute {
  * request to it meets is the first whose pattern is the operation or whose
  * matcher takes it.
  *
+ * A whole-segment brace (`/docs/{id}`) is read as a parameter only when the
+ * limix reading finds no rule: `evaluateRest` never reads it so.
+ *
  * A matcher hit is refused for an operation path holding a wildcard (`*name`)
  * or an optional group that holds a parameter (`{/:id}`): a matcher may take
  * only some of the request paths that operation stands for, so coverage cannot
@@ -27,6 +30,11 @@ export function findOperationRoute(
 	path: string,
 	basePath: string | undefined,
 ): OperationRoute | undefined {
-	const hit = findRoute(routes, { route: path }, basePath);
+	// A plain-text group is optional, as the matcher reads it. Only when that
+	// finds no rule is a whole-segment brace (`/docs/{id}`, an OpenAPI spelling)
+	// read as a parameter, so a rule a request could reach never hides behind it.
+	const hit =
+		findRoute(routes, { route: path }, basePath) ??
+		findRoute(routes, { route: path }, basePath, true);
 	return hit && { route: hit.route, match: hit.exact ? 'exact' : 'pattern' };
 }

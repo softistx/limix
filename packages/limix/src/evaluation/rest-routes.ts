@@ -46,7 +46,7 @@ const MAX_STAND_INS = 64;
  * candidate fits when its pattern is `route` (an already-matched route, written
  * as in the rules file, with or without the `global.basePath`), or when its
  * matcher takes `path`. With no `path`, the route is matched through stand-in
- * paths (see `standInsOf`): a candidate takes it only if its matcher takes every
+ * paths (see `standInsOf`; `braces` reads a whole-segment plain-text group as a parameter, which only coverage's fallback asks for): a candidate takes it only if its matcher takes every
  * alternative, with and without the basePath, so an earlier pattern that takes
  * the whole route wins over a later one that names it, as it does for a `path`.
  * A `route` that opens (a wildcard, or an optional group holding a parameter)
@@ -60,6 +60,7 @@ export function findRoute(
 	routes: readonly CompiledRestRoute[],
 	where: { route?: string | undefined; path?: string | undefined },
 	basePath: string | undefined,
+	braces = false,
 ): RouteMatch | undefined {
 	const route = typeof where.route === 'string' ? where.route : undefined;
 	const path = typeof where.path === 'string' ? where.path : undefined;
@@ -74,7 +75,7 @@ export function findRoute(
 		return undefined;
 	}
 	const based = `${basePath ?? ''}${route}`;
-	const standIns = path === undefined ? standInsOf(route) : undefined;
+	const standIns = path === undefined ? standInsOf(route, braces) : undefined;
 	const basedStandIns =
 		standIns && basePath ? standIns.map((s) => basePath + s) : undefined;
 	const captures = path !== undefined || isLiteral(route);
@@ -108,7 +109,10 @@ export function findRoute(
  * for one that does not parse: such a route is matched by its own spelling
  * only, except an unparsable one, which stands for itself.
  */
-export function standInsOf(route: string): string[] | undefined {
+export function standInsOf(
+	route: string,
+	braces = false,
+): string[] | undefined {
 	let tokens: PatternToken[];
 	try {
 		tokens = parsePattern(route);
@@ -122,7 +126,7 @@ export function standInsOf(route: string): string[] | undefined {
 	): string[] => {
 		let out = prefix;
 		for (const [index, token] of list.entries()) {
-			if (token.type === 'group' && !isBrace(list, index)) {
+			if (token.type === 'group' && !(braces && isBrace(list, index))) {
 				out = [...out, ...render(token.tokens, out)];
 			} else {
 				const text = token.type === 'text' ? token.value : SENTINEL;
@@ -139,7 +143,7 @@ export function standInsOf(route: string): string[] | undefined {
 }
 
 /**
- * An OpenAPI brace: a group of plain text holding no `/` that fills a whole
+ * An OpenAPI brace, read only when `braces` is asked for (coverage's fallback): a group of plain text holding no `/` that fills a whole
  * segment (`/docs/{id}`), which stands for one parameter, not for an optional
  * spelling. A group inside a segment (`/a{b}`) stays optional.
  */

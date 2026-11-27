@@ -167,12 +167,22 @@ describe('coverage and evaluateRest agree on overlapping patterns', () => {
 		});
 	});
 
-	it('an OpenAPI brace operation reaches the parameter rule', async () => {
+	it('an OpenAPI brace operation reaches the parameter rule, as a coverage fallback', async () => {
 		const policy = denied({ '/docs/:id': { GET: { authenticated: true } } });
-		await agree(policy, 'GET', '/docs/{id}', '/docs/1', {
-			status: 'covered',
-			rule: 'GET /docs/:id',
-		});
+		expect(
+			coverage(policy, [rest('GET', '/docs/{id}')]).operations[0],
+		).toMatchObject({ status: 'covered', match: 'pattern' });
+		for (const input of [
+			{ path: '/docs/1' },
+			{ route: '/docs/{id}', path: '/docs/1' },
+		]) {
+			const result = await explain(policy, {
+				method: 'GET',
+				claims: anonymous,
+				...input,
+			});
+			expect(result.decision.allow).toBe(false);
+		}
 	});
 });
 
@@ -329,5 +339,48 @@ describe('a route is matched through a stand-in, every alternative', () => {
 			claims: user(),
 		});
 		expect(seen).toEqual([{ id: ':x' }]);
+	});
+});
+
+describe('a plain-text group is optional; the OpenAPI brace is a fallback', () => {
+	it.each([
+		['/docs/:x', '/docs/{id}', '/docs/'],
+		['/a/:x/c', '/a/{b}/c', '/a//c'],
+	])(
+		'%s before %s: the later public rule is reachable',
+		async (first, later, path) => {
+			const policy = denied({
+				[first]: { GET: { authenticated: true } },
+				[later]: { GET: { public: true } },
+			});
+			const report = coverage(policy, [rest('GET', later)]);
+			expect(report.operations[0]).toMatchObject({
+				status: 'public',
+				match: 'exact',
+			});
+			expect(report.stale.some((r) => r.kind === 'rest' && r.shadowedBy)).toBe(
+				false,
+			);
+			const result = await explain(policy, {
+				method: 'GET',
+				path,
+				claims: anonymous,
+			});
+			expect(result.decision.allow).toBe(true);
+		},
+	);
+
+	it('a route is refused by the public rule before a brace that needs auth', async () => {
+		const policy = denied({
+			'/docs/:x': { GET: { public: true } },
+			'/docs/{id}': { GET: { authenticated: true } },
+		});
+		const result = await explain(policy, {
+			method: 'GET',
+			route: '/docs/{id}',
+			claims: anonymous,
+		});
+		if (result.decision.allow) throw new Error('expected a refusal');
+		expect(result.decision.refusal.status).toBe(401);
 	});
 });
