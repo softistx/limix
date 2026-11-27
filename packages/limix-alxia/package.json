@@ -1,6 +1,6 @@
 {
 	"name": "@softistx/limix-alxia",
-	"version": "0.0.0",
+	"version": "0.1.0",
 	"description": "The alxia integration of @softistx/limix: route guard, coverage operations, and the GraphQL endpoint through limix-graxia",
 	"license": "MIT",
 	"type": "module",
