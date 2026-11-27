@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import { alxia } from '@softistx/alxia';
+import { compilePolicy, definePolicy } from '@softistx/limix';
 import { coverage } from '@softistx/limix/coverage';
-import { ok, policy, routesOn } from './app.fixtures';
+import { call, ok, policy, routesOn, whoOf } from './app.fixtures';
+import { limixGuard } from './guard';
 import { alxiaOperations } from './operations';
 
 describe('alxiaOperations with coverage()', () => {
@@ -27,5 +29,44 @@ describe('alxiaOperations with coverage()', () => {
 	test('a rule for a route the app lacks is stale', () => {
 		const report = coverage(policy, alxiaOperations(alxia().get('/open', ok)));
 		expect(report.stale.length).toBe(5);
+	});
+});
+
+describe('alxiaOperations with coverage(), overlapping routes', () => {
+	const overlapping = compilePolicy(
+		definePolicy({
+			limix: 1,
+			global: { unmatched: 'deny' },
+			rest: {
+				'/notes/:id': { GET: { authenticated: true } },
+				'/notes/new': { GET: { public: true } },
+			},
+		}),
+	);
+	const app = alxia().get('/notes/:id', ok).get('/notes/new', ok);
+
+	test('reports the rule the guard applies, and the one it shadows', () => {
+		const report = coverage(overlapping, alxiaOperations(app));
+		expect(
+			report.operations
+				.filter((o) => o.label === 'GET /notes/new')
+				.map((o) => o.status),
+		).toEqual(['covered']);
+		expect(report.stale).toEqual([
+			{
+				kind: 'rest',
+				method: 'GET',
+				path: '/notes/new',
+				label: 'GET /notes/new',
+				shadowedBy: { path: '/notes/:id', label: 'GET /notes/:id' },
+			},
+		]);
+	});
+
+	test('the guard answers 401 to anonymous on /notes/new', async () => {
+		const served = alxia();
+		served.use(limixGuard({ policy: overlapping, claims: whoOf, app: served }));
+		served.get('/notes/:id', ok).get('/notes/new', ok);
+		expect((await call(served, '/notes/new')).status).toBe(401);
 	});
 });

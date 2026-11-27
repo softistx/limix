@@ -137,7 +137,7 @@ Any other top-level key throws.
 
 Keyed by path pattern (`:name` for one segment, `*name` for the rest of the path, `{...}` for an optional part, `\` to write a special character literally), then by method (`GET`, `POST`,
 `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`, `CONNECT`, `TRACE`, `QUERY`). The
-first pattern that matches, in document order, is used.
+first pattern that matches, in document order, is used, for a `route` and a `path` alike: write static patterns before the param or wildcard ones that take them. Coverage reports a rule that never applies as stale with `shadowedBy`.
 
 ### GraphQL rules
 

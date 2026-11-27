@@ -547,6 +547,10 @@ See [GraphQL answered by the REST guard](troubleshooting.md#graphql-answered-by-
 
 ## Coverage
 
+When routes overlap (`/notes/:id` declared before `/notes/new`), coverage
+reports the rule the guard applies, and lists the one it shadows as stale with
+`shadowedBy`.
+
 `alxiaOperations(app)` lists the routes in the shape `coverage()` takes: each
 route in the rules file's pattern spelling (`/files/*` becomes `/files/*path`),
 `all` expanded to the methods it takes, each socket as the `GET` that upgrades

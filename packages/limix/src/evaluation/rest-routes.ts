@@ -1,4 +1,5 @@
 import type { CompiledPolicy, CompiledRestRoute } from '../rules';
+import { opensPattern, parsePattern } from '../rules/compile/pattern';
 
 /**
  * The rule sets a request with this method must pass. Every method faces its
@@ -18,37 +19,82 @@ export function ruleSetsForMethod(
 
 export interface RouteMatch {
 	route: CompiledRestRoute;
-	/** What the pattern captured from the path; empty for a pre-matched route. */
+	/**
+	 * What the pattern captured: from `path` when it is given, from a `route`
+	 * written as plain text; empty for a `route` that is itself a pattern.
+	 */
 	params: Partial<Record<string, string | string[]>>;
-	/** `true` when `route` named the pattern itself, `false` when the matcher took `path`. */
+	/** `true` when `route` named the pattern itself, `false` when a matcher took the input. */
 	exact: boolean;
 }
 
 /**
- * The first route of `routes` that fits, in document order: the one whose
- * pattern is `route` (an already-matched route, written as in the rules file,
- * with or without the `global.basePath`), else, when `route` misses or is not
- * given, the first whose matcher takes `path`. A `route` that is not spelled as
- * in the rules file therefore falls back to `path` rather than to `unmatched`.
+ * The first route of `routes` that fits, in one walk in document order. A
+ * candidate fits when its pattern is `route` (an already-matched route, written
+ * as in the rules file, with or without the `global.basePath`), or when its
+ * matcher takes `path`. With no `path`, the matcher is tried on `route`
+ * instead (with and without the basePath), so an earlier pattern that takes
+ * the route wins over a later one that names it, as it does for a `path`. A
+ * `route` that opens (a wildcard, or an optional group holding a parameter)
+ * is matched by its own spelling only: a matcher may take just some of the
+ * paths it stands for.
+ *
+ * Params are those the matcher captured from `path`, or from a `route` of
+ * plain text; a `route` that is a pattern captures none.
  */
 export function findRoute(
 	routes: readonly CompiledRestRoute[],
 	where: { route?: string | undefined; path?: string | undefined },
 	basePath: string | undefined,
 ): RouteMatch | undefined {
-	const pattern = typeof where.route === 'string' ? where.route : undefined;
+	const route = typeof where.route === 'string' ? where.route : undefined;
 	const path = typeof where.path === 'string' ? where.path : undefined;
-	if (pattern !== undefined) {
-		const route = routes.find(
-			(candidate) =>
-				candidate.pattern === pattern ||
-				candidate.pattern === `${basePath ?? ''}${pattern}`,
-		);
-		if (route) return { route, params: {}, exact: true };
-	}
-	for (const route of routes) {
-		const result = path === undefined ? false : route.matcher(path);
-		if (result !== false) return { route, params: result.params, exact: false };
+	const named = route === undefined ? [] : [route, `${basePath ?? ''}${route}`];
+	const probes =
+		path !== undefined
+			? [path]
+			: route !== undefined && !leavesPartlyOpen(route)
+				? basePath
+					? [route, `${basePath}${route}`]
+					: [route]
+				: [];
+	const captures =
+		path !== undefined || (route !== undefined && isLiteral(route));
+	for (const candidate of routes) {
+		if (named.includes(candidate.pattern)) {
+			return { route: candidate, params: {}, exact: true };
+		}
+		for (const probe of probes) {
+			const result = candidate.matcher(probe);
+			if (result !== false) {
+				return {
+					route: candidate,
+					params: captures ? result.params : {},
+					exact: false,
+				};
+			}
+		}
 	}
 	return undefined;
+}
+
+/**
+ * Whether the route stands for more than one segment shape, as
+ * `opensPattern` reads it; a route that does not parse is left to the matcher.
+ */
+export function leavesPartlyOpen(route: string): boolean {
+	try {
+		return opensPattern(parsePattern(route));
+	} catch {
+		return false;
+	}
+}
+
+/** Whether the route is plain text: no parameter, wildcard or group. A route that does not parse is. */
+function isLiteral(route: string): boolean {
+	try {
+		return parsePattern(route).every((token) => token.type === 'text');
+	} catch {
+		return true;
+	}
 }

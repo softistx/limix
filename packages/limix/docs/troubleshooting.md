@@ -405,10 +405,28 @@ build), a single operation or an object is refused before anything is read.
 coverage(policy, [{ kind: 'rest', method: 'GET', path: '/things/:id' }])
 ```
 
+## a public rule is refused: an earlier pattern takes its path (`shadowedBy`)
+
+A rule written after another that takes the same path never applies: the walk
+is in document order, for a `path` and a `route` alike.
+
+```yaml
+rest:
+  /notes/:id:
+    GET: { authenticated: true }
+  /notes/new:
+    GET: { public: true }      # GET /notes/new answers 401: /notes/:id took it
+```
+
+Coverage shows `GET /notes/new` as `covered` and lists the rule in `stale` with
+`shadowedBy: { path: '/notes/:id', label: 'GET /notes/:id' }`. Move the static
+pattern before the param or wildcard one.
+
 ## an operation is reported `match: 'pattern'`
 
 Not an error: a rule's matcher takes this spelling of the path, not its own
-pattern, as `evaluateRest` does for a request with that path. That is all it
+pattern, as `evaluateRest` does for a request with that path, or an earlier
+rule's matcher took it (see `shadowedBy` above). That is all it
 guarantees: an operation with a wildcard (`/files/*path`) or an optional group
 with a parameter is never covered this way, and shows `uncovered` unless a rule
 spells it exactly. The operation's `path`

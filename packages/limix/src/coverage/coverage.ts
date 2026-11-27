@@ -70,9 +70,10 @@ export interface CoverageReport {
  * `global.unmatched`, and which rules name no operation.
  *
  * REST goes through the lookup `evaluateRest` uses (`findRoute`,
- * `ruleSetsForMethod`): the exact pattern first, then the matcher on the path,
- * with and without `global.basePath`, and HEAD faces the GET rules too. A rule
- * reached by its matcher is used and reported `match: 'pattern'`. A GraphQL
+ * `ruleSetsForMethod`): one walk in document order, the operation read as an
+ * already-matched route, with and without `global.basePath`, and HEAD faces the
+ * GET rules too. A rule reached by a matcher is used and reported
+ * `match: 'pattern'`. A GraphQL
  * operation is looked up as `evaluateField` does, and only a root one falls
  * under `unmatched`.
  *
