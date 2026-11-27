@@ -48,6 +48,25 @@ evaluators never read a header or a token.
 
 An anonymous caller is `{ authenticated: false }`.
 
+`holdsPermission(claims)` returns the same permission test as a synchronous
+function, for an integration that has to answer "can this caller?" outside an
+evaluation (an agent view that hides what the caller may not use, for example):
+
+```ts
+import { holdsPermission } from '@softistx/limix';
+
+const can = holdsPermission({
+	authenticated: true,
+	scope: 'documents:read documents:write',
+	permissions: ['documents:read'],
+});
+can('documents:read'); // true
+can('documents:write'); // false: in scope, but not in permissions
+```
+
+It reads only `scope` and `permissions`, never `authenticated` or `roles`, so
+check `claims.authenticated` yourself first. A malformed claim holds nothing.
+
 ## Decision and refusal
 
 ```ts

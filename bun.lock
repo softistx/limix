@@ -29,6 +29,22 @@
         "typescript": "^6.0.3 || ^7.0.0",
       },
     },
+    "packages/limix-graxia": {
+      "name": "@softistx/limix-graxia",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@softistx/graxia": "^0.18.0",
+        "@softistx/limix": "workspace:^",
+        "@types/bun": "^1.4.5",
+        "graphql": "^17.1.0",
+      },
+      "peerDependencies": {
+        "@softistx/graxia": ">=0.18.0 <1.0.0",
+        "@softistx/limix": "workspace:^",
+        "graphql": "^17.1.0",
+        "typescript": "^6.0.3 || ^7.0.0",
+      },
+    },
     "packages/limix-janus": {
       "name": "@softistx/limix-janus",
       "version": "0.1.0",
@@ -134,9 +150,13 @@
 
     "@pnpm/deps.graph-sequencer": ["@pnpm/deps.graph-sequencer@1100.0.1", "", {}, "sha512-pOr5+q1fLYKwFN3LAJuGZEnfXDcQ73zqgDHMtGy+K+uIoUqyY+6MeDCWFwfu+4EFuq76I5EPFofoNAI+Bmmq4A=="],
 
+    "@softistx/graxia": ["@softistx/graxia@0.18.0", "", { "peerDependencies": { "@softistx/telemetry": "^0.5.0", "graphql": "^17.1.0", "typescript": "^6.0.3 || ^7.0.0" }, "optionalPeers": ["@softistx/telemetry", "typescript"] }, "sha512-VZdpmrGWFj4DXvpAXj5JUZidBrlQQNcKLC+6JZmqDjhvmSx+OlVxQchM3o7YwwfaiCel8Pjnu5RKmTU504ZLlw=="],
+
     "@softistx/janus": ["@softistx/janus@0.84.0", "", { "peerDependencies": { "typescript": "^6.0.3 || ^7.0.0" } }, "sha512-x/3eFuSAzI0f/s8hqYoKStj5A4risk/puC3k6pHAgRpfR+NUK0ipxqW5ArfKOIaH/GH0nMqEVP6qKYAjx3+Gng=="],
 
     "@softistx/limix": ["@softistx/limix@workspace:packages/limix"],
+
+    "@softistx/limix-graxia": ["@softistx/limix-graxia@workspace:packages/limix-graxia"],
 
     "@softistx/limix-janus": ["@softistx/limix-janus@workspace:packages/limix-janus"],
 
@@ -199,6 +219,8 @@
     "fast-wrap-ansi": ["fast-wrap-ansi@0.2.2", "", { "dependencies": { "fast-string-width": "^3.0.2" } }, "sha512-7F2Fl+TjRSenLqlU3UjSH0iyqopqoZIu7eZVpEirP2g1GtWa2G/ecEmBdgz31+Mxr+ELclgg6sokpSFIQiZ02Q=="],
 
     "fdir": ["fdir@6.5.0", "", { "peerDependencies": { "picomatch": "^3 || ^4" }, "optionalPeers": ["picomatch"] }, "sha512-tIbYtZbucOs0BRGqPJkshJUYdL+SDH7dVM8gjy+ERp3WAUjLEFJE+02kanyHtwjWOnwrKYBiwAmM0p4kLJAnXg=="],
+
+    "graphql": ["graphql@17.1.0", "", {}, "sha512-JKCOa7rSQNrket/JFhuua86hljUO+IIpyUHfKxlKD6FEfbrLX8jc1FDrA0KPKI+s8OspBCF/5npYccAICHXPpQ=="],
 
     "human-id": ["human-id@4.2.2", "", { "bin": { "human-id": "dist/cli.js" } }, "sha512-Z+8unD6em/MJwyrkWQ2M3wygRGI1+MztbutiNwk1DCuEPXOZRWGjtcMPZYP1exY9iNZMhd7ZOSMQSo9WYtiQRw=="],
 
