@@ -24,6 +24,8 @@ Nothing yet.
 
 ## Shipped
 
+- **0.2.0** — several rules files on one app: the innermost `limixGuard` that
+  owns a route judges it alone; `checkGuard` names a hook between two guards.
 - **0.1.0** — a route guard (`limixGuard`) with refusals in the
   app's error format, `alxiaOperations` and `checkRoutes` for coverage and
   setup checks, and `limixGraphql` for a GraphQL endpoint behind the same
