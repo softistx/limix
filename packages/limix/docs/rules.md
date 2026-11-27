@@ -492,6 +492,13 @@ definePolicy({
 option of `compilePolicy` take. Nothing is registered by default: until a
 generated file is in your program, every type is what it was (`string`, `Rules`).
 
+`definePolicy` and `compilePolicy` take a `RulesInput`: a `Rules`, or a document
+with flat `graphql` keys (`"Query.me"`); `definePolicy` returns `Rules`. `Rules`
+types every `graphql` value as a field map and every `rest` value as methods and
+rule, so a tool that reads parsed `Rules` must test the key shape: the value of
+a flat key (`"GET /x"`, `"Query.me"`, `"Note.*"`) is a rule, the value of any
+other key is a map of methods or fields.
+
 What is checked, and what is not:
 
 - A refusal holds only in an inline object literal given to `definePolicy`. A
