@@ -157,7 +157,7 @@ and `relations` gave none, with a policy source).
 **Why:** the source has not loaded rules yet, or withdrew them. The guard
 fails closed.
 **Fix:** load or swap a policy into the source; watch `onUnavailable` for the
-moment it happened. See [outage](graphql.md#outage-and-onunavailable).
+moment it happened. For `no-relation-checker`, pass `relations`. See [outage](graphql.md#outage-and-onunavailable).
 
 ### `limix.errors.unavailable` with `params: { reason: 'policy-mismatch' }`
 
@@ -165,7 +165,9 @@ moment it happened. See [outage](graphql.md#outage-and-onunavailable).
 `onUnavailable` fired.
 **Why:** the held policy has a rule the schema cannot take: on a type the
 schema lacks (a typo, a type removed), on an interface, union or other type
-that is not an object type, or on a field the type lacks. A source is never
+that is not an object type, on a field the type lacks, or on a Subscription
+field with a relation whose `from` reads `source.` (a subscription starts with
+no source). A source is never
 checked when a policy is swapped in, so the guard checks each policy it holds,
 once, and fails closed rather than leave that rule unenforced.
 **Fix:** correct the rules file and swap it in; the next call is served. To

@@ -45,7 +45,7 @@ import { guardSchema, limixGraxia } from '@softistx/limix-graxia'
 import { buildSchema } from 'graphql'
 
 const schema = buildSchema(`
-  type Query { me: String  notes: [String!]! }
+  type Query { me: String  notes: [String!] }
   type Mutation { retire(id: ID!): Boolean }
 `)
 
@@ -140,9 +140,11 @@ printSchemaFor(schema, { can: canOf({ authenticated: true, scope: 'books:read' }
 - A static policy refuses a named non-null field at `guardSchema` (a refusal
   would null its parent): make the field nullable, or pass `nonNull: 'allow'`.
 - A policy source passes every field the snapshot has no rule on, root fields
-  under `unmatched: deny` excepted; a rule on a missing field is only caught
-  for a static policy, so run `guardSchema(schema, { policy: compiled, ... })`
-  in a spec.
+  under `unmatched: deny` excepted. A held policy that does not fit the schema
+  is refused 503 `policy-mismatch`
+  ([guide](docs/graphql.md#a-policy-that-does-not-fit-the-schema)), so check the
+  rules file in a spec with `guardSchema(schema, { policy: compiled, ... })`:
+  it also catches named non-null fields, which a source never checks.
 
 ## Documentation
 

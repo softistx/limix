@@ -5,7 +5,6 @@ import {
 	isPolicySource,
 	LimixRefusal,
 	outageReporter,
-	type PolicyInput,
 } from '@softistx/limix';
 import {
 	defaultFieldResolver,
@@ -81,22 +80,24 @@ async function enforce(
 	const [parent, args, ctx, info] = call;
 	const { options } = guard;
 	const top = info.path.prev === undefined;
-	if (isLimixRefusal(held))
-		throw refusalError(held, options.mapRefusal, at, top);
+	// Decided on this snapshot alone: a policy that lands while the claims are
+	// read was never checked against the schema, so it must not judge this call.
+	const policy =
+		held ??
+		new LimixRefusal('limix.errors.unavailable', 503, { reason: 'no-policy' });
+	if (isLimixRefusal(policy))
+		throw refusalError(policy, options.mapRefusal, at, top);
 	const claims = await claimsOf(ctx, options.claims);
-	const decision = await evaluateField(
-		(held ?? options.policy) as PolicyInput,
-		{
-			type: at.type,
-			field: at.field,
-			root: at.root,
-			claims,
-			args: args as Record<string, unknown>,
-			source: parent,
-			info,
-			relations: relationsOf(ctx, options.relations),
-		},
-	);
+	const decision = await evaluateField(policy, {
+		type: at.type,
+		field: at.field,
+		root: at.root,
+		claims,
+		args: args as Record<string, unknown>,
+		source: parent,
+		info,
+		relations: relationsOf(ctx, options.relations),
+	});
 	if (!decision.allow)
 		throw refusalError(decision.refusal, options.mapRefusal, at, top);
 }

@@ -16,7 +16,7 @@ import { guardSchema, limixGraxia } from '@softistx/limix-graxia'
 import { buildSchema } from 'graphql'
 
 const schema = buildSchema(`
-  type Query { me: String  notes: [String!]! }
+  type Query { me: String  notes: [String!] }
 `)
 
 const options = {
@@ -81,6 +81,8 @@ claims read per governed field. Only the context the plugin made is trusted: a
 `claims` is typed against your host context: the plugin carries the type of
 its `ctx` parameter, so `createGraxia` refuses, at compile time, a `context`
 factory that does not return what `claims` reads.
+Annotate `ctx`: left bare it is typed as an empty object, and reading
+`ctx.request` then fails to compile.
 
 ```ts
 type Ctx = { request: Request }
@@ -131,7 +133,7 @@ A governed field that has no resolver of its own runs graphql's
 default resolver of your host) is not used for it. Give such a field a
 `resolve` of its own, or leave it out of the rules.
 
-A realistic wiring: relations through janus, a swapped policy, a Hono mount.
+A realistic wiring, schematic (`claimsOf`, `access` and `schema` are your own): relations through janus, a swapped policy, a Hono mount.
 
 ```ts
 import { createGraxia } from '@softistx/graxia'
@@ -235,7 +237,8 @@ withdrawn one refuses it as `limix.errors.unavailable`).
 
 A subscription starts with no `source`: a relation whose `from` reads
 `source.` fails at subscribe, so `guardSchema` refuses such a rule at setup for
-a static policy. Read `args.` instead.
+a static policy, and a policy source holding one is refused whole as
+`policy-mismatch` (every guarded field answers 503). Read `args.` instead.
 
 ## Outage and `onUnavailable`
 
@@ -284,8 +287,9 @@ in a spec.
 
 A source can be handed any policy after `guardSchema` ran, so the guard checks
 each policy it holds against the schema, once per policy: a rule on an unknown
-type, on an interface or another type that is not an object type, or on a
-field the type lacks. Such a policy would silently enforce nothing for that
+type, on an interface or another type that is not an object type, on a
+field the type lacks, or a Subscription rule whose relation reads `source.`.
+Such a policy would silently enforce nothing for that
 rule, so the guard treats it as unavailable: every guarded field answers
 `limix.errors.unavailable`, status 503, params `{ reason: 'policy-mismatch' }`,
 and `onUnavailable` fires once, as for an empty source. Swap a fitting policy

@@ -129,4 +129,35 @@ describe('guardSchema, policy source', () => {
 			});
 		}
 	});
+
+	test('an empty source refuses before reading the claims, so a policy landing meanwhile never judges the call', async () => {
+		const source = mutableSource();
+		const misspelt = compilePolicy(
+			definePolicy({
+				limix: 1,
+				global: { unmatched: 'allow' },
+				graphql: { Query: { secrett: { roles: [['admin']] } } },
+			}),
+		);
+		let reads = 0;
+		const schema = guardSchema(fixtureSchema(), {
+			policy: source,
+			claims: async () => {
+				reads++;
+				source.swap(misspelt);
+				return claims.anon;
+			},
+		});
+		const first = await run(schema, '{ secret }');
+		expect(first.data).toEqual({ secret: null });
+		expect(first.errors?.[0]?.extensions?.['params']).toEqual({
+			reason: 'no-policy',
+		});
+		expect(reads).toBe(0);
+		source.swap(misspelt);
+		const second = await run(schema, '{ secret }');
+		expect(second.errors?.[0]?.extensions?.['params']).toEqual({
+			reason: 'policy-mismatch',
+		});
+	});
 });
