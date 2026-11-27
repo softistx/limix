@@ -27,8 +27,8 @@ fixes only on 5.x) until nothing imports it, then `npm deprecate`d.
   `@softistx/alxia-access` fit together, moving core's `shared-hono` and
   `shared-graphql` off `@softistx/security`, and a type-safe rules editor built
   on `@softistx/material`.
-- The repository is public, the npm packages are private (`access:
-  "restricted"`, owner, 2026-11-26); versions stay 0.x until the pilot runs on
+- The repository is public, the npm packages are published with
+  `access: "restricted"` (owner, 2026-11-26); versions stay 0.x until the pilot runs on
   them.
 - `path-to-regexp` stays a root devDependency, declared: a dev-only reference
   for the port (`matcher.differential.spec.ts` compares the in-house matcher
@@ -53,7 +53,7 @@ Carried from janus: `.github/actions/setup`, the `ci.yml`,
 `affected.ts`, `check-changesets.ts`, `close-released-issues*.ts`), each with
 its spec. Every file but the byte copies of `close-released-issues*.ts` is adapted
 to limix (see the divergences below). `@softistx/limix`, `@softistx/limix-janus` and `@softistx/limix-publish`
-publish (0.1, owner 2026-11-26); a new package starts `"private": true` and
+publish, from 0.1 on, through the Version PR and a tag; a new package starts `"private": true` and
 publishes from a commit of its own that removes it, with its changeset.
 
 Declared divergences from janus:

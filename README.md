@@ -3,7 +3,7 @@
 A policy engine for REST and GraphQL: rules in YAML/JSON or a typed builder,
 relations through a port (janus first), coverage, and signed remote rules.
 
-Work in progress, nothing published yet.
+0.x on npm (restricted access); versions stay 0.x until a pilot runs on them.
 
 | Package | What it is |
 | --- | --- |
