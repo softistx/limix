@@ -7,7 +7,8 @@ and lists the operations a coverage test reads.
 
 ## Install
 
-Not published yet: the package is private until the first release.
+The package is published with restricted access: installing it needs an npm
+token that can read the `@softistx` scope.
 
 ```sh
 bun add @softistx/limix-graxia @softistx/limix @softistx/graxia graphql
@@ -59,6 +60,7 @@ const options = {
     },
   })),
   // Read once per operation, from what your `context` option returned.
+  // stand-in: read these from your verified token, never from a client header
   claims: (ctx: { request: Request }) => ({
     authenticated: ctx.request.headers.has('authorization'),
     scope: ctx.request.headers.get('x-scope') ?? '',
@@ -150,6 +152,7 @@ printSchemaFor(schema, { can: canOf({ authenticated: true, scope: 'books:read' }
 
 See [docs/](docs/README.md):
 
+- [Migrating from `@softistx/security`](https://github.com/softistx/limix/blob/develop/packages/limix/docs/migrating-from-security.md): each change with the 5.x code and the limix code.
 - [GraphQL guide](docs/graphql.md): the guard, the plugin, refusals, outages.
 - [`@needs` guide](docs/needs.md): `checkNeeds` and `canOf`.
 - [Troubleshooting](docs/troubleshooting.md): the errors this package throws.

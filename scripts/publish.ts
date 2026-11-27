@@ -68,6 +68,12 @@ export async function readPackages(root: string = ROOT): Promise<Pkg[]> {
 	].sort()) {
 		const m = await Bun.file(join(root, rel)).json();
 		if (m.private) continue;
+		if (m.version === '0.0.0') {
+			console.log(
+				`${m.name}: version 0.0.0 waits for its Version PR, not published`,
+			);
+			continue;
+		}
 		const deps = new Set<string>();
 		for (const field of ['dependencies', 'peerDependencies']) {
 			for (const dep of Object.keys(m[field] ?? {})) {

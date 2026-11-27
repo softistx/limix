@@ -180,6 +180,7 @@ limixGraphql(app, { schema, limix }) // the SAME object
 
 See [docs/](docs/README.md):
 
+- [Migrating from `@softistx/security`](https://github.com/softistx/limix/blob/develop/packages/limix/docs/migrating-from-security.md): each change with the 5.x code and the limix code.
 - [alxia guide](docs/alxia.md): the guard, tenants, relations, refusals, outages, GraphQL, coverage.
 - [Troubleshooting](docs/troubleshooting.md): the errors and refusals this package gives.
 - [Roadmap](docs/roadmap.md): what is coming.

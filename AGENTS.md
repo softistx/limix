@@ -23,8 +23,8 @@ fixes only on 5.x) until nothing imports it, then `npm deprecate`d.
 - The rules format starts from `@softistx/security` 5 and may break it where
   that simplifies, with a migration guide and no compatibility aliases.
 - No Ory or Keto adapter: relations go through the port, janus first.
-- Pilot: clavix-api protects its own GraphQL API with a local rules file through
-  limix-graxia and limix-alxia (Clavix serves no signed rules, owner 2026-11-27).
+- Pilot: an in-house alxia GraphQL API protects itself with a local rules file
+  through limix-graxia and limix-alxia (it serves no signed rules, owner 2026-11-27).
   Remote rules stay, proved by the limix-publish round-trip specs.
 - Later, not in 1.0: `restricted`, the gateway trust proof, how limix and
   `@softistx/alxia-access` fit together, moving core's `shared-hono` and
@@ -41,6 +41,10 @@ fixes only on 5.x) until nothing imports it, then `npm deprecate`d.
   (`duplicate-keys.differential.spec.ts` checks that the duplicate-key scanner
   of `./bun` reports a duplicate exactly when `yaml` refuses the key). It is
   never imported by `src` nor a dependency of a package.
+- `hono` stays a root devDependency, declared: the Hono recipe of the migration
+  guide (`packages/limix-alxia/examples/migrating-from-security/hono.ts`)
+  compiles against it and `migration-guide.spec.ts` runs it. It is never imported
+  by `src` nor a dependency of a package.
 
 ## Layout
 
@@ -55,9 +59,14 @@ Carried from janus: `.github/actions/setup`, the `ci.yml`,
 (`scripts/publish*.ts`, `scripts/verify-artifacts.ts` with `scripts/artifacts/`,
 `affected.ts`, `check-changesets.ts`, `close-released-issues*.ts`), each with
 its spec. Every file but the byte copies of `close-released-issues*.ts` is adapted
-to limix (see the divergences below). `@softistx/limix`, `@softistx/limix-janus` and `@softistx/limix-publish`
-publish, from 0.1 on, through the Version PR and a tag; a new package starts `"private": true` and
-publishes from a commit of its own that removes it, with its changeset.
+to limix (see the divergences below). Every package
+publishes, from 0.1 on, through the Version PR and a tag; a new package starts
+`"private": true` and publishes from a commit of its own that removes it, with
+its changeset.
+
+The migration guide's TypeScript fences are byte copies of
+`packages/limix-alxia/examples/migrating-from-security/*.ts`, which
+`migration-guide.spec.ts` holds: edit the file, then paste it.
 
 Declared divergences from janus:
 

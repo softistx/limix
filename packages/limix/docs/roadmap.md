@@ -5,22 +5,14 @@ dates here, and the version something shipped in is the only number.
 
 ## Now
 
-- **alxia integration** — rules on HTTP routes in an alxia API
-  (`@softistx/limix-alxia`): a route guard with refusals in the app's error
-  format, `alxiaOperations` and `checkRoutes`, and a GraphQL endpoint behind
-  the same rules. Not published yet.
-- **graxia integration** — rules on GraphQL fields in a graxia API (`@softistx/limix-graxia`): a field guard, a graxia plugin, `@needs` checks and coverage operations.
-
-- **Code generation** — `Register`, and `@softistx/limix-codegen` (a CLI and a
-  graphql-codegen plugin) that types `definePolicy` against the API's operations
-  (GraphQL schema, OpenAPI spec) and the permission, role and condition names of
-  the rules file, plus a starter rules file. `Register` ships with the next
-  minor; the generator is not published yet.
+Nothing in progress: the next items are below.
 
 ## Next
 
-- **Migration from @softistx/security** — a guide from the `policy` part of
-  `@softistx/security`.
+- **Migration guide on npm** — the [migration guide from
+  `@softistx/security`](migrating-from-security.md) is in the repository's docs;
+  it reaches the npm page with the next `@softistx/limix` release.
+
 ## Later
 
 - **Typed condition contexts** — field args, route params and body typed per
@@ -39,6 +31,9 @@ dates here, and the version something shipped in is the only number.
 
 ## Shipped
 
+- **0.3.0** — `Register`, the hook a generated file fills to type `definePolicy`
+  and the `conditions` of `compilePolicy`.
+- **0.2.0** — `holdsPermission(claims)`.
 - **0.1.0** (0.1.1 is the same code) — the rules format and evaluation (parse, load, `definePolicy`,
   compile, the JSON schema, `evaluateRest`, `evaluateField`, `explain`, the
   `RelationChecker` port), coverage (`@softistx/limix/coverage`), signed remote

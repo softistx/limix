@@ -1,9 +1,10 @@
 # @softistx/limix — documentation
 
-The [README](../README.md) is the npm page. Nothing is published yet; these pages exist:
+The [README](../README.md) is the npm page; these pages go deeper:
 
 | Page | Read it when |
 | --- | --- |
+| [Migrating from @softistx/security](migrating-from-security.md) | You move a service off @softistx/security's policy engine |
 | [Rules](rules.md) | You write, load or compile a rules document |
 | [Evaluation](evaluation.md) | You check a request or a field, read a refusal, hold a source, or explain a decision |
 | [Relations](relations.md) | A rule needs per-object checks through the `RelationChecker` port |

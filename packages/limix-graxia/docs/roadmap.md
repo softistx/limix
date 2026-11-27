@@ -5,15 +5,11 @@ are no dates here, and the version something shipped in is the only number.
 
 ## Now
 
-- **The graxia integration** — a field guard (`guardSchema`), a graxia plugin
-  (`limixGraxia`), `checkNeeds` and `canOf` for `@needs`, and `graphqlOperations`
-  for coverage. Not published yet.
+Nothing in progress: the next items are below.
 
 ## Next
 
-- **Publish, with the migration guide** — the first release, and the guide from
-  the `policy` part of `@softistx/security`.
-  [softistx/limix#11](https://github.com/softistx/limix/issues/11)
+Nothing yet.
 
 ## Later
 
@@ -26,4 +22,6 @@ Nothing yet.
 
 ## Shipped
 
-Nothing yet.
+- **0.1.0** — a field guard (`guardSchema`), a graxia plugin
+  (`limixGraxia`), `checkNeeds` and `canOf` for `@needs`, and `graphqlOperations`
+  for coverage.

@@ -118,4 +118,22 @@ describe('readPackages', () => {
 		expect(pkgs.map((p) => p.name)).toEqual(['@softistx/janus-mongo']);
 		expect([...(pkgs[0]?.deps ?? [])]).toEqual(['@softistx/janus']);
 	});
+
+	test('skips a package still at 0.0.0: it waits for its Version PR', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'limix-publish-'));
+		dirs.push(root);
+		for (const [dir, version] of [
+			['fresh', '0.0.0'],
+			['ready', '0.1.0'],
+		] as const) {
+			await Bun.write(
+				join(root, 'packages', dir, 'package.json'),
+				JSON.stringify({ name: `@softistx/${dir}`, version }),
+			);
+		}
+
+		const pkgs = await readPackages(root);
+
+		expect(pkgs.map((p) => p.name)).toEqual(['@softistx/ready']);
+	});
 });
