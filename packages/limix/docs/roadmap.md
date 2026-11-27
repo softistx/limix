@@ -36,7 +36,7 @@ Nothing in progress: the next items are below.
 
 ## Shipped
 
-- **0.1.1** (0.1.0 is not on npm) — the rules format and evaluation (parse, load, `definePolicy`,
+- **0.1.0** (0.1.1 is the same code) — the rules format and evaluation (parse, load, `definePolicy`,
   compile, the JSON schema, `evaluateRest`, `evaluateField`, `explain`, the
   `RelationChecker` port), coverage (`@softistx/limix/coverage`), signed remote
   rules (`@softistx/limix/remote`: `remotePolicy`, `verifyRules`;

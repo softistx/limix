@@ -3,14 +3,16 @@ name: Publish
 # Every public @softistx/limix* package publishes to registry.npmjs.org, and
 # nowhere else (owner, 2026-11-19), from a tag. Versions are made locally
 # (`bun run changeset:version`, merged as a "Version packages" PR). The release
-# owner then tags from an up-to-date `develop` (`bunx changeset tag &&
+# owner then tags from an up-to-date `develop` (`bun --bun x changeset tag &&
 # git push --follow-tags`): a tag `v*` or `<pkg>@<x.y.z>` publishes every public
 # package whose version is not on npm yet. GitHub creates no push event when
 # more than three tags are pushed at once, so then run
 # `gh workflow run publish.yml --ref develop` (idempotent, and the sha
 # concurrency group dedupes it with any tag-triggered run). CI never tags. Several tags of one
 # commit share the sha concurrency group, so the commit publishes once.
-# scripts/publish.ts skips versions already on npmjs, so a re-run resumes.
+# scripts/publish.ts skips versions already on npmjs (also when npmjs still
+# answers 404 for a new package but refuses the publish as taken), so a re-run
+# resumes.
 # `release.yml` only opens the Version PR and publishes nothing.
 on:
   push:

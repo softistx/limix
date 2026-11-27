@@ -15,7 +15,12 @@ describe('publishPackage', () => {
 	};
 
 	/** `onNpm`: the version is already there; `refusing`: the publish fails. */
-	function setup(onNpm: boolean, refusing = false, absent: string[] = []) {
+	function setup(
+		onNpm: boolean,
+		refusing = false,
+		absent: string[] = [],
+		refusal = 'denied',
+	) {
 		let published = 0;
 		const errors: string[] = [];
 		const deps: PublishDeps = {
@@ -23,7 +28,7 @@ describe('publishPackage', () => {
 			missingEntryPoints: async () => absent,
 			publishTo: async () => {
 				published++;
-				return { ok: !refusing, output: refusing ? 'denied' : '' };
+				return { ok: !refusing, output: refusing ? refusal : '' };
 			},
 			sleep: async () => {},
 			log: () => {},
@@ -74,6 +79,22 @@ describe('publishPackage', () => {
 		});
 		expect(errors.join('\n')).toContain('FAILED    @softistx/x@1.0.0 on npmjs');
 		expect(errors.join('\n')).toContain('denied');
+	});
+
+	test('npmjs already holds the version it said was missing: skipped, not failed', async () => {
+		const { deps, published, errors } = setup(
+			false,
+			true,
+			[],
+			'403 Forbidden - You cannot publish over the previously published versions: 1.0.0.',
+		);
+		expect(await publishPackage(pkg, deps)).toEqual({
+			failed: false,
+			published: false,
+			tag: undefined,
+		});
+		expect(published()).toBe(1);
+		expect(errors).toEqual([]);
 	});
 
 	test('a registry that cannot be asked fails the package and publishes nothing', async () => {
