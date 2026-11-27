@@ -1,5 +1,11 @@
 # @softistx/limix
 
+## 0.3.0
+
+### Minor Changes
+
+- [#34](https://github.com/softistx/limix/pull/34) [`dd6a73f`](https://github.com/softistx/limix/commit/dd6a73f6af019dbb5f88b4a4344be77670a0dbae) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `Register`: definePolicy refuses a rule on an operation the registered list does not hold, and compilePolicy a condition the rules file does not name; `Permission`, `Role`, `ConditionName`, `RestOperationName`, `GraphqlOperationName`, `TypedRules` and `ConditionMap` read it. Nothing is registered by default, so nothing changes until a generated file registers it.
+
 ## 0.2.0
 
 ### Minor Changes
