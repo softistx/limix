@@ -6,6 +6,8 @@ the GraphQL operations (SDL files or the schema graphql-codegen holds) and the
 names a rules file uses. Core's `Register` interface reads the file by module
 augmentation, so `definePolicy` and `compilePolicy` check against it.
 
+Writing the rules once the file exists: [Writing rules](writing-rules.md).
+
 ## The generated file
 
 ```ts
@@ -41,8 +43,8 @@ again".
 
 | Key | Source | What it checks |
 | --- | --- | --- |
-| `rest` | `--openapi` | `definePolicy`: a path key must be a path of the API, and a method under it a method the API declares on that path |
-| `graphql` | `--graphql` or the plugin | `definePolicy`: a type and a field must exist in the schema, on every type (roots and others) |
+| `rest` | `--openapi` | `definePolicy`: a path key must be a path of the API, and a method under it a method the API declares on that path (or `*`); a flat key (`"GET /notes"`) must be an operation of the API |
+| `graphql` | `--graphql` or the plugin | `definePolicy`: a type and a field must exist in the schema, on every type (roots and others), or the field `*`; a flat key (`"Query.me"`) must be a field, `"Note.*"` needs a type of the schema |
 | `condition` | `--rules` | `compilePolicy(rules, { conditions })`: a name the rules file does not use is refused; a name it does use may still be missing (a runtime `RulesError`) |
 | `permission`, `role` | `--rules` | Nothing in core: `Permission` and `Role` give your own code the unions |
 
@@ -50,8 +52,10 @@ again".
 
 - A key whose input was not given: without `--graphql`, GraphQL rules accept any
   type and field.
-- A path key holding `*` or `{`: `/files/*path` and `/a{/:b}` name several
-  routes and are accepted with any method.
+- A path key holding `*` or `{`: `/files/*path`, `/a{/:b}`, `"* /notes"` and
+  `"/x/*"` name several routes and are accepted with any method. The types do not
+  look at them, but `generate --check` does: it reports one that reaches no
+  operation of the spec (see [Stale rules](#stale-rules)).
 - Anything but an inline object literal given to `definePolicy`: a variable, a
   spread, an escaped `\*` key or a `{` key is accepted unchecked. A value
   already typed `Rules`, such as the output of `parseRules`, goes to
@@ -66,6 +70,32 @@ again".
 - `HEAD` is registered only when the spec declares it.
 - A rules file loaded with `loadRules`, or any rules that do not go through
   `definePolicy`: the types see only the literal you write in code.
+
+## Stale rules
+
+With `--rules` and at least one of `--openapi` and `--graphql`, `generate` also
+reads the rules against the operations it was given, through the same lookup
+`coverage` uses (`global.basePath`, `HEAD` as `GET`, the method `*`, an earlier
+pattern that takes a later one). A rule that reaches no operation is printed on
+stderr:
+
+```text
+rules.yaml: rest['DELETE /files/*'] applies to no operation of openapi.yaml (no DELETE route matches /files/*)
+rules.yaml: rest['/notes/new'].GET is shadowed by GET /notes/:id above it: it never applies
+rules.yaml: graphql['Query.you'] names no field of Query in schema.graphql
+rules.yaml: graphql['Nope.*'] names no type of schema.graphql
+```
+
+Without `--check` these are warnings: the file is written and the exit code is
+0. With `--check` they fail the run (exit 1), together with an out-of-date file,
+and the last line counts them: `4 stale rule(s): fix or remove them, or add the
+operation to the spec`. REST rules are judged only with `--openapi`, GraphQL
+rules only with `--graphql`. A `Type.*` rule on a type of the schema is never
+reported (it only says every field has a rule of its own).
+
+An exact key that names nothing (`"GET /notez"`) is reported too, which the
+types catch only in an inline `definePolicy` literal: a rules file loaded from
+YAML is checked here.
 
 ## OpenAPI conversion
 
@@ -99,7 +129,22 @@ limix-codegen init --openapi openapi.yaml --graphql schema.graphql
 
 writes `rules.yaml` (`--rules` picks another name; `.json` writes JSON): every
 REST operation and every GraphQL root field gets `authenticated: true` under
-`unmatched: deny`. Only root fields are listed. The file is validated and
+`unmatched: deny`. Only root fields are listed. `--flat` writes one key per
+operation instead of a path or a type that holds its methods or fields:
+
+```yaml
+rest:
+  "GET /notes":
+    authenticated: true
+  "DELETE /notes/:id":
+    authenticated: true
+graphql:
+  "Query.me":
+    authenticated: true
+```
+
+The two forms compile to the same policy; flat reads better once a file grows
+and diffs by operation. The file is validated and
 compiled before it is written. `init` never rewrites an existing file (it
 exits 0 with a notice), so follow up with coverage, which lists what is new:
 

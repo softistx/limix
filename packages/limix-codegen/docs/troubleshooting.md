@@ -9,10 +9,11 @@ your message. `<...>` stands for the part that varies.
 
 ## In your editor
 
-### `Object literal may only specify known properties, and ''/notez'' does not exist in type 'CheckedRest<LimixRest>'`
+### `Object literal may only specify known properties, and ''/notez'' does not exist in type 'CheckedRestInput<LimixRest>'`
 
 **When:** a key of `definePolicy`'s `rest` or `graphql` is not an operation of
-the API.
+the API. A flat key (`'GET /notez'`, `'Query.you'`) is refused the same way,
+under `CheckedRestInput` or `CheckedGraphqlInput`.
 **Why:** the registered list does not hold it. Also true of a key written with
 the `global.basePath` (`/api/notes`): keys are written without it.
 **Fix:** correct the path, the method or the field; if the API gained it,
@@ -36,6 +37,61 @@ not checked.
 **Fix:** add the condition to the rules file and regenerate, or fix the name.
 
 ## The CLI
+
+### `<rules>: rest['<key>'] applies to no operation of <openapi> (no <METHOD> route matches <path>)`
+
+**When:** `generate` prints it (a warning) or `generate --check` exits 1 with
+`<n> stale rule(s)`.
+**Why:** no operation of the OpenAPI spec reaches that rule: a typo, a route that
+was removed or renamed, a `global.basePath` written into the key, or a wildcard
+pattern no operation falls under.
+**Fix:** correct the key, remove the rule, or add the operation to the spec. A
+route the spec deliberately leaves out (undocumented, or served by another
+spec): add it to the spec, or pass every spec with a repeated `--openapi`; the
+rule is judged against the operations you give.
+
+```yaml
+rest:
+  "GET /notes":      # was "GET /notez": it reaches no operation
+    authenticated: true
+```
+
+### `<rules>: rest['<path>'].<METHOD> is shadowed by <METHOD> <path> above it: it never applies`
+
+**When:** the same run, for a rule an earlier rule always takes first.
+**Why:** rules are first-match in document order, and the earlier pattern
+(`/notes/:id`) matches every path of the later one (`/notes/new`).
+**Fix:** move the specific rule above the general one.
+
+```yaml
+rest:
+  "GET /notes/new":   # first
+    public: true
+  "GET /notes/:id":
+    authenticated: true
+```
+
+### `<rules>: graphql['<Type.field>'] names no type of <schema>`
+
+**When:** the same run, for a GraphQL rule whose type is not in the SDL.
+**Why:** a typo (`Nope.*`), a type that was renamed or removed, or an SDL file
+missing from the `--graphql` flags (give every file).
+**Fix:** correct the type, remove the rule, or pass the file that declares it.
+
+### `<rules>: graphql['<Type.field>'] names no field of <Type> in <schema>`
+
+**When:** the same run, for a rule whose type exists but has no such field.
+**Fix:** correct the field or remove the rule. A `Type.*` rule on a type of the
+schema is never reported.
+
+### `<n> stale rule(s): fix or remove them, or add the operation to the spec`
+
+**When:** the last line of `generate --check` when any of the four messages
+above was printed (exit 1).
+**Fix:** act on each line above it. Without `--check` the same lines are
+warnings and the exit code stays 0. REST rules are judged only with `--openapi`
+and GraphQL rules only with `--graphql`: leave an input out to leave its rules
+unjudged.
 
 ### `<out> is out of date: run limix-codegen generate with the same flags and commit it` and `<out> is missing: ...`
 
