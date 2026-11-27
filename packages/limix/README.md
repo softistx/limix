@@ -5,13 +5,10 @@ reach a route or a field, written in YAML or JSON or through a typed builder,
 with relations checked through a port, coverage over your operations and signed
 rules pulled from a policy server.
 
-> **Nothing published yet.** The rules format (parse, load, build, compile),
-> evaluation (REST, GraphQL fields, relations, explain), coverage and the remote
-> client are in. See the [roadmap](docs/roadmap.md).
-
 ## Install
 
-Not on npm yet. Once published:
+The package is published with restricted access: installing it needs an npm
+token that can read the `@softistx` scope.
 
 ```sh
 bun add @softistx/limix

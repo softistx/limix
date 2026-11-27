@@ -6,11 +6,10 @@ verifies it, and serves both, from code or from the `limix-publish` command.
 `remotePolicy` from `@softistx/limix/remote` is the reader that pulls what this
 package emits.
 
-> **Nothing published yet.** See the [roadmap](docs/roadmap.md).
-
 ## Install
 
-Not on npm yet. Once published:
+The package is published with restricted access: installing it needs an npm
+token that can read the `@softistx` scope.
 
 ```sh
 bun add @softistx/limix-publish @softistx/limix

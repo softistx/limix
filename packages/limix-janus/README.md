@@ -4,11 +4,10 @@ The relations adapter of [`@softistx/limix`](https://github.com/softistx/limix/b
 rule's relation checks ("may this user edit this document?") through janus
 permissions (`can`).
 
-> **Nothing published yet.** See the [roadmap](docs/roadmap.md).
-
 ## Install
 
-Not on npm yet. Once published:
+The package is published with restricted access: installing it needs an npm
+token that can read the `@softistx` scope.
 
 ```sh
 bun add @softistx/limix-janus @softistx/limix @softistx/janus

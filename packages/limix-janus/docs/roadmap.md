@@ -5,8 +5,7 @@ are no dates here, and the version something shipped in is the only number.
 
 ## Now
 
-- **The adapter** — in: `janusRelations` and `checkRulesAgainstModel` over
-  janus `can`, tested on the in-memory relation store.
+Nothing in progress: the next items are below.
 
 ## Next
 
@@ -24,4 +23,5 @@ are no dates here, and the version something shipped in is the only number.
 
 ## Shipped
 
-Nothing yet.
+- **0.1.0** — the adapter: `janusRelations` and `checkRulesAgainstModel` over
+  janus `can`, tested on the in-memory relation store.

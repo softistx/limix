@@ -5,25 +5,7 @@ dates here, and the version something shipped in is the only number.
 
 ## Now
 
-- **The rules format and evaluation** — in: parse, load, `definePolicy`, compile,
-  the JSON schema, then `evaluateRest`, `evaluateField`, `explain`, the
-  `RelationChecker` port and policy sources, then coverage of your operations
-  (`@softistx/limix/coverage`: covered, public, uncovered and stale rules over
-  a neutral list that integrations supply), then signed remote rules
-  (`@softistx/limix/remote`: `remotePolicy` pulls a signed JWS, verifies it
-  against the publisher's JWKS, hot-swaps it and keeps the last good copy
-  through an outage; `filePolicyStore` in `@softistx/limix/bun`).
-- **Fewer dependencies** — route matching and rules loading no longer pull in
-  `path-to-regexp` or `yaml`: a pattern compiles to one regular expression of
-  limix's own, `loadRules` reads with `Bun.file` and `Bun.YAML`, and the
-  `./node` subpath is now `./bun`. `jose` stays until a framework-free JWS
-  package can replace it in `./remote`.
-- **Rule publisher** — sign a rules file and serve the keys that verify it
-  (`@softistx/limix-publish`: `signRules`, `jwksOf`, the endpoints and the
-  `limix-publish` command); `verifyRules` in `@softistx/limix/remote` is the
-  check the command shares with `remotePolicy`.
-- **Janus relations** — relations checked through janus (`@softistx/limix-janus`:
-  `janusRelations`, `checkRulesAgainstModel`).
+Nothing in progress: the next items are below.
 
 ## Next
 
@@ -54,4 +36,11 @@ dates here, and the version something shipped in is the only number.
 
 ## Shipped
 
-Nothing yet.
+- **0.1.0** — the rules format and evaluation (parse, load, `definePolicy`,
+  compile, the JSON schema, `evaluateRest`, `evaluateField`, `explain`, the
+  `RelationChecker` port), coverage (`@softistx/limix/coverage`), signed remote
+  rules (`@softistx/limix/remote`: `remotePolicy`, `verifyRules`;
+  `filePolicyStore` and `loadRules` in `@softistx/limix/bun`), and route
+  matching with no `path-to-regexp` or `yaml` dependency. Janus relations ship
+  in `@softistx/limix-janus` and the rule publisher in
+  `@softistx/limix-publish`, both 0.1.0.

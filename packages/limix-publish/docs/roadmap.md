@@ -5,9 +5,7 @@ are no dates here, and the version something shipped in is the only number.
 
 ## Now
 
-- **The emitter** — in: `signRules`, `jwksOf`, `rulesEndpoint`, `jwksEndpoint`
-  and the `limix-publish` command (`sign`, `jwks`, `check`), tested against the
-  real `remotePolicy` reader.
+Nothing in progress: the next items are below.
 
 ## Next
 
@@ -30,4 +28,6 @@ are no dates here, and the version something shipped in is the only number.
 
 ## Shipped
 
-Nothing yet.
+- **0.1.0** — the emitter: `signRules`, `jwksOf`, `rulesEndpoint`,
+  `jwksEndpoint` and the `limix-publish` command (`sign`, `jwks`, `check`),
+  tested against the real `remotePolicy` reader.

@@ -27,8 +27,8 @@ fixes only on 5.x) until nothing imports it, then `npm deprecate`d.
   `@softistx/alxia-access` fit together, moving core's `shared-hono` and
   `shared-graphql` off `@softistx/security`, and a type-safe rules editor built
   on `@softistx/material`.
-- The repository is public, the npm packages are private (`access:
-  "restricted"`, owner, 2026-11-26); versions stay 0.x until the pilot runs on
+- The repository is public, the npm packages are published with
+  `access: "restricted"` (owner, 2026-11-26); versions stay 0.x until the pilot runs on
   them.
 - `path-to-regexp` stays a root devDependency, declared: a dev-only reference
   for the port (`matcher.differential.spec.ts` compares the in-house matcher
@@ -52,8 +52,9 @@ Carried from janus: `.github/actions/setup`, the `ci.yml`,
 (`scripts/publish*.ts`, `scripts/verify-artifacts.ts` with `scripts/artifacts/`,
 `affected.ts`, `check-changesets.ts`, `close-released-issues*.ts`), each with
 its spec. Every file but the byte copies of `close-released-issues*.ts` is adapted
-to limix (see the divergences below). Every package is `"private": true` for now: nothing publishes until a
-commit of its own removes it.
+to limix (see the divergences below). `@softistx/limix`, `@softistx/limix-janus` and `@softistx/limix-publish`
+publish, from 0.1 on, through the Version PR and a tag; a new package starts `"private": true` and
+publishes from a commit of its own that removes it, with its changeset.
 
 Declared divergences from janus:
 
@@ -101,8 +102,8 @@ Declared divergences from janus:
   `bunx changeset tag && git push --follow-tags` and
   `gh workflow run publish.yml --ref develop` (no push event fires for many tags
   at once). `scripts/publish.ts` skips versions npmjs already holds, so a re-run
-  resumes, and never builds: run `bun run build` first. Nothing publishes while
-  every package is `"private": true`.
+  resumes, and never builds: run `bun run build` first. A package marked
+  `"private": true` never publishes.
 - **`verify:artifacts`** packs each package and loads the tarball. It refuses a
   package whose `publishConfig` is not `{ registry: npmjs, access: "restricted" }`, a build exiting 0 whose artifact does
   not load, declarations that no longer compile, an import not declared as a
