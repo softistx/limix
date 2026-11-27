@@ -118,7 +118,8 @@ with other checks. In 5.x a `public` rule could carry `authorities`, `permission
 or an `expression`, which is the share-link pattern (an anonymous caller reaches
 the route, and the rule checks what the link proves). limix refuses `public` beside
 `authenticated`, `roles`, `permissions`, `when` or `relations` at compile time as
-contradictory. Rewrite such a rule in one of two ways:
+contradictory. Rewrite such a rule in one of two ways, the first being the one to
+prefer:
 
 - keep `public: true` with nothing else, and make the check in the handler, which
   holds the token the link carries;
@@ -127,6 +128,9 @@ contradictory. Rewrite such a rule in one of two ways:
   [condition](#5-expression-becomes-when-plus-a-condition-in-code) for what the link
   grants. A non-public rule still refuses an anonymous caller before any condition
   runs, so this works only when the link reaches the rule as a credential.
+  Those claims then pass every rule that only asks for `authenticated: true` (and,
+  under `unmatched: allow`, every unnamed path). Give link callers a role your other
+  rules require them not to lack, or a condition, or prefer the first rewrite.
 
 ## 5. `expression` becomes `when` plus a condition in code
 
@@ -328,7 +332,7 @@ A 5.x `PolicyClaims` literal is Kratos- and OIDC-shaped (`sub`, `authorities`,
 | `PolicyClaims` | `Claims` |
 | --- | --- |
 | `sub` or `clientId` set | `authenticated: true` (required: `false` for an anonymous caller) |
-| `sub`, else `clientId` | `subject: { type: 'user', id }`, else `{ type: 'client', id }`: what the relations port is asked about |
+| `sub` | `subject: { type: 'user', id }`, what the relations port is asked about; a `clientId`-only caller has none, as in 5.x |
 | `authorities` and `roles` | `roles`, the union of both without duplicates, read by `roles` only |
 | the tokens of `scope`, read as authorities | `roles` too, through `scopeAsRoles` below; better, a `permissions` term |
 | `scope`, `permissions` | unchanged, except that a `null` `permissions` claim holds nothing (omit it) |
@@ -356,20 +360,20 @@ import {
 } from '@softistx/limix';
 
 interface Token {
-	sub?: string;
-	clientId?: string;
+	sub?: string | null;
+	clientId?: string | null;
 	authorities?: string[];
 	roles?: string[];
 	scope?: string;
 }
 
 // What a 5.x `PolicyClaims` becomes. The caller is signed in when `sub` or
-// `clientId` is set, as in 5.x, and `subject` is who the relations are asked about.
+// `clientId` is truthy, as in 5.x, and `subject` is who the relations are asked about.
 export function claimsOf(
 	token: Token | undefined,
 	options: { scopeAsRoles?: boolean } = {},
 ): Claims {
-	if (token?.sub === undefined && token?.clientId === undefined) {
+	if (!token?.sub && !token?.clientId) {
 		return { authenticated: false };
 	}
 	// 5.x read `authorities`, `roles` and the tokens of `scope` together as one set
@@ -381,10 +385,9 @@ export function claimsOf(
 		: [];
 	return {
 		authenticated: true,
-		subject:
-			token.sub === undefined
-				? { type: 'client', id: token.clientId ?? '' }
-				: { type: 'user', id: token.sub },
+		// 5.x asked relations about `sub` alone: a `clientId`-only caller has no
+		// subject, and a rule with relations answers 403 `no-subject`.
+		...(token.sub ? { subject: { type: 'user', id: token.sub } } : {}),
 		roles: [
 			...new Set([
 				...(token.authorities ?? []),

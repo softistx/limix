@@ -5,20 +5,20 @@ import {
 } from '@softistx/limix';
 
 interface Token {
-	sub?: string;
-	clientId?: string;
+	sub?: string | null;
+	clientId?: string | null;
 	authorities?: string[];
 	roles?: string[];
 	scope?: string;
 }
 
 // What a 5.x `PolicyClaims` becomes. The caller is signed in when `sub` or
-// `clientId` is set, as in 5.x, and `subject` is who the relations are asked about.
+// `clientId` is truthy, as in 5.x, and `subject` is who the relations are asked about.
 export function claimsOf(
 	token: Token | undefined,
 	options: { scopeAsRoles?: boolean } = {},
 ): Claims {
-	if (token?.sub === undefined && token?.clientId === undefined) {
+	if (!token?.sub && !token?.clientId) {
 		return { authenticated: false };
 	}
 	// 5.x read `authorities`, `roles` and the tokens of `scope` together as one set
@@ -30,10 +30,9 @@ export function claimsOf(
 		: [];
 	return {
 		authenticated: true,
-		subject:
-			token.sub === undefined
-				? { type: 'client', id: token.clientId ?? '' }
-				: { type: 'user', id: token.sub },
+		// 5.x asked relations about `sub` alone: a `clientId`-only caller has no
+		// subject, and a rule with relations answers 403 `no-subject`.
+		...(token.sub ? { subject: { type: 'user', id: token.sub } } : {}),
 		roles: [
 			...new Set([
 				...(token.authorities ?? []),

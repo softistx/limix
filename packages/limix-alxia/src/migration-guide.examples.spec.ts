@@ -23,11 +23,17 @@ describe('claimsOf', () => {
 		});
 	});
 
-	test('a clientId-only token is signed in, as a client', async () => {
+	test('an empty or null sub is anonymous, unless a clientId is set', async () => {
+		const { claimsOf } = await import(`${examples}/evaluate-rest`);
+		expect(claimsOf({ sub: '' })).toEqual({ authenticated: false });
+		expect(claimsOf({ sub: null })).toEqual({ authenticated: false });
+		expect(claimsOf({ sub: '', clientId: 'billing' }).authenticated).toBe(true);
+	});
+
+	test('a clientId-only token is signed in, with no subject, as in 5.x', async () => {
 		const { claimsOf } = await import(`${examples}/evaluate-rest`);
 		expect(claimsOf({ clientId: 'billing', scope: 'a b' })).toEqual({
 			authenticated: true,
-			subject: { type: 'client', id: 'billing' },
 			roles: [],
 			scope: 'a b',
 		});
