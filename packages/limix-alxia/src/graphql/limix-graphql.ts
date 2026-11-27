@@ -21,7 +21,10 @@ import { rungCodeProblems } from '../setup-check';
 // biome-ignore lint/suspicious/noExplicitAny: the bound graphql() declares, which a narrower one would refuse plugins of
 type AnyPlugins = readonly GraxiaPlugin<any, any>[];
 
-/** What `limixGraphql` adds to graphql()'s options. */
+/**
+ * What `limixGraphql` adds to graphql()'s options. `Ctx` is the app's context
+ * (`Alxia<Ctx>`), not the request's: the field guard reads `ServerContext<Ctx>`.
+ */
 export interface LimixGraphqlExtras<Ctx extends object = Empty> {
 	/**
 	 * What the field guard reads: `limix` gives it its policy, claims, relations

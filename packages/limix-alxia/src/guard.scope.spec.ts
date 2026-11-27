@@ -1,7 +1,7 @@
-import { describe, expect, spyOn, test } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
 import { alxia } from '@softistx/alxia';
 import { compilePolicy, definePolicy } from '@softistx/limix';
-import { call, ok, whoOf } from './app.fixtures';
+import { call, expectStopped, ok, whoOf } from './app.fixtures';
 import { limixGuard } from './guard';
 import { checkGuard } from './setup-check';
 
@@ -20,20 +20,6 @@ const heard = () => {
 	const problems: (readonly string[])[] = [];
 	return { problems, onMismatch: (p: readonly string[]) => problems.push(p) };
 };
-
-/** alxia only logs what an onStart hook throws: the guard's hook stops the server, then throws. */
-async function expectStopped(app: ReturnType<typeof alxia>, message: RegExp) {
-	const logged = spyOn(console, 'error').mockImplementation(() => {});
-	try {
-		const server = await app.listen({ port: 0, hostname: '127.0.0.1' });
-		const { port } = server as unknown as { port: number };
-		await Bun.sleep(50);
-		expect(String(logged.mock.calls[0]?.[0])).toMatch(message);
-		await expect(fetch(`http://127.0.0.1:${port}/`)).rejects.toThrow();
-	} finally {
-		logged.mockRestore();
-	}
-}
 
 describe('limixGuard, every route of its app carries the guard', () => {
 	test('a guard built before use(), with a route declared in between, refuses 503', async () => {
@@ -103,6 +89,24 @@ describe('limixGuard, every route of its app carries the guard', () => {
 		app.get('/late', ok);
 		expect(checkGuard(guard, app).map((i) => i.path)).toEqual(['GET /late']);
 		await expectStopped(app, /GET \/late/);
+	});
+
+	test('an open route and separated guards together are both logged', async () => {
+		const app = alxia();
+		const guard = limixGuard({ policy, claims: whoOf, app });
+		app.get('/early', ok);
+		app.use(guard);
+		app.use((async (_ctx: unknown, next: () => unknown) => next()) as never);
+		app.group('/g', (group) =>
+			group
+				.use(limixGuard({ policy, claims: whoOf, app: group }))
+				.get('/x', ok),
+		);
+		await expectStopped(
+			app,
+			/stay open: GET \/early\. Put `app\.use\(limixGuard/,
+			/GET \/g\/x: a hook stands between this guard and the group's guard, so both judge it; put the group's guard first/,
+		);
 	});
 
 	test('a well-formed app starts', async () => {

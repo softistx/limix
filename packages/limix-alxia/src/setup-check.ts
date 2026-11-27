@@ -2,17 +2,25 @@ import type { CompiledPolicy } from '@softistx/limix';
 import { separatedGuards, unguardedRoutes } from './endpoints';
 import { alxiaOperations } from './operations';
 import type { RoutesOf } from './options';
+import { reaches } from './overlap';
 
 const CODE_PREFIX = 'auth.errors.';
 
-/** What a check found wrong. */
+/** What a check found wrong: the `kind` of a `RouteIssue`. */
+export type RouteIssueKind =
+	| 'rung-code'
+	| 'unmatched-rule'
+	| 'open-route'
+	| 'separated-guards';
+
+/**
+ * What a check found wrong. `path` is the rule key (`GET /files/*path`,
+ * `Query.me`) or the route label (`GET /admin`), not a place in the rules file
+ * as `NeedsIssue.path` is.
+ */
 export interface RouteIssue {
 	/** `rung-code`: a relation rung's code outside `auth.errors.`; `unmatched-rule`: a REST rule no route takes; `open-route`: a route or socket that never runs the guard; `separated-guards`: a hook between a group's guard and the app's. */
-	readonly kind:
-		| 'rung-code'
-		| 'unmatched-rule'
-		| 'open-route'
-		| 'separated-guards';
+	readonly kind: RouteIssueKind;
 	/** The rule (`GET /files/*path`, `Query.me`) or the route (`GET /admin`) the issue is about. */
 	readonly path: string;
 	/** What is wrong. */
@@ -61,74 +69,6 @@ export function rungCodeIssues(policy: CompiledPolicy): RouteIssue[] {
 /** `rungCodeIssues` as lines of text. */
 export const rungCodeProblems = (policy: CompiledPolicy): string[] =>
 	rungCodeIssues(policy).map(text);
-
-type Segment =
-	| { kind: 'literal'; text: string }
-	| { kind: 'param' }
-	| { kind: 'wild' }
-	/** The `*` ending an alxia route: it takes an empty tail too. */
-	| { kind: 'tail' };
-
-/** The segments of a pattern, the optional groups of a rule's pattern taken both ways. */
-function variants(pattern: string): Segment[][] {
-	const open = pattern.search(/(?<!\\)\{/);
-	const close = open < 0 ? -1 : pattern.indexOf('}', open);
-	if (open < 0 || close < 0) return [segmentsOf(pattern)];
-	const head = pattern.slice(0, open);
-	const tail = pattern.slice(close + 1);
-	return [
-		...variants(`${head}${tail}`),
-		...variants(`${head}${pattern.slice(open + 1, close)}${tail}`),
-	];
-}
-
-function segmentsOf(pattern: string): Segment[] {
-	return pattern
-		.split('/')
-		.filter((text) => text !== '')
-		.map((text): Segment => {
-			if (text.startsWith('*')) return { kind: 'wild' };
-			if (/(?<!\\):/.test(text)) return { kind: 'param' };
-			return { kind: 'literal', text: text.replace(/\\(.)/g, '$1') };
-		});
-}
-
-/** A route's segments, its trailing wildcard marked as alxia's optional tail. */
-const asRoute = (segments: Segment[]): Segment[] =>
-	segments.map((segment, index) =>
-		segment.kind === 'wild' && index === segments.length - 1
-			? { kind: 'tail' }
-			: segment,
-	);
-
-/** Whether some path fits both segment lists. */
-function overlap(a: readonly Segment[], b: readonly Segment[]): boolean {
-	for (let i = 0; ; i++) {
-		const x = a[i];
-		const y = b[i];
-		if (x === undefined || y === undefined) {
-			return x === y || x?.kind === 'tail' || y?.kind === 'tail';
-		}
-		if (x.kind !== 'literal' && x.kind !== 'param') return true;
-		if (y.kind !== 'literal' && y.kind !== 'param') return true;
-		if (x.kind === 'literal' && y.kind === 'literal' && x.text !== y.text) {
-			return false;
-		}
-	}
-}
-
-/** Whether the rule's pattern can take a path the route's pattern takes (the rule's with or without the policy's `basePath`). */
-function reaches(rule: string, path: string, basePath: string): boolean {
-	const routes = variants(path).map(asRoute);
-	return [
-		rule,
-		...(basePath && rule.startsWith(basePath)
-			? [rule.slice(basePath.length)]
-			: []),
-	]
-		.flatMap(variants)
-		.some((a) => routes.some((b) => overlap(a, b)));
-}
 
 /**
  * What a policy gets wrong against the routes it guards: a rung code outside
@@ -190,7 +130,7 @@ export function guardIssues(guard: unknown, app: RoutesOf): RouteIssue[] {
 				path: route,
 				message:
 					'does not run this guard (declared before its use(), or outside the scope it was used in), so it would run without the rules',
-				fix: 'put `app.use(limixGuard({ ..., app }))` before the route, and give each guard the app it is used on',
+				fix: 'Put `app.use(limixGuard({ ..., app }))` before them, and give each guard the app it is used on',
 			}),
 		),
 		...separatedGuards(app, guard).map(
@@ -220,7 +160,7 @@ export function checkGuard(
 	return guardIssues(guard, app);
 }
 
-/** The TypeError the start hook throws for `checkGuard`'s issues: the messages the check always worded. */
+/** The TypeError the start hook throws for `checkGuard`'s issues, worded from the issues themselves. */
 export function guardError(issues: readonly RouteIssue[]): TypeError {
 	const open = issues.filter((issue) => issue.kind === 'open-route');
 	const apart = issues.filter((issue) => issue.kind === 'separated-guards');
@@ -229,12 +169,12 @@ export function guardError(issues: readonly RouteIssue[]): TypeError {
 			...(open.length === 0
 				? []
 				: [
-						`checkGuard(): routes that never run the guard and stay open: ${open.map((issue) => issue.path).join(', ')}. Put \`app.use(limixGuard({ ..., app }))\` before them, and give each guard the app it is used on`,
+						`checkGuard(): routes that never run the guard and stay open: ${open.map((issue) => issue.path).join(', ')}. ${open[0]?.fix}`,
 					]),
 			...(apart.length === 0
 				? []
 				: [
-						`checkGuard(): ${apart.map((issue) => `${issue.path}: a hook stands between this guard and the group's guard, so both judge it; put the group's guard first in the group and limixGuard last among the app's own middlewares`).join('\n- ')}`,
+						`checkGuard(): ${apart.map((issue) => `${issue.path}: ${issue.message}; ${issue.fix}`).join('\n- ')}`,
 					]),
 		].join('\n'),
 	);

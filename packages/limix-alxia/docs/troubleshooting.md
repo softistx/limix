@@ -174,12 +174,12 @@ the `policy-mismatch` entry under Refusals.
 
 ## Checks
 
-### `checkRoutes(): the policy does not fit the app:` `- <where>: ...`
+### ``<METHOD> <pattern>: no route of the app takes this rule, so the routes it was written for are left to `unmatched` ``
 
 **When:** `checkRoutes(policy, app)` returns issues (`RouteIssue`: `kind`, `path`, `message`, `fix`); the line is `path: message`. Each issue is one problem:
 
-- `<METHOD> <pattern>: no route of the app takes this rule, so the routes it was written for are left to `unmatched``: a typo in the rule, or a route that was removed (the same check the guard makes on the first request).
-- `<where>: the relation rung's code "<code>" is outside `auth.errors.` ...`: as above.
+- `unmatched-rule`: a typo in the rule, or a route that was removed (the same check the guard makes on the first request).
+- `rung-code`, `<where>: the relation rung's code "<code>" is outside `auth.errors.` ...`: as above.
 
 **Why:** the rule judges nothing, or a refusal would not be read.
 **Fix:** correct the pattern (`/files/*path`, `/notes/:id`) or the route, then

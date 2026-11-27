@@ -1,3 +1,4 @@
+import { expect, spyOn } from 'bun:test';
 import { alxia, type FreeReplyFunction } from '@softistx/alxia';
 import {
 	type Claims,
@@ -121,4 +122,23 @@ export function guardedApp(
 	const app = alxia({ errors });
 	app.use(limixGuard({ policy, claims: whoOf, app, ...extra }));
 	return routesOn(app);
+}
+
+/** alxia only logs what an onStart hook throws: the guard's hook stops the server, then throws. Asserts the server stopped and the first logged line matches every pattern. */
+export async function expectStopped(
+	app: ReturnType<typeof alxia>,
+	...messages: RegExp[]
+): Promise<void> {
+	const logged = spyOn(console, 'error').mockImplementation(() => {});
+	try {
+		const server = await app.listen({ port: 0, hostname: '127.0.0.1' });
+		const { port } = server as unknown as { port: number };
+		await Bun.sleep(50);
+		for (const message of messages) {
+			expect(String(logged.mock.calls[0]?.[0])).toMatch(message);
+		}
+		await expect(fetch(`http://127.0.0.1:${port}/`)).rejects.toThrow();
+	} finally {
+		logged.mockRestore();
+	}
 }

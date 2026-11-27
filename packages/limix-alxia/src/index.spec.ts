@@ -7,6 +7,7 @@ import type {
 	Refusal,
 	RefusalAnswer,
 	RouteIssue,
+	RouteIssueKind,
 	RoutesOf,
 } from './index';
 import * as limixAlxia from './index';
@@ -29,6 +30,7 @@ export type _Types = [
 	Refusal,
 	RefusalAnswer,
 	RouteIssue,
+	RouteIssueKind,
 	RoutesOf,
 ];
 

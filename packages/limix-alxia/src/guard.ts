@@ -95,10 +95,12 @@ export function limixGuard<Ctx extends object = Empty>(
 	const starter: unknown = (app as { onStart?: unknown }).onStart;
 	if (typeof starter === 'function') {
 		starter.call(app, async (server: { stop(force?: boolean): unknown }) => {
-			const issues = checkGuard(middleware, app);
-			if (issues.length > 0) {
+			try {
+				const issues = checkGuard(middleware, app);
+				if (issues.length > 0) throw guardError(issues);
+			} catch (error) {
 				await server.stop(true);
-				throw guardError(issues);
+				throw error;
 			}
 		});
 	}

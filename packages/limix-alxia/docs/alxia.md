@@ -347,6 +347,8 @@ interface Refusal { readonly code: string; readonly status: number; readonly par
 interface RefusalAnswer { code?: string; status?: ErrorStatus; detail?: string } // ErrorStatus: alxia's 4xx and 5xx
 ```
 
+`import type { ErrorStatus } from '@softistx/limix-alxia'` types a `mapRefusal` answer's `status` (alxia's 4xx and 5xx statuses).
+
 `detail` is the problem's `detail`, or the JSON body's `message`. Returning a
 `Response` replaces the answer entirely. `status` is typed as alxia's error
 statuses (a `302` is a compile error); a value outside 400 to 599 that gets
@@ -497,9 +499,11 @@ function checkRoutes(policy: CompiledPolicy, app: RoutesOf): readonly RouteIssue
 What `checkRoutes` and `checkGuard` return, one per problem:
 
 ```ts
+type RouteIssueKind = 'rung-code' | 'unmatched-rule' | 'open-route' | 'separated-guards'
+
 interface RouteIssue {
-  readonly kind: 'rung-code' | 'unmatched-rule' | 'open-route' | 'separated-guards'
-  readonly path: string // the rule or route: `GET /files/*path`, `Query.me`, `GET /admin`
+  readonly kind: RouteIssueKind
+  readonly path: string // the rule key or route label: `GET /files/*path`, `Query.me`, `GET /admin`
   readonly message: string
   readonly fix: string
 }
@@ -512,7 +516,7 @@ interface RouteIssue {
 | `open-route` | `checkGuard` | A route or socket that never runs the guard |
 | `separated-guards` | `checkGuard` | A hook stands between a group's guard and the app's |
 
-The list grows with new checks: switch on `kind` with a default branch.
+`path` is the rule key or route label, unlike `NeedsIssue.path` of limix-graxia, which is a place in the rules file. The list grows with new checks: switch on `kind` with a default branch.
 
 ## GraphQL
 
@@ -564,8 +568,12 @@ joined to `graphql()`'s, which has five generics) is not exported, so a new
 ```ts
 import type { LimixGraphqlExtras } from '@softistx/limix-alxia/graphql'
 
-const extras: LimixGraphqlExtras<{ request: Request }> = { limix }
+const extras: LimixGraphqlExtras = { limix }
 ```
+
+`Ctx` is the app's context (`Alxia<Ctx>`), not the request's; it defaults to an
+empty one. Name it when the app decorates its context:
+`LimixGraphqlExtras<{ db: Db }>`.
 
 A refused top-level field answers with the HTTP status of its refusal; a refused
 nested field answers 200 with the error in `errors`. Claims are read once per

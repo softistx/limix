@@ -8,4 +8,9 @@ export type {
 	RefusalAnswer,
 	RoutesOf,
 } from './options';
-export { checkGuard, checkRoutes, type RouteIssue } from './setup-check';
+export {
+	checkGuard,
+	checkRoutes,
+	type RouteIssue,
+	type RouteIssueKind,
+} from './setup-check';
