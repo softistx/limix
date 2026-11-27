@@ -63,6 +63,17 @@ function stubs(names: Iterable<string>): Record<string, Condition> {
 	return Object.fromEntries([...names].map((name) => [name, accept]));
 }
 
+/** The condition names to allow: a list, or the own function entries of a map. */
+function namesOf(
+	conditions: SignRulesOptions['conditions'],
+	parsed: unknown,
+): readonly string[] {
+	if (conditions === undefined) return [...conditionNames(parsed)];
+	if (Array.isArray(conditions)) return conditions;
+	const map = conditions as Readonly<Record<string, unknown>>;
+	return Object.keys(map).filter((name) => typeof map[name] === 'function');
+}
+
 /**
  * Validates `rules` the way a reader will (`parseRules` then `compilePolicy`)
  * and returns the parsed document with its compiled form. Throws the core's
@@ -70,12 +81,7 @@ function stubs(names: Iterable<string>): Record<string, Condition> {
  */
 function validate(rules: unknown, conditions: SignRulesOptions['conditions']) {
 	const parsed = parseRules(rules, 'the rules to sign');
-	const names =
-		conditions === undefined
-			? conditionNames(parsed)
-			: Array.isArray(conditions)
-				? conditions
-				: Object.keys(conditions);
+	const names = namesOf(conditions, parsed);
 	const policy: CompiledPolicy = compilePolicy(parsed, {
 		conditions: stubs(names),
 	});

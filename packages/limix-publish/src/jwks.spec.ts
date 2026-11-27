@@ -5,10 +5,10 @@ import { type Alg, jwksOf, PublishError, signRules } from './index';
 import { pairFor, RULES, small, T0 } from './keys.fixtures';
 
 const PRIVATE = ['d', 'p', 'q', 'dp', 'dq', 'qi', 'k'];
-const ALGS: Alg[] = ['ES256', 'EdDSA', 'RS256', 'PS256'];
+const ALL_ALGS: Alg[] = ['ES256', 'EdDSA', 'RS256', 'PS256'];
 
 describe('jwksOf', () => {
-	for (const alg of ALGS) {
+	for (const alg of ALL_ALGS) {
 		it(`keeps the public part of a ${alg} public key, with kid, alg and use`, async () => {
 			const { publicKey } = await pairFor(alg);
 			const { keys } = await jwksOf([{ key: publicKey, kid: 'k1', alg }]);

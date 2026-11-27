@@ -17,7 +17,7 @@ import {
 } from './index';
 import { pairFor, RULES, small, T0 } from './keys.fixtures';
 
-const ALGS: Alg[] = ['ES256', 'EdDSA', 'RS256', 'PS256'];
+const ALL_ALGS: Alg[] = ['ES256', 'EdDSA', 'RS256', 'PS256'];
 
 const base = async (alg: Alg = 'ES256') => {
 	const { privateKey, publicKey } = await pairFor(alg);
@@ -36,7 +36,7 @@ const base = async (alg: Alg = 'ES256') => {
 };
 
 describe('signRules', () => {
-	for (const alg of ALGS) {
+	for (const alg of ALL_ALGS) {
 		it(`round-trips ${alg} through verifyRules`, async () => {
 			const { options, publicKey } = await base(alg);
 			const token = await signRules(RULES, { ...options, issuer: 'https://p' });
@@ -247,6 +247,39 @@ describe('signRules', () => {
 			expect(error.message).toContain('nope');
 		});
 
+		it('ignores inherited, __proto__ and non-function entries of a map', async () => {
+			const rules = {
+				...RULES,
+				rest: { '/a': { GET: { authenticated: true, when: ['nope'] } } },
+			};
+			const maps = [
+				Object.create({ nope: () => true }),
+				JSON.parse('{"__proto__": {"nope": true}}'),
+				{ nope: undefined },
+			];
+			for (const conditions of maps) {
+				const error = await refused(rules, { conditions });
+				expect(error).toBeInstanceOf(RulesError);
+			}
+		});
+
+		it('gives the same result for the array and the map form', async () => {
+			const rules = {
+				...RULES,
+				rest: { '/a': { GET: { authenticated: true, when: ['nope'] } } },
+			};
+			const { options } = await base();
+			const a = await signRules(rules, { ...options, conditions: ['nope'] });
+			const b = await signRules(rules, {
+				...options,
+				conditions: { nope: () => true },
+			});
+			expect(decodeJwt(b)['rules']).toEqual(decodeJwt(a)['rules']);
+			const x = await refused(rules, { conditions: ['other'] });
+			const y = await refused(rules, { conditions: { other: () => true } });
+			expect(y.message).toBe(x.message);
+		});
+
 		it('refuses a rule naming a condition inside a GraphQL field when conditions is given', async () => {
 			const rules = {
 				limix: 1,
@@ -273,7 +306,7 @@ describe('signRules', () => {
 });
 
 describe('importSigningKey and generateSigningKeyPair', () => {
-	for (const alg of ALGS) {
+	for (const alg of ALL_ALGS) {
 		it(`generates a ${alg} pair that signs, with an exportable public key`, async () => {
 			const pair = await generateSigningKeyPair(alg);
 			const token = await signRules(RULES, {
