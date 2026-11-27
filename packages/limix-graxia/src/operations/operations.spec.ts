@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import { coverage } from '@softistx/limix/coverage';
 import { buildSchema } from 'graphql';
-import { compiled } from './needs.fixtures';
+import { compiled } from '../needs.fixtures';
 import { graphqlOperations } from './operations';
 
 const sdl = `
