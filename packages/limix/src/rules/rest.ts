@@ -45,5 +45,3 @@ export const zRestRules = z
 		'REST rules, keyed by path pattern then HTTP method. The first pattern ' +
 			'that matches the request path, in document order, is used.',
 	);
-
-export type RestRule = z.infer<typeof zRestRule>;

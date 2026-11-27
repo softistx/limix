@@ -19,6 +19,8 @@ describe('remotePolicy: a valid pull', () => {
 		expect(policy.version()).toBe(1);
 		expect(policy.current()?.restRoutesByMethod.get('GET')).toHaveLength(1);
 		expect(errors).toEqual([]);
+		// A pull that changes nothing answers no error.
+		expect(await policy.refresh()).toEqual({ changed: false });
 	});
 
 	it('discovers jwks_uri once from the issuer and requires iss', async () => {
@@ -29,10 +31,10 @@ describe('remotePolicy: a valid pull', () => {
 		track(policy);
 		await settled(policy);
 		await publisher.publish(2);
-		expect(await policy.refresh()).toBe(true);
+		expect((await policy.refresh()).changed).toBe(true);
 		expect(publisher.state.calls.discovery).toBe(1);
 		await publisher.publish(3, '/a', { iss: 'https://evil.test' });
-		expect(await policy.refresh()).toBe(false);
+		expect((await policy.refresh()).changed).toBe(false);
 		expect(codes(errors)).toEqual(['CLAIMS']);
 	});
 
@@ -89,7 +91,7 @@ describe('remotePolicy: polling', () => {
 		track(policy);
 		await settled(policy);
 		await publisher.publish(2, '/b');
-		expect(await policy.refresh()).toBe(true);
+		expect((await policy.refresh()).changed).toBe(true);
 		expect(policy.version()).toBe(2);
 	});
 
@@ -99,7 +101,7 @@ describe('remotePolicy: polling', () => {
 		await settled(policy);
 		clock.t += 5_000;
 		expect(policy.age()).toBe(5_000);
-		expect(await policy.refresh()).toBe(false);
+		expect((await policy.refresh()).changed).toBe(false);
 		expect(publisher.state.conditional.at(-1)).toBe('"v1"');
 		expect(policy.age()).toBe(0);
 	});

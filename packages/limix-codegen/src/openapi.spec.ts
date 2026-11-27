@@ -1,64 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { compilePolicy, parseRules } from '@softistx/limix';
-import { coverage } from '@softistx/limix/coverage';
-import { CodegenError } from './errors';
-import { openapiOperations, openapiPath } from './openapi';
-
-describe('openapiPath', () => {
-	it.each([
-		['/notes/{id}', '/notes/:id'],
-		['/files/{id}.json', '/files/:id.json'],
-		['/files/{id}x', '/files/:"id"x'],
-		['/files/{file-id}', '/files/:"file-id"'],
-		['/a({b})', '/a\\(:b\\)'],
-		['/a:b*', '/a\\:b\\*'],
-		['/plain', '/plain'],
-		['/a/{x}/b/{y}', '/a/:x/b/:y'],
-		['/q?x+y!', '/q\\?x\\+y\\!'],
-		['/s\\t', '/s\\\\t'],
-	])('%s -> %s', (from, to) => {
-		expect(openapiPath(from)).toBe(to);
-	});
-
-	it('refuses adjacent parameters', () => {
-		expect(() => openapiPath('/a/{x}{y}')).toThrow(
-			'adjacent parameters in /a/{x}{y}: limix needs literal text between two captures',
-		);
-	});
-
-	it('refuses unbalanced braces and an empty name', () => {
-		expect(() => openapiPath('/a/{b')).toThrow('unbalanced { in path /a/{b');
-		expect(() => openapiPath('/a/b}')).toThrow(CodegenError);
-		expect(() => openapiPath('/a/{}')).toThrow('empty {}');
-	});
-
-	it('writes patterns the compiler accepts and matches as the spec says', () => {
-		const paths = [
-			'/notes/{id}',
-			'/files/{name}.json',
-			'/files/{id}x',
-			'/files/{file-id}',
-			'/a({b})',
-			'/a:b*',
-		].map(openapiPath);
-		const rest = Object.fromEntries(
-			paths.map((path) => [path, { GET: { authenticated: true } }]),
-		);
-		const rules = parseRules({
-			limix: 1,
-			global: { unmatched: 'deny' },
-			rest,
-		});
-		expect(() => compilePolicy(rules)).not.toThrow();
-		const policy = compilePolicy(rules);
-		const report = coverage(policy, [
-			{ kind: 'rest', method: 'GET', path: '/files/a.json' },
-			{ kind: 'rest', method: 'GET', path: '/files/abx' },
-			{ kind: 'rest', method: 'GET', path: '/files/a-b' },
-		]);
-		expect(report.summary.uncovered).toBe(0);
-	});
-});
+import { openapiOperations } from './openapi';
 
 describe('openapiOperations', () => {
 	it('reads every method key, in document order, and ignores the rest', () => {
@@ -98,6 +39,17 @@ describe('openapiOperations', () => {
 			'QUERY',
 		]);
 		expect(operations.every((o) => o.path === '/a/:id')).toBe(true);
+	});
+
+	it('spells paths as core does: quoted, escaped, unbalanced braces refused', () => {
+		expect(
+			openapiOperations({
+				paths: { '/files/{id}.json': { get: {} }, '/f/{file-id}': { get: {} } },
+			}).map((o) => o.path),
+		).toEqual(['/files/:id.json', '/f/:"file-id"']);
+		expect(() =>
+			openapiOperations({ paths: { '/a/{b': { get: {} } } }, 'api.yaml'),
+		).toThrow('api.yaml: unbalanced { in path /a/{b');
 	});
 
 	it('accepts Swagger 2.0', () => {

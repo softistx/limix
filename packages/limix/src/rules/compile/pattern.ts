@@ -26,9 +26,9 @@ const ID_START = /^[$_\p{ID_Start}]$/u;
 const ID_CONTINUE = /^(?:[$\p{ID_Continue}]|\u200c|\u200d)$/u;
 const REGEXP_SYNTAX = new Set(['(', ')', '[', ']', '+', '?', '!']);
 
-const isIdStart = (char: string | undefined) =>
+export const isIdStart = (char: string | undefined) =>
 	char !== undefined && ID_START.test(char);
-const isIdContinue = (char: string | undefined) =>
+export const isIdContinue = (char: string | undefined) =>
 	char !== undefined && ID_CONTINUE.test(char);
 
 /** The characters of a pattern and where the parser stands in them. */

@@ -47,7 +47,7 @@ describe('remotePolicy: transport', () => {
 		await Bun.sleep(10);
 		policy.stop();
 		open();
-		expect(await policy.refresh()).toBe(false);
+		expect((await policy.refresh()).changed).toBe(false);
 		await Bun.sleep(20);
 		expect(policy.current()).toBeNull();
 		expect(changes).toEqual([]);
@@ -62,7 +62,7 @@ describe('remotePolicy: issuer and keys', () => {
 		track(policy);
 		await settled(policy);
 		await publisher.publish(2, '/a', { iss: 'https://evil.test' });
-		expect(await policy.refresh()).toBe(false);
+		expect((await policy.refresh()).changed).toBe(false);
 		expect(codes(errors)).toEqual(['CLAIMS']);
 		expect(publisher.state.calls.discovery).toBe(0);
 	});

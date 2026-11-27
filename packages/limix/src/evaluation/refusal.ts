@@ -1,11 +1,26 @@
-/** The registered symbol a refusal carries, so another copy of this package still recognises it. */
+/**
+ * The registered symbol a refusal carries, so another copy of this package still
+ * recognises it. Not exported: the contract between copies is the registry key
+ * `Symbol.for('limix.refusal')`, which `isLimixRefusal` reads.
+ */
 export const LIMIX_REFUSAL: unique symbol = Symbol.for('limix.refusal');
+
+/**
+ * A refusal in the shape an integration maps: a code, an HTTP status and the
+ * values the code's words interpolate. `LimixRefusal` has these fields; so do
+ * the refusals of other packages an integration maps beside it.
+ */
+export interface Refusal {
+	readonly code: string;
+	readonly status: number;
+	readonly params: Readonly<Record<string, unknown>>;
+}
 
 /**
  * Why a caller was refused, with no HTTP framework in it: an integration maps
  * `code` to its own words and `status` to its own response.
  */
-export class LimixRefusal extends Error {
+export class LimixRefusal extends Error implements Refusal {
 	override readonly name = 'LimixRefusal';
 	readonly [LIMIX_REFUSAL] = true;
 	readonly code: string;

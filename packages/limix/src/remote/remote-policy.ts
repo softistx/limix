@@ -1,5 +1,5 @@
 import { policySource } from '../source';
-import { type CycleContext, pullOnce } from './cycle';
+import { type CycleContext, type PullResult, pullOnce } from './cycle';
 import {
 	DEFAULT_INTERVAL_MS,
 	DEFAULT_MAX_STALE_MS,
@@ -105,8 +105,8 @@ export function remotePolicy(options: RemotePolicyOptions): RemotePolicy {
 		restored,
 	});
 
-	let inFlight: Promise<boolean> | undefined;
-	const refresh = (): Promise<boolean> => {
+	let inFlight: Promise<PullResult> | undefined;
+	const refresh = (): Promise<PullResult> => {
 		inFlight ??= pullOnce(context).finally(() => {
 			inFlight = undefined;
 		});

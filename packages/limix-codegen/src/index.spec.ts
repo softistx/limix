@@ -8,7 +8,6 @@ test('the public surface', () => {
 		'CodegenError',
 		'generateModule',
 		'openapiOperations',
-		'openapiPath',
 		'starterRules',
 	]);
 });

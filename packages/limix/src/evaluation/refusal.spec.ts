@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'bun:test';
-import { isLimixRefusal, LIMIX_REFUSAL, LimixRefusal } from './refusal';
+import {
+	isLimixRefusal,
+	LIMIX_REFUSAL,
+	LimixRefusal,
+	type Refusal,
+} from './refusal';
 
 describe('LimixRefusal', () => {
 	it('carries a neutral code, status and params, and no HTTP type', () => {
@@ -8,6 +13,11 @@ describe('LimixRefusal', () => {
 		expect(refusal.status).toBe(403);
 		expect(refusal.params).toEqual({ a: 1 });
 		expect(refusal).toBeInstanceOf(Error);
+	});
+
+	it('is a Refusal: the same three fields, read-only', () => {
+		const refusal: Refusal = new LimixRefusal('x', 400, { a: 1 });
+		expect(refusal).toMatchObject({ code: 'x', status: 400, params: { a: 1 } });
 	});
 
 	it('is registered under Symbol.for so another copy is recognised', () => {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test';
 import { anonymous, policyOf } from '../evaluation/evaluation.fixtures';
 import { evaluateField } from '../evaluation/field';
 import { evaluateRest } from '../evaluation/rest';
-import { OUTAGE_MESSAGE, outageReporter } from './outage';
+import { outageReporter } from './outage';
 import {
 	isPolicySource,
 	mutableSource,
@@ -97,6 +97,5 @@ describe('outageReporter', () => {
 		note(policy);
 		note(null);
 		expect(reports).toBe(2);
-		expect(OUTAGE_MESSAGE).toContain('limix.errors.unavailable');
 	});
 });

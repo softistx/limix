@@ -1,3 +1,4 @@
+export type { JSONWebKeySet } from 'jose';
 export { DEFAULT_TYP } from './defaults';
 export * from './errors';
 export * from './remote-policy';

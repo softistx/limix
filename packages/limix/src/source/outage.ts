@@ -1,7 +1,3 @@
-/** The log line for a withdrawn policy. */
-export const OUTAGE_MESSAGE =
-	'Policy source unavailable (limix.errors.unavailable): it holds no policy, every request is refused';
-
 /**
  * Reports "the source holds no policy" once per withdrawal, not once per call:
  * call the returned function with `source.current()` each time; it runs

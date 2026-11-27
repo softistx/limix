@@ -1,7 +1,6 @@
 import type { RulesIssue } from '../error';
-import type { GraphqlRule } from '../graphql';
-import type { RestRule } from '../rest';
 import { DEFAULT_FROM } from '../terms';
+import type { GraphqlRule, RestRule } from '../types';
 import type { Condition } from './types';
 
 type Rule = RestRule | GraphqlRule;

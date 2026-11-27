@@ -78,8 +78,8 @@ const decision = await evaluateRest(policy, {
 
 ## Where the id is read
 
-A term's `from` names it; it defaults to `DEFAULT_FROM` (`param.id` on REST,
-`args.id` on GraphQL).
+A term's `from` names it; it defaults to `param.id` on REST and
+`args.id` on GraphQL.
 
 | Where | `from` | Reads |
 | --- | --- | --- |

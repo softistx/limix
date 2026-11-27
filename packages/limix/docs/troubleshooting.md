@@ -330,7 +330,7 @@ A refusal with status 503. `params.reason` says why.
 
 ## Policy source unavailable (limix.errors.unavailable): it holds no policy, every request is refused
 
-The line `outageReporter` reports (`OUTAGE_MESSAGE`) when a source is seen
+A line a host logs through `outageReporter` (the package supplies no text) when a source is seen
 holding none, including the first look before any policy arrived: the `mutableSource` was swapped to `null`, or
 a remote source lost its rules. Every evaluator answers
 `limix.errors.unavailable` (503, `params.reason: 'no-policy'`) until a policy is

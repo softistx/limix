@@ -1,4 +1,4 @@
-import { DEFAULT_FROM } from '../rules';
+import { DEFAULT_FROM } from '../rules/terms';
 import { type Claims, isAuthenticated } from './claims';
 import { graphqlEntry } from './graphql-entry';
 import { heldPolicy, noPolicy, type PolicyInput } from './held';

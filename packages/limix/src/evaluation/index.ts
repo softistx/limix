@@ -10,8 +10,8 @@ export {
 	CODE_UNAVAILABLE,
 	type Decision,
 	isLimixRefusal,
-	LIMIX_REFUSAL,
 	LimixRefusal,
+	type Refusal,
 } from './refusal';
 export type { RelationChecker, RelationQuery } from './relations';
 export { evaluateRest, type RestInput, type RestRequest } from './rest';

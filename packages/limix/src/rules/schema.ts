@@ -66,5 +66,4 @@ export const RulesSchema = z
 			'YAML anchors and dropped.',
 	);
 
-/** A validated rules document, as `parseRules` and `definePolicy` return it. */
-export type Rules = z.infer<typeof RulesSchema>;
+export type { Rules } from './types';

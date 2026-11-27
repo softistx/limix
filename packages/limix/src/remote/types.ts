@@ -93,8 +93,11 @@ export interface RemotePolicyOptions {
 export interface RemotePolicy extends PolicySource {
 	/** Resolves once a policy is held (store or network); never rejects. */
 	readonly ready: Promise<void>;
-	/** Forces a pull. True when the held rules changed. Never throws. */
-	refresh(): Promise<boolean>;
+	/**
+	 * Forces a pull. `changed` is true when the held rules changed; `error` is
+	 * set when the pull failed (the last good copy keeps serving). Never throws.
+	 */
+	refresh(): Promise<{ changed: boolean; error?: RemotePolicyError }>;
 	/** Clears the timer. */
 	stop(): void;
 	/** Milliseconds since the held copy was verified or confirmed by a 304. */

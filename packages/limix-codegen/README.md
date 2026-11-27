@@ -81,7 +81,7 @@ plugin reads those files through Bun. Keys other than `rules` and `openapi`
 
 | Subpath | What it holds |
 | --- | --- |
-| `@softistx/limix-codegen` | `generateModule`, `openapiOperations`, `openapiPath`, `starterRules`, `CodegenError` |
+| `@softistx/limix-codegen` | `generateModule`, `openapiOperations`, `starterRules`, `CodegenError` |
 | `@softistx/limix-codegen/graphql-codegen` | `plugin`, the graphql-codegen plugin |
 | `limix-codegen` (bin) | `generate` and `init` |
 | `@softistx/limix-codegen/package.json` | The package manifest |

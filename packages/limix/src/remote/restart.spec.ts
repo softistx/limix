@@ -13,7 +13,7 @@ describe('a re-signed token with an equal ver', () => {
 		await first.policy.refresh();
 		await publisher.publish(1, '/a', { exp: sec(T0) + 10 * DAY });
 		publisher.state.etag = '"v1-resigned"';
-		expect(await first.policy.refresh()).toBe(false);
+		expect((await first.policy.refresh()).changed).toBe(false);
 		expect(store.value?.jws).toBe(publisher.state.body);
 
 		publisher.state.down = true;
@@ -35,9 +35,9 @@ describe('hung inputs', () => {
 				return calls === 1 ? new Promise<string>(() => {}) : 'secret';
 			},
 		});
-		expect(await policy.refresh()).toBe(false);
+		expect((await policy.refresh()).changed).toBe(false);
 		expect(codes()).toEqual(['FETCH_FAILED']);
-		expect(await policy.refresh()).toBe(true);
+		expect((await policy.refresh()).changed).toBe(true);
 		expect(policy.version()).toBe(1);
 	});
 
@@ -142,7 +142,7 @@ describe('a 304 nobody asked for', () => {
 		const publisher = await createPublisher();
 		publisher.state.always304 = true;
 		const { policy, codes } = boot(publisher, {});
-		expect(await policy.refresh()).toBe(false);
+		expect((await policy.refresh()).changed).toBe(false);
 		expect(codes()).toEqual(['HTTP_STATUS']);
 		expect(policy.current()).toBeNull();
 		expect(policy.age()).toBeNull();

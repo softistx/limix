@@ -82,6 +82,11 @@ are ignored. Both OpenAPI 3.x and Swagger 2.0 are read, from `.yaml`, `.yml` or
 | `/a(b)` | `/a\(b\)` |
 | `/a:b*` | `/a\:b\*` |
 
+The path conversion is `rulesPathOf` from `@softistx/limix/coverage`, the same
+function coverage uses, so the two cannot disagree on a path. A path it cannot
+spell (an unbalanced brace, two adjacent parameters) is refused with the source's
+name in front.
+
 Each of `get put post delete options head patch trace query` under a path item
 becomes an operation. `parameters`, `summary`, `description`, `servers`, `x-*`,
 `additionalOperations` and `webhooks` are ignored.

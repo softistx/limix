@@ -26,7 +26,7 @@ describe('remotePolicy: the limix token', () => {
 		track(policy);
 		await settled(policy);
 		await publisher.publish(2, '/a', { typ: 'rules+jwt' });
-		expect(await policy.refresh()).toBe(false);
+		expect((await policy.refresh()).changed).toBe(false);
 		expect(codes(errors)).toEqual(['CLAIMS']);
 		expect(policy.version()).toBe(1);
 	});
@@ -39,7 +39,7 @@ describe('remotePolicy: the limix token', () => {
 		await settled(policy);
 		expect(policy.version()).toBe(1);
 		await publisher.publish(2, '/a', { typ: 'mine+jwt' });
-		expect(await policy.refresh()).toBe(true);
+		expect((await policy.refresh()).changed).toBe(true);
 	});
 
 	it('a schema claim other than the format version is CLAIMS', async () => {
@@ -52,7 +52,7 @@ describe('remotePolicy: the limix token', () => {
 			rules: rulesFor('/b'),
 		});
 		publisher.state.etag = '"s2"';
-		expect(await policy.refresh()).toBe(false);
+		expect((await policy.refresh()).changed).toBe(false);
 		expect(codes(errors)).toEqual(['CLAIMS']);
 		expect(errors[0]?.message).toContain('schema');
 		expect(policy.version()).toBe(1);
@@ -67,7 +67,7 @@ describe('remotePolicy: the limix token', () => {
 			rules: rulesFor('/b'),
 		});
 		publisher.state.etag = '"s0"';
-		expect(await policy.refresh()).toBe(true);
+		expect((await policy.refresh()).changed).toBe(true);
 	});
 });
 
@@ -85,7 +85,7 @@ describe('remotePolicy: rules and conditions', () => {
 			},
 		});
 		publisher.state.etag = '"bad"';
-		expect(await policy.refresh()).toBe(false);
+		expect((await policy.refresh()).changed).toBe(false);
 		expect(codes(errors)).toEqual(['RULES_REFUSED']);
 		expect(errors[0]?.message).toContain('Invalid rules');
 		expect(policy.version()).toBe(1);
@@ -101,7 +101,7 @@ describe('remotePolicy: rules and conditions', () => {
 			rules: when('nope'),
 		});
 		publisher.state.etag = '"c"';
-		expect(await policy.refresh()).toBe(false);
+		expect((await policy.refresh()).changed).toBe(false);
 		expect(codes(errors)).toEqual(['RULES_REFUSED']);
 		expect(policy.version()).toBe(1);
 	});

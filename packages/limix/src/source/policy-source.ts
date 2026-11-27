@@ -1,6 +1,12 @@
 import type { CompiledPolicy } from '../rules';
 
-/** The registered brand of a source, so a second copy of this package still recognises it. */
+/**
+ * The registered brand of a source, so a second copy of this package still
+ * recognises it. Not exported: the contract between copies is the registry key
+ * `Symbol.for('limix.policy-source')`, which `isPolicySource` reads. Build a
+ * source with `policySource`, which checks the implementation, never by
+ * setting the brand by hand.
+ */
 export const POLICY_SOURCE: unique symbol = Symbol.for('limix.policy-source');
 
 /**

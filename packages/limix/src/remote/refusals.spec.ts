@@ -14,7 +14,9 @@ describe('remotePolicy: refusals keep the last known good', () => {
 		track(policy);
 		await settled(policy);
 		await publishBad(publisher);
-		expect(await policy.refresh()).toBe(false);
+		const result = await policy.refresh();
+		expect(result.changed).toBe(false);
+		expect(String(result.error?.code)).toBe(code);
 		expect(codes(errors)).toEqual([code]);
 		expect(policy.version()).toBe(1);
 		expect(policy.current()).not.toBeNull();
@@ -39,7 +41,7 @@ describe('remotePolicy: refusals keep the last known good', () => {
 			'HS256',
 		);
 		track(policy);
-		expect(await policy.refresh()).toBe(false);
+		expect((await policy.refresh()).changed).toBe(false);
 		expect(codes(errors)[0]).toBe('SIGNATURE');
 		expect(policy.current()).toBeNull();
 	});
@@ -81,7 +83,7 @@ describe('remotePolicy: refusals keep the last known good', () => {
 		track(policy);
 		await settled(policy);
 		await publisher.publish(3);
-		expect(await policy.refresh()).toBe(false);
+		expect((await policy.refresh()).changed).toBe(false);
 		expect(codes(errors)).toEqual(['STALE_VERSION']);
 		expect(policy.version()).toBe(5);
 	});
@@ -94,7 +96,7 @@ describe('remotePolicy: refusals keep the last known good', () => {
 			rules: { rest: { '/x': { GET: { expression: { value: 'true' } } } } },
 		});
 		publisher.state.etag = '"r"';
-		expect(await policy.refresh()).toBe(false);
+		expect((await policy.refresh()).changed).toBe(false);
 		expect(codes(errors)).toEqual(['RULES_REFUSED']);
 		expect(errors[0]?.message).toStartWith(
 			'Invalid rules in the pulled rules:',
@@ -119,7 +121,7 @@ describe('remotePolicy: refusals keep the last known good', () => {
 		await settled(policy);
 		await publisher.publish(1, '/other');
 		publisher.state.etag = '"other"';
-		expect(await policy.refresh()).toBe(false);
+		expect((await policy.refresh()).changed).toBe(false);
 		expect(changes).toEqual([1]);
 		expect(codes(errors)).toEqual(['CLAIMS']);
 		const patterns = policy
