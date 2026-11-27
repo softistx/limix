@@ -1,6 +1,6 @@
 # @softistx/limix — documentation
 
-The [README](../README.md) is the npm page. Nothing is published yet; these pages exist:
+The [README](../README.md) is the npm page; these pages go deeper:
 
 | Page | Read it when |
 | --- | --- |

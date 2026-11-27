@@ -9,8 +9,8 @@ starter rules file. A CLI and a graphql-codegen plugin; it runs on Bun.
 
 ## Install
 
-Not published yet: this package and `@softistx/limix-graxia` are private until
-the first release.
+The package is published with restricted access: installing it needs an npm
+token that can read the `@softistx` scope.
 
 ```sh
 bun add -d @softistx/limix-codegen @softistx/limix
