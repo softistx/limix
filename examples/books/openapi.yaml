@@ -46,6 +46,14 @@ paths:
         - { name: id, in: path, required: true, schema: { type: string } }
       responses:
         "200": { description: The books of the author }
+  /admin/health:
+    get:
+      responses:
+        "200": { description: Alive, for the load balancer }
+  /admin/cache:
+    delete:
+      responses:
+        "204": { description: Cache emptied }
   /admin/stats:
     get:
       responses:

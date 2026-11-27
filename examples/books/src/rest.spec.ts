@@ -41,12 +41,21 @@ describe('REST: who gets which status', () => {
 		}
 	});
 
-	test('everything under /admin is for the admin, whatever the method', async () => {
+	test('/admin/health is public: written before the * /admin/* wildcard', async () => {
 		const { app } = await freshApp();
+		expect((await rest(app, 'GET', '/admin/health')).status).toBe(200);
+	});
+
+	test('"* /admin/*" judges every method: DELETE /admin/cache is for the admin', async () => {
+		const { app } = await freshApp();
+		expect((await rest(app, 'DELETE', '/admin/cache')).status).toBe(401);
+		expect((await rest(app, 'DELETE', '/admin/cache', 'alice')).status).toBe(
+			403,
+		);
+		expect((await rest(app, 'DELETE', '/admin/cache', 'admin')).status).toBe(
+			204,
+		);
 		expect((await rest(app, 'GET', '/admin/stats', 'admin')).status).toBe(200);
-		// The app has no POST /admin/stats: alxia answers 405 before any rule
-		// is read. The wildcard rule is what judges a route added under /admin.
-		expect((await rest(app, 'POST', '/admin/stats', 'alice')).status).toBe(405);
 	});
 
 	test('the refusal is the app error format', async () => {
@@ -87,8 +96,11 @@ describe('REST: who gets which status', () => {
 		).toBe(401);
 	});
 
-	test('a route no rule names is refused, not served', async () => {
+	test('unmatched: deny refuses a route no rule names (401 anonymous, 403 signed in)', async () => {
 		const { app } = await freshApp();
-		expect((await rest(app, 'PATCH', '/books/b1', 'admin')).status).toBe(405);
+		app.get('/unruled', ({ reply }) => reply(200, { ok: true }));
+		expect((await rest(app, 'GET', '/unruled')).status).toBe(401);
+		expect((await rest(app, 'GET', '/unruled', 'alice')).status).toBe(403);
+		expect((await rest(app, 'GET', '/unruled', 'admin')).status).toBe(403);
 	});
 });

@@ -10,9 +10,13 @@ global:
   unmatched: deny
 
 rest:
-  # Public: health first, because the wildcard below would take it otherwise
-  # (the first rule that matches, in document order, applies).
   "GET /health":
+    public: true
+
+  # Document order: the first rule that matches applies. /admin/health is
+  # public, so it is written BEFORE the "* /admin/*" wildcard further down,
+  # which would otherwise take it and ask for an admin.
+  "GET /admin/health":
     public: true
 
   # Nested form: one path, its methods together.

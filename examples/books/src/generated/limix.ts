@@ -2,6 +2,8 @@
 // Do not edit: run `limix-codegen generate` again (`--check` in CI).
 
 export type LimixRest =
+	| 'DELETE /admin/cache'
+	| 'GET /admin/health'
 	| 'GET /admin/stats'
 	| 'GET /authors'
 	| 'GET /authors/:id'

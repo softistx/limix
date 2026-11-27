@@ -7,7 +7,7 @@
 		"examples/*"
 	],
 	"scripts": {
-		"build": "bun run --filter './packages/*' build && bun run --filter './examples/*' build",
+		"build": "bun run --filter './packages/*' build",
 		"typecheck": "bun run typecheck:scripts && bun run --filter './packages/*' typecheck && bun run --filter './examples/*' typecheck",
 		"typecheck:scripts": "bun check -p scripts/tsconfig.json",
 		"test": "bun run --filter './packages/*' test && bun run --filter './examples/*' test && bun test ./scripts/",

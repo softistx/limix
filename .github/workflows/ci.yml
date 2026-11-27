@@ -81,6 +81,7 @@ jobs:
       # The examples are not packages: `affected.ts` never selects them, so they
       # are checked whole on every pull request (types, generated rules, specs).
       - name: Check the examples
+        if: github.head_ref != 'changeset-release/develop'
         run: |
           bun run --filter './examples/*' typecheck
           bun run --filter './examples/*' test

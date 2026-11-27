@@ -27,7 +27,7 @@ From the repository root:
 
 ```sh
 bun install
-bun run build          # the example imports the built packages
+bun run build          # the packages: the example imports their dist
 cd examples/books
 bun run start          # http://localhost:3000, PORT=8080 to change it
 bun run test           # codegen check, then the specs
@@ -81,7 +81,7 @@ gql '{ me }'                                               # anonymous: 401, aut
 gql '{ me }' reader                                        # { "me": "reader" }
 gql '{ author(id: \"a1\") { name email } }' alice          # email: null, auth.errors.forbidden
 gql '{ author(id: \"a1\") { name email } }' admin          # the email
-gql 'mutation { updateBook(id: \"b2\", title: \"X\") { title } }' alice   # bob'"'"'s book: 403
+gql 'mutation { updateBook(id: \"b2\", title: \"X\") { title } }' alice   # not her book: 403
 gql 'mutation { deleteBook(id: \"b1\") }' alice            # admin only: 403
 gql 'mutation { deleteBook(id: \"b1\") }' admin            # { "deleteBook": true }
 ```
@@ -111,8 +111,10 @@ way to write and check a file in [writing-rules.md](../../packages/limix-codegen
    exposes: a route or root field no rule names is refused (401 for an
    anonymous caller, 403 for a signed-in one). Coverage keeps the list honest.
 2. **Public reads.** `public: true` lets anonymous callers through.
-   `GET /health` is written first: the first matching rule in document order
-   applies, so it must precede the `* /admin/*` wildcard.
+   Rules apply in document order, first match wins: `GET /admin/health` is
+   public and written before the `* /admin/*` wildcard, which would otherwise
+   take it and ask for an admin. (`/health` is a path of its own, no wildcard
+   reaches it.)
 3. **Nested and flat REST keys.** `/books` with its methods under it, and
    `"POST /books"` as one key, mean the same thing and mix freely; choose by
    what reads best. Two keys naming one rule are a compile error.
@@ -127,6 +129,7 @@ way to write and check a file in [writing-rules.md](../../packages/limix-codegen
    from `param.id` over REST and from `args.id` in GraphQL. `when` only narrows,
    so the condition lets the admin through itself.
 7. **A method wildcard.** `"* /admin/*"` takes every method under `/admin`
+   (`GET /admin/stats`, `DELETE /admin/cache`)
    (quoted, since a YAML key starting with `*` is an alias). `/admin/*` does not
    take `/admin` itself; write `/admin{/*}` for both.
 8. **GraphQL.** `Query.me` is the flat spelling, `Mutation:` the nested one.

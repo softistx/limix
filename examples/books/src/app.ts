@@ -56,6 +56,9 @@ export async function buildApp(store: Store = createStore()) {
 		) {
 			return reply(400, { code: 'invalid-book' });
 		}
+		// limix-alxia does not hand the claims the guard resolved to a REST
+		// handler (only GraphQL has `ctx.limix.claims()`), so the demo decoder
+		// is read again; a real app derives the user in a middleware instead.
 		const owner = String(demoClaims({ request })['userId']);
 		return reply(201, store.add({ title, year, authorId }, owner));
 	});
@@ -86,6 +89,8 @@ export async function buildApp(store: Store = createStore()) {
 		reply(200, store.booksOf(params.id)),
 	);
 
+	app.get('/admin/health', ({ reply }) => reply(200, { ok: true }));
+	app.delete('/admin/cache', ({ reply }) => reply(204, undefined));
 	app.get('/admin/stats', ({ reply }) =>
 		reply(200, {
 			books: store.books().length,
