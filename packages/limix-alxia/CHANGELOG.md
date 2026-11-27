@@ -1,5 +1,17 @@
 # @softistx/limix-alxia
 
+## 0.3.0
+
+### Minor Changes
+
+- [#50](https://github.com/softistx/limix/pull/50) [`31b0ed3`](https://github.com/softistx/limix/commit/31b0ed3e3d3171e669fff11ce8698bec3d1c03f8) Thanks [@SteveGT96](https://github.com/SteveGT96)! - The 1.0 surface of limix-alxia. Breaking: `checkRoutes(policy, app)` and `checkGuard(guard, app)` return a `readonly RouteIssue[]` (empty means fine) instead of throwing a `TypeError` at the first problem, and name every problem at once; the guard's own start hook still refuses to start, with the same messages. A `RouteIssue` is `{ kind, path, message, fix }`, with `kind` one of `rung-code`, `unmatched-rule`, `open-route` and `separated-guards`. Migration: `expect(() => checkGuard(guard, app)).not.toThrow()` becomes `expect(checkGuard(guard, app)).toEqual([])`, and a `toThrow` on either function reads the issues instead. `LimixGraphqlOptions` is no longer exported from `./graphql` (type a shared object as `LimixGraphqlExtras`, now documented). `Refusal` is core's `Refusal`, re-exported under the same name. Added: `RouteIssue` and `ErrorStatus` types; `MapRefusal<Ctx extends object = Empty>` and `LimixGraphqlExtras<Ctx extends object = Empty>` default to an empty context.
+
+### Patch Changes
+
+- Updated dependencies [[`b4a98ba`](https://github.com/softistx/limix/commit/b4a98ba7ce681cee5c4c10467f041681cc92f87e), [`91b1b87`](https://github.com/softistx/limix/commit/91b1b87a2280287a1c426d5223f6f93debccd644), [`d30f58c`](https://github.com/softistx/limix/commit/d30f58cdfc19c2604fd246e17fc35df5d5673fec)]:
+  - @softistx/limix@0.5.0
+  - @softistx/limix-graxia@0.2.0
+
 ## 0.2.1
 
 ### Patch Changes
