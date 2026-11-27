@@ -43,4 +43,22 @@ describe('LimixGraxiaOptions, the default context', () => {
 		const reads: LimixGraxiaOptions = { policy, claims: (ctx) => ctx.request };
 		expect(reads).toBeDefined();
 	});
+
+	test('a context is an object', () => {
+		// @ts-expect-error a context is an object
+		type Bad = LimixGraxiaOptions<string>;
+		expectTypeOf<Bad>().not.toBeAny();
+	});
+
+	test('guardSchema<Host> takes claims that read the host context', () => {
+		interface Host {
+			request: Request;
+		}
+		const schema = guardSchema<Host>(fixtureSchema(), {
+			policy,
+			claims: (ctx) =>
+				ctx.request.headers.has('x-user') ? claims.admin : claims.anon,
+		});
+		expect(schema).toBeDefined();
+	});
 });

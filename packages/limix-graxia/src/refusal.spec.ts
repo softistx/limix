@@ -81,4 +81,11 @@ describe('refusalError', () => {
 			refusalError(forbidden, { mapRefusal: () => undefined }).message,
 		).toBe('auth.errors.forbidden');
 	});
+
+	test('options may forward undefined fields', () => {
+		const maybe = (flag: boolean | undefined) =>
+			refusalError(forbidden, { topLevel: flag, mapRefusal: undefined });
+		expect(maybe(undefined).extensions['http']).toBeUndefined();
+		expect(maybe(true).extensions['http']).toEqual({ status: 403 });
+	});
 });

@@ -22,7 +22,7 @@ type Resolver = GraphQLFieldResolver<unknown, unknown>;
 
 /** What every guarded field of one schema shares. */
 export interface Guard {
-	readonly options: LimixGraxiaOptions<object>;
+	readonly options: LimixGraxiaOptions<never>;
 	/**
 	 * The policy held now (one read per call): `null` for a source holding none,
 	 * or a refusal (503, `policy-mismatch`) for a held policy that does not fit
@@ -44,13 +44,12 @@ export function makeGuard(
 	options: LimixGraxiaOptions<never>,
 	schema: GraphQLSchema,
 ): Guard {
-	const wide = options as LimixGraxiaOptions<object>;
-	const { policy } = wide;
-	if (!isPolicySource(policy)) return { options: wide, snapshot: () => policy };
-	const report = outageReporter(wide.onUnavailable ?? (() => {}));
+	const { policy } = options;
+	if (!isPolicySource(policy)) return { options, snapshot: () => policy };
+	const report = outageReporter(options.onUnavailable ?? (() => {}));
 	const checked = new WeakMap<CompiledPolicy, boolean>();
 	return {
-		options: wide,
+		options,
 		snapshot() {
 			const held = policy.current();
 			if (held === null) {

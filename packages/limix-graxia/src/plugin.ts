@@ -12,7 +12,7 @@ import { remapPayload } from './remap';
  * `@defer`/`@stream` payload.
  *
  * ```ts
- * const options = { policy, claims: (ctx) => claimsOf(ctx) };
+ * const options = { policy, claims: (ctx: { request: Request }) => claimsOf(ctx) };
  * createGraxia({
  *   schema: guardSchema(schema, options),
  *   plugins: [limixGraxia(options)],

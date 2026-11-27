@@ -33,7 +33,7 @@ declarations import without extensions, so `nodenext` is not supported.
 | `checkNeeds(policy, schema)` | Where a field's `@needs` and the rule that guards it disagree |
 | `canOf(claims)` | The `can` predicate of `@softistx/graxia/agent` and `@softistx/graxia-mcp` |
 | `isGuarded(schema)` | Whether `guardSchema` made this schema |
-| types `LimixGraxiaOptions`, `LimixContext`, `MapRefusal`, `RefusalAnswer`, `RefusalAt`, `NeedsIssue`, `NeedsIssueKind`, `GraphqlOperationsOptions` | The shapes the functions take and return |
+| types `LimixGraxiaOptions`, `LimixContext`, `MapRefusal`, `RefusalAnswer`, `RefusalErrorOptions`, `RefusalAt`, `NeedsIssue`, `NeedsIssueKind`, `GraphqlOperationsOptions` | The shapes the functions take and return |
 | `@softistx/limix-graxia/operations` | `graphqlOperations` alone, importing only `graphql` (no graxia): for build-time tools |
 | `@softistx/limix-graxia/package.json` | The package manifest |
 

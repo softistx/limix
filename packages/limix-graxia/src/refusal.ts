@@ -9,7 +9,7 @@ export interface RefusalErrorOptions {
 	/** Where the refusal happened. */
 	at?: RefusalAt | undefined;
 	/** Whether the field is a top-level field of the operation (its HTTP status applies); defaults to `at.root`. */
-	topLevel?: boolean;
+	topLevel?: boolean | undefined;
 }
 
 /**
