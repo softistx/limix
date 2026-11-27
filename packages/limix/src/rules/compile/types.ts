@@ -17,11 +17,18 @@ export type Condition = (
 	context: ConditionContext,
 ) => boolean | Promise<boolean>;
 
+/** `T` with every property and list readonly, however deep. Types only. */
+type DeepReadonly<T> = T extends (infer U)[]
+	? readonly DeepReadonly<U>[]
+	: T extends object
+		? { readonly [K in keyof T]: DeepReadonly<T[K]> }
+		: T;
+
 export interface CompiledRestRoute {
 	/** The basePath-prefixed pattern. */
 	readonly pattern: string;
 	readonly matcher: RouteMatcher;
-	readonly rule: Readonly<RestRule>;
+	readonly rule: DeepReadonly<RestRule>;
 	/** The conditions named by `when`, resolved, in order. */
 	readonly conditions: readonly Condition[];
 	/** True when a relation term reads `json.<path>`, so the body must be buffered. */
@@ -29,7 +36,7 @@ export interface CompiledRestRoute {
 }
 
 export interface CompiledGraphqlEntry {
-	readonly rule: Readonly<GraphqlRule>;
+	readonly rule: DeepReadonly<GraphqlRule>;
 	readonly conditions: readonly Condition[];
 }
 

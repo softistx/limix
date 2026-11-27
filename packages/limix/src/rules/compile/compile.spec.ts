@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test';
 import { definePolicy } from '../define';
 import { RulesError } from '../error';
 import { EXAMPLE_POLICY } from '../example.fixtures';
+import { parseRules } from '../parse';
 import { compilePolicy } from './index';
 
 const workingHours = () => true;
@@ -274,5 +275,35 @@ describe('compilePolicy', () => {
 			);
 			expect(policy.usesRelations).toBe(true);
 		});
+	});
+});
+
+describe('a compiled rule is deep-readonly', () => {
+	it('refuses to edit a list, a rung or a term', () => {
+		const policy = compilePolicy(
+			parseRules({
+				limix: 1,
+				global: { unmatched: 'deny' },
+				rest: {
+					'/a/:id': {
+						GET: {
+							roles: [['admin']],
+							relations: [{ require: [[{ relation: 'view', type: 'doc' }]] }],
+						},
+					},
+				},
+				graphql: { Query: { f: { permissions: [['p']] } } },
+			}),
+		);
+		const route = policy.restRoutesByMethod.get('GET')?.[0];
+		const entry = policy.graphql?.['Query']?.['f'];
+		// @ts-expect-error a compiled list is readonly
+		route?.rule.roles?.push(['x']);
+		// @ts-expect-error a compiled rung's lists are readonly
+		route?.rule.relations?.[0]?.require.push([]);
+		// @ts-expect-error a compiled GraphQL rule's lists are readonly
+		entry?.rule.permissions?.push(['x']);
+		// @ts-expect-error a compiled term is readonly
+		if (route?.rule.relations?.[0]) route.rule.relations[0].code = 'x';
 	});
 });

@@ -23,6 +23,21 @@ describe('remotePolicy: a valid pull', () => {
 		expect(await policy.refresh()).toEqual({ changed: false });
 	});
 
+	it('answers a fresh result each time', async () => {
+		const a = await make();
+		const b = await make();
+		track(a.policy);
+		track(b.policy);
+		await settled(a.policy);
+		await settled(b.policy);
+		const first = await a.policy.refresh();
+		const second = await b.policy.refresh();
+		expect(first).toEqual({ changed: false });
+		expect(second).toEqual({ changed: false });
+		expect(first).not.toBe(second);
+		expect(await a.policy.refresh()).not.toBe(first);
+	});
+
 	it('discovers jwks_uri once from the issuer and requires iss', async () => {
 		const { policy, publisher, errors } = await make({
 			jwksUri: undefined,

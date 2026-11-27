@@ -62,7 +62,9 @@ export function checkContradictions(
 }
 
 /** True when the rule declares at least one relation rung. */
-export function usesRelations(rule: Rule): boolean {
+export function usesRelations(rule: {
+	readonly relations?: readonly unknown[] | undefined;
+}): boolean {
 	return Boolean(rule.relations?.length);
 }
 

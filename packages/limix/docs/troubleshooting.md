@@ -328,7 +328,7 @@ A refusal with status 503. `params.reason` says why.
 `@softistx/alxia-access`'s `refusalOf` reads only codes under `auth.errors.` and
 `tenancy.errors.`, so this one needs the mapping `@softistx/limix-alxia` does (503 with `retry-after`).
 
-## Policy source unavailable (limix.errors.unavailable): it holds no policy, every request is refused
+## `limix.errors.unavailable` with `params.reason: 'no-policy'`: the source holds no policy, every request is refused
 
 A line a host logs through `outageReporter` (the package supplies no text) when a source is seen
 holding none, including the first look before any policy arrived: the `mutableSource` was swapped to `null`, or

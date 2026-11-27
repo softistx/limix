@@ -64,6 +64,10 @@ becomes `/a\:b\*`). A path with no limix spelling throws a `TypeError`: an
 unbalanced brace, an empty `{}`, or two adjacent parameters (`/{a}{b}`, which
 limix cannot tell apart).
 
+`rulesPathOf` takes an OpenAPI path only, never a path already in the rules-file
+spelling: it escapes `:` and `*`, so `/things/:id` becomes `/things/\:id`. OpenAPI
+paths do contain a literal `:` (`/v1/{name}:cancel` becomes `/v1/:name\:cancel`).
+
 ```ts
 import { rulesPathOf } from '@softistx/limix/coverage'
 

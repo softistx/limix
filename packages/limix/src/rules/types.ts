@@ -8,36 +8,36 @@
 type Alternatives = string[][];
 
 /** One relation term: the caller must hold `relation` on an object of `type`. */
-export interface RelationTerm {
+export type RelationTerm = {
 	relation: string;
 	type: string;
 	/** Where the object id is read from; `param.id` on REST, `args.id` on GraphQL by default. */
 	from?: string | undefined;
-}
+};
 
 /** One rung of the relations ladder. */
-export interface RelationRung {
+export type RelationRung = {
 	require: RelationTerm[][];
 	/** How a failure of this rung is answered; `NOT_FOUND` by default. */
 	onDeny?: 'NOT_FOUND' | 'FORBIDDEN' | undefined;
 	/** The refusal's code, replacing the default one of the answer. */
 	code?: string | undefined;
-}
+};
 
-interface EntryRule {
+type EntryRule = {
 	roles?: Alternatives | null | undefined;
 	permissions?: Alternatives | null | undefined;
 	when?: string[] | null | undefined;
 	authenticated?: boolean | null | undefined;
 	public?: boolean | null | undefined;
 	relations?: RelationRung[] | undefined;
-}
+};
 
 /** The rule of one REST route and method. */
-export interface RestRule extends EntryRule {}
+export type RestRule = EntryRule;
 
 /** The rule of one GraphQL field. */
-export interface GraphqlRule extends EntryRule {}
+export type GraphqlRule = EntryRule;
 
 /** The HTTP methods a path entry may name. */
 export type RestMethodName =
@@ -59,13 +59,13 @@ export type RestMethods = { [M in RestMethodName]?: RestRule | undefined };
 export type GraphqlFields = Record<string, GraphqlRule>;
 
 /** Settings applied across the whole document. */
-export interface RulesGlobal {
+export type RulesGlobal = {
 	basePath?: string | undefined;
 	unmatched: 'allow' | 'deny';
-}
+};
 
 /** A validated rules document, as `parseRules` and `definePolicy` return it. */
-export interface Rules {
+export type Rules = {
 	limix: 1;
 	global: RulesGlobal;
 	/** REST rules by path pattern, then HTTP method, in document order. */
@@ -78,4 +78,4 @@ export interface Rules {
 				Subscription?: GraphqlFields | undefined;
 		  } & Record<string, GraphqlFields>)
 		| undefined;
-}
+};

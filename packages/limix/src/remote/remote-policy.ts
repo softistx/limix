@@ -1,5 +1,5 @@
 import { policySource } from '../source';
-import { type CycleContext, type PullResult, pullOnce } from './cycle';
+import { type CycleContext, pullOnce } from './cycle';
 import {
 	DEFAULT_INTERVAL_MS,
 	DEFAULT_MAX_STALE_MS,
@@ -12,6 +12,7 @@ import { createKeys } from './keys';
 import { createReporter } from './reporter';
 import { restoreFromStore } from './restore';
 import type {
+	RefreshResult,
 	RemotePolicy,
 	RemotePolicyLogger,
 	RemotePolicyOptions,
@@ -105,8 +106,8 @@ export function remotePolicy(options: RemotePolicyOptions): RemotePolicy {
 		restored,
 	});
 
-	let inFlight: Promise<PullResult> | undefined;
-	const refresh = (): Promise<PullResult> => {
+	let inFlight: Promise<RefreshResult> | undefined;
+	const refresh = (): Promise<RefreshResult> => {
 		inFlight ??= pullOnce(context).finally(() => {
 			inFlight = undefined;
 		});

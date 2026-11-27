@@ -13,6 +13,9 @@ describe('rulesPathOf', () => {
 		['/a({b})', '/a\\(:b\\)'],
 		['/a:b*', '/a\\:b\\*'],
 		['/plain', '/plain'],
+		// OpenAPI input only: a literal `:` is escaped, never read as a parameter.
+		['/things/:id', '/things/\\:id'],
+		['/v1/{name}:cancel', '/v1/:name\\:cancel'],
 		['/', '/'],
 		['/a/{x}/b/{y}', '/a/:x/b/:y'],
 		['/q?x+y!', '/q\\?x\\+y\\!'],

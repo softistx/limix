@@ -57,7 +57,7 @@ declarations import without extensions, so `nodenext` is not supported.
 | `RemotePolicyError`, `RemotePolicyConfigError`, `DEFAULT_TYP`, `ALGORITHMS` from `@softistx/limix/remote` | The failure of a pull (`code`: `FETCH_FAILED`, `HTTP_STATUS`, `SIGNATURE`, `CLAIMS`, `STALE_VERSION`, `RULES_REFUSED`, `STORE`, `EXPIRED`, `TOO_LARGE`), a refused option, the default `typ` `limix-rules+jwt` and the four accepted algorithms |
 | `filePolicyStore(path)` from `@softistx/limix/bun` | A `PolicyStore` over one JSON file, so a restart serves the last good copy before the first pull |
 | types `JSONWebKeySet`, `RemotePolicy`, `RemotePolicyOptions`, `RemotePolicyLogger`, `PolicyStore`, `StoredPolicy`, `RemotePolicyErrorCode`, `VerifiedRules`, `VerifyRulesOptions` from `@softistx/limix/remote` | The shapes the remote client takes and returns |
-| `rulesPathOf(openApiPath)` from `@softistx/limix/coverage` | An OpenAPI path in the rules-file spelling: `/things/{id}` to `/things/:id`, `{id}.json` to `:id.json`, a name that is no identifier quoted, the pattern syntax escaped; throws a `TypeError` for an unbalanced brace or two adjacent parameters |
+| `rulesPathOf(openApiPath)` from `@softistx/limix/coverage` | An OpenAPI path in the rules-file spelling: `/things/{id}` to `/things/:id`, `{id}.json` to `:id.json`, a name that is no identifier quoted, the pattern syntax escaped. It takes OpenAPI input only: a literal `:` or `*` is escaped, so `/things/:id` becomes `/things/\:id`. Throws a `TypeError` for an unbalanced brace, an empty `{}` or two adjacent parameters |
 | `coverage(policy, operations)` from `@softistx/limix/coverage` | Which operations the rules cover, leave public or leave to `global.unmatched`, and which rules are stale; runs in a browser or an edge runtime |
 | types `Operation`, `RestOperation`, `GraphqlOperation`, `CoverageReport`, `OperationCoverage`, `CoverageStatus`, `CoverageSummary`, `StaleRule` (a stale REST rule carries `shadowedBy` when an earlier rule takes it) from `@softistx/limix/coverage` | The shapes coverage takes and returns |
 | `@softistx/limix/rules.schema.json` | The JSON schema of a rules document, for editor completion |
@@ -350,9 +350,10 @@ token never follows one. See [remote](docs/remote.md).
   `StepKind`, `CoverageStatus`, the `kind` of a stale rule) may gain a member in
   a minor release after 1.0. Handle an unknown member (a `default` branch)
   instead of closing the switch.
-- **Wire values, not defaults.** The package exports the values that cross a
-  boundary (the refusal codes, `LIMIX_FORMAT_VERSION`, `DEFAULT_TYP`,
-  `ALGORITHMS`), never an option's default or a log sentence.
+- **Wire values.** The package exports the values that cross a boundary: the
+  refusal codes, `LIMIX_FORMAT_VERSION`, `ALGORITHMS` and `DEFAULT_TYP`, the
+  `typ` a publisher writes and a reader requires. It exports no log sentence
+  and none of the rules format's own defaults (`param.id`, `NOT_FOUND`).
 
 ## Documentation
 

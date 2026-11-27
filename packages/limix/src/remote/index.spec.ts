@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test';
 import type {
 	JSONWebKeySet,
 	PolicyStore,
+	RefreshResult,
 	RemotePolicy,
 	RemotePolicyErrorCode,
 	RemotePolicyLogger,
@@ -27,6 +28,7 @@ test('the public surface', () => {
 export type _Types = [
 	JSONWebKeySet,
 	PolicyStore,
+	RefreshResult,
 	RemotePolicy,
 	RemotePolicyErrorCode,
 	RemotePolicyLogger,

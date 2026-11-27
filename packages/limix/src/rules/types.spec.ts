@@ -17,6 +17,9 @@ export const _graphql: Mutual<
 	NonNullable<Inferred['graphql']>[string][string]
 > = true;
 
+// A type alias, not an interface, so a `Rules` value assigns to a record.
+export const _record: Record<string, unknown> = {} as Rules;
+
 test('the explicit Rules type matches the schema', () => {
 	expect(_rules && _rest && _graphql).toBe(true);
 });
