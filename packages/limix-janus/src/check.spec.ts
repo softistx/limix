@@ -1,16 +1,16 @@
 import { describe, expect, test } from 'bun:test';
 import { defineModel, fromField } from '@softistx/janus/permissions';
 import { compilePolicy, definePolicy } from '@softistx/limix';
-import { checkRulesAgainstModel } from './check';
+import { checkModel } from './check';
 import { model, policy } from './janus.fixtures';
 
 const term = (relation: string, type: string) => ({
 	require: [[{ relation, type }]],
 });
 
-describe('checkRulesAgainstModel', () => {
+describe('checkModel', () => {
 	test('is empty when every term is in the model', () => {
-		expect(checkRulesAgainstModel(policy, model)).toEqual([]);
+		expect(checkModel(policy, model)).toEqual([]);
 	});
 
 	test('reports an unknown type and an unknown relation, with paths', () => {
@@ -31,11 +31,16 @@ describe('checkRulesAgainstModel', () => {
 				},
 			}),
 		);
-		const issues = checkRulesAgainstModel(bad, model);
+		const issues = checkModel(bad, model);
 		expect(issues.map((issue) => issue.path)).toEqual([
 			"rest['/files/:id'].GET.relations[0].require[0][0]",
 			"rest['/files/:id'].DELETE.relations[1].require[0][0]",
 			'graphql.Mutation.drop.relations[0].require[0][0]',
+		]);
+		expect(issues.map((issue) => issue.kind)).toEqual([
+			'unknown-type',
+			'unknown-relation',
+			'unknown-relation',
 		]);
 		expect(issues[0]?.message).toContain('type `file` is not a type');
 		expect(issues[1]?.message).toContain('`purge` is neither a relation');
@@ -53,7 +58,7 @@ describe('checkRulesAgainstModel', () => {
 				},
 			}),
 		);
-		expect(checkRulesAgainstModel(ok, model)).toEqual([]);
+		expect(checkModel(ok, model)).toEqual([]);
 	});
 
 	test('REST paths use the rules-file pattern, without global.basePath', () => {
@@ -64,7 +69,7 @@ describe('checkRulesAgainstModel', () => {
 				rest: { '/files/:id': { GET: { relations: [term('view', 'file')] } } },
 			}),
 		);
-		expect(checkRulesAgainstModel(bad, model).map((i) => i.path)).toEqual([
+		expect(checkModel(bad, model).map((i) => i.path)).toEqual([
 			"rest['/files/:id'].GET.relations[0].require[0][0]",
 		]);
 	});
@@ -91,11 +96,12 @@ describe('checkRulesAgainstModel', () => {
 				},
 			}),
 		);
-		const issues = checkRulesAgainstModel(rules, withField);
+		const issues = checkModel(rules, withField);
 		expect(issues).toHaveLength(1);
 		expect(issues[0]?.path).toBe(
 			"rest['/records/:id'].GET.relations[0].require[0][0]",
 		);
+		expect(issues[0]?.kind).toBe('from-field');
 		expect(issues[0]?.message).toContain('not supported');
 		expect(issues[0]?.message).toContain('`load` option on the roadmap');
 	});

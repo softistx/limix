@@ -67,17 +67,19 @@ refuses with the rung's `onDeny`. Every message and its cure is in
 ## Check the rules against the model
 
 A typo in a rule (`relation: viewrs`, `type: file`) is a `TypeError` per request
-at run time. `checkRulesAgainstModel(policy, model)` finds them once:
+at run time. `checkModel(policy, model)` finds them once:
 
 ```ts
-const issues = checkRulesAgainstModel(policy, model)
-// [{ path: "rest['/files/:id'].GET.relations[0].require[0][0]",
+const issues = checkModel(policy, model)
+// [{ kind: 'unknown-type',
+//    path: "rest['/files/:id'].GET.relations[0].require[0][0]",
 //    message: 'type `file` is not a type of the janus model (it declares document)' }]
 ```
 
 It lists every relation term whose `type` is not an object type of the model,
 or whose `relation` is neither a relation nor a permission of that type. Empty
-means consistent. Call it at startup or in a spec. Paths for REST rules carry
+means consistent. Each issue has a `kind` (`ModelIssueKind`): `unknown-type`,
+`unknown-relation` or `from-field`; a new kind is a minor release. Call it at startup or in a spec. Paths for REST rules carry
 the pattern as the rules file writes it, without `global.basePath`, as core's
 rules issues do. A relation term that names a `fromField` relation is reported
 too, since the adapter cannot answer it.
@@ -88,7 +90,7 @@ too, since the adapter cannot answer it.
   `RelationQuery` carries only `{ type, id }`. A permission that reaches a
   `fromField` throws `can: <type>.<relation> reads <field>, which the object
   does not carry — pass the loaded object, spread`, and
-  `checkRulesAgainstModel` reports a term naming such a relation. Not
+  `checkModel` reports a term naming such a relation. Not
   supported yet: a `load` option is on the [roadmap](roadmap.md).
 - **No batching**: janus has no batched `can`, so each query is its own walk.
   A batched `can` would be a useful upstream addition; nothing is filed.

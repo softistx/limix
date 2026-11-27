@@ -10,7 +10,7 @@ thrown from `janusRelations(...).check`, so from `evaluateRest` or
 `evaluateField`. Find every such term at startup, then fix the rule or the model:
 
 ```ts
-checkRulesAgainstModel(policy, model) // [{ path, message }]
+checkModel(policy, model) // [{ kind, path, message }]
 ```
 
 ## can: "<type>" is not an object type of the model
@@ -27,12 +27,12 @@ the error where you map exceptions to a status.
 
 ## type `<type>` is not a type of the janus model
 
-A `checkRulesAgainstModel` issue: the rules name a `type` the model lacks. The
+A `checkModel` issue of kind `unknown-type`: the rules name a `type` the model lacks. The
 issue's path says which rule and term.
 
 ## `<relation>` is neither a relation nor a permission of `<type>`
 
-A `checkRulesAgainstModel` issue: the type exists but has no such relation or
+A `checkModel` issue of kind `unknown-relation`: the type exists but has no such relation or
 permission. The message lists the names it declares.
 
 ## StoreFailure / STORE_FAILED
@@ -59,7 +59,7 @@ janusRelations({ access, ctxOf: (query) => ({ onShift: true }) })
 The relation is a janus `fromField`, read from a field of the object, and the
 adapter sends `{ type, id }` only. Not supported yet: see Limits in
 [janus.md](janus.md#limits) and the `load` option on the [roadmap](roadmap.md).
-`checkRulesAgainstModel` reports a term naming such a relation directly.
+`checkModel` reports a term naming such a relation directly.
 
 ## can: the subject id must be a non-empty string without @, # or parentheses
 
@@ -79,7 +79,7 @@ make the wrapper answer a boolean.
 
 ## `<relation>` of `<type>` is read from a field (fromField), which is not supported
 
-A `checkRulesAgainstModel` issue: the rules name a relation janus reads from a
+A `checkModel` issue of kind `from-field`: the rules name a relation janus reads from a
 field of the object. See the entry above.
 
 ## Install note: peer `@softistx/janus`

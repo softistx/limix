@@ -23,5 +23,5 @@ Nothing in progress: the next items are below.
 
 ## Shipped
 
-- **0.1.0** — the adapter: `janusRelations` and `checkRulesAgainstModel` over
+- **0.1.0** — the adapter: `janusRelations` and `checkModel` over
   janus `can`, tested on the in-memory relation store.

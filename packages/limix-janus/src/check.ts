@@ -1,13 +1,22 @@
 import type { CompiledPolicy } from '@softistx/limix';
 
+/**
+ * What is wrong with a relation term: its `type` is not a type of the model
+ * (`unknown-type`), its `relation` is neither a relation nor a permission of
+ * that type (`unknown-relation`), or it is read from a field (`from-field`,
+ * which the adapter does not support). A new kind is a minor release.
+ */
+export type ModelIssueKind = 'unknown-type' | 'unknown-relation' | 'from-field';
+
 /** One relation term the janus model cannot answer, and where the rules write it. */
-export interface CheckIssue {
+export interface ModelIssue {
+	readonly kind: ModelIssueKind;
 	/** Where, as written in the rules: `rest['/documents/:id'].PUT.relations[0].require[0][0]`. */
 	readonly path: string;
 	readonly message: string;
 }
 
-/** What `checkRulesAgainstModel` reads of `defineModel(...)`'s answer. */
+/** What `checkModel` reads of `defineModel(...)`'s answer. */
 export interface ModelLike {
 	readonly types: readonly string[];
 	readonly definition: {
@@ -72,11 +81,11 @@ function* rulesOf(policy: CompiledPolicy): Generator<[string, RuleLike]> {
  * nor a permission of that type. Empty means consistent. Run it at startup or
  * in a spec, so a typo fails there rather than as a janus error at request time.
  */
-export function checkRulesAgainstModel(
+export function checkModel(
 	policy: CompiledPolicy,
 	model: ModelLike,
-): CheckIssue[] {
-	const issues: CheckIssue[] = [];
+): ModelIssue[] {
+	const issues: ModelIssue[] = [];
 	const types = model.definition.types;
 	for (const [where, rule] of rulesOf(policy)) {
 		for (const [rung, { require }] of (rule.relations ?? []).entries()) {
@@ -88,11 +97,13 @@ export function checkRulesAgainstModel(
 						: undefined;
 					if (!def) {
 						issues.push({
+							kind: 'unknown-type',
 							path,
 							message: `type \`${term.type}\` is not a type of the janus model (it declares ${model.types.join(', ') || 'none'})`,
 						});
 					} else if (isFromField(def.related, term.relation)) {
 						issues.push({
+							kind: 'from-field',
 							path,
 							message: `\`${term.relation}\` of \`${term.type}\` is read from a field (fromField), which is not supported: the adapter sends { type, id } only; see the \`load\` option on the roadmap`,
 						});
@@ -105,6 +116,7 @@ export function checkRulesAgainstModel(
 							...Object.keys(def.permits ?? {}),
 						];
 						issues.push({
+							kind: 'unknown-relation',
 							path,
 							message: `\`${term.relation}\` is neither a relation nor a permission of \`${term.type}\` (it declares ${names.join(', ') || 'none'})`,
 						});
