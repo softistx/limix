@@ -32,9 +32,7 @@ Nothing in progress: the next items are below.
 ## Shipped
 
 - **0.3.0** — `Register`, the hook a generated file fills to type `definePolicy`
-  and the `conditions` of `compilePolicy`. The integrations ship as
-  `@softistx/limix-graxia`, `@softistx/limix-alxia` and `@softistx/limix-codegen`
-  0.1.0.
+  and the `conditions` of `compilePolicy`.
 - **0.2.0** — `holdsPermission(claims)`.
 - **0.1.0** (0.1.1 is the same code) — the rules format and evaluation (parse, load, `definePolicy`,
   compile, the JSON schema, `evaluateRest`, `evaluateField`, `explain`, the

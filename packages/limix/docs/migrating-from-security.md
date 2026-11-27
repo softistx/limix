@@ -24,7 +24,7 @@ Do it in this order:
 
 | `@softistx/security` | limix |
 | --- | --- |
-| `./policy` | `@softistx/limix` (and `@softistx/limix/bun` for `loadRules`) |
+| `.` (it re-exports `./policy`) and `./policy` | `@softistx/limix` (and `@softistx/limix/bun` for `loadRules`) |
 | `./policy/graphql` | `@softistx/limix-graxia` |
 | `./policy/coverage` | `@softistx/limix/coverage`, with `graphqlOperations` in `@softistx/limix-graxia` (also on `@softistx/limix-graxia/operations`) |
 | `./policy/remote` | `@softistx/limix/remote`, with `filePolicyStore` in `@softistx/limix/bun`; signing is `@softistx/limix-publish` |
@@ -75,7 +75,9 @@ Your tsconfig must resolve as a bundler does (`"moduleResolution": "bundler"`).
 
 A path or root field no rule names was `NOT_APPLICABLE` in 5.x, which every
 guard treated as open. That is `unmatched: allow` in limix, now written down. Turn
-on `deny` once [coverage](#16-coverage) says every operation is named.
+on `deny` once [coverage](#16-coverage) says every operation is named. The
+documents of section 6 are equivalent only while they say `allow`: `deny` refuses
+what 5.x left open, so it is a change of behaviour, not a translation.
 
 ## 3. `authorities` becomes `roles`
 
@@ -95,7 +97,8 @@ Two other differences:
   tokens of `claims.scope`. `roles` reads `claims.roles` only. A scope token you
   checked through `authorities` becomes a `permissions` term (`permissions` itself
   is unchanged: a token of `scope`, and in `claims.permissions` when that list is
-  present).
+  present). One edge: a `permissions` claim that is `null` skipped the second check
+  in 5.x, and holds nothing in limix; omit the claim instead.
 - A group that mixed a role and a scope token cannot be one rule. `roles` and
   `permissions` on the same rule must both hold; for an either-or, put the test in
   a [condition](#5-expression-becomes-when-plus-a-condition-in-code) or give the
@@ -108,9 +111,22 @@ in the claims), and `{}` or `authorities: []` meant just that. limix keeps the
 floor (a matched rule that is not `public` still refuses an anonymous caller, so
 a bare `{}` still means "signed in") but wants you to say it: write
 `authenticated: true`. An empty `roles`, `permissions` or `when` list is refused,
-because it reads as "no constraint" and means nothing. `public: true` is
-unchanged, and cannot be combined with `authenticated: true`, `roles`,
-`permissions`, `when` or `relations`.
+because it reads as "no constraint" and means nothing.
+
+`public: true` still lets anonymous callers through, but it no longer combines
+with other checks. In 5.x a `public` rule could carry `authorities`, `permissions`
+or an `expression`, which is the share-link pattern (an anonymous caller reaches
+the route, and the rule checks what the link proves). limix refuses `public` beside
+`authenticated`, `roles`, `permissions`, `when` or `relations` at compile time as
+contradictory. Rewrite such a rule in one of two ways:
+
+- keep `public: true` with nothing else, and make the check in the handler, which
+  holds the token the link carries;
+- or drop `public`, let your authentication middleware turn a valid link into
+  signed-in [claims](#9-claims) (a `subject` of type `link`, say), and write a
+  [condition](#5-expression-becomes-when-plus-a-condition-in-code) for what the link
+  grants. A non-public rule still refuses an anonymous caller before any condition
+  runs, so this works only when the link reaches the rule as a credential.
 
 ## 5. `expression` becomes `when` plus a condition in code
 
@@ -137,7 +153,8 @@ import { compilePolicy, definePolicy } from '@softistx/limix';
 
 export const rules = definePolicy({
 	limix: 1,
-	global: { unmatched: 'deny' },
+	// 5.x default; switch to deny once coverage lists no uncovered operation.
+	global: { unmatched: 'allow' },
 	rest: {
 		'/notes/:id': {
 			GET: { roles: [['USER'], ['ADMIN']] },
@@ -169,8 +186,9 @@ What a condition sees, against what an expression saw:
 
 - `claims` is limix's `Claims` ([9](#9-claims)), with any extra claim your issuer
   sent, such as `aal`.
-- `request` holds `params`, `query` and `json` (REST), `args` and `source`
-  (GraphQL). There is no `req.headers` or `req.cookies`: read them through `info`,
+- `request` holds `params`, `query` and `json` on REST. On GraphQL, `args` and
+  `source` are top-level fields of the context, beside `claims` and `info`, not
+  under `request`. There is no `req.headers` or `req.cookies`: read them through `info`,
   which is the Hono context in the recipe below, the alxia context under
   `@softistx/limix-alxia` and the `GraphQLResolveInfo` under graxia. A header is
   still what the client wrote, so it proves nothing about who sent it.
@@ -192,7 +210,7 @@ a file written with `relations` changes less:
 | `namespace` of a term | `type` |
 | `id` of a term | `from` (default `param.id` on REST, `args.id` on GraphQL, as before) |
 | `message` of a rung (an i18n key) | `code` |
-| `onDeny` | unchanged: `NOT_FOUND` by default, or `FORBIDDEN` |
+| `onDeny` | unchanged: `NOT_FOUND` by default, or `FORBIDDEN`. A `FORBIDDEN` rung with no `message` answered `errors.insufficient-permissions` in 5.x; with no `code` it answers `auth.errors.forbidden` now |
 
 The grammar is unchanged: `require` is outer OR, inner AND, and the rungs run in
 order after the local checks, stopping at the first that fails. Three things to
@@ -202,16 +220,19 @@ know:
   outside `auth.errors.` at setup, because its error format reads no other prefix
   but `tenancy.errors.`. A 5.x key such as `bookmarks.errors.not-found` becomes
   `auth.errors.bookmark-not-found`.
-- The caller is `claims.subject` (`{ type, id }`). A signed-in caller without one
-  gets a 403 with the reason `no-subject`, where 5.x read `claims.sub` or the
-  Ory subject.
+- The caller is `claims.subject` (`{ type, id }`). A rule with relations and no
+  subject answered 401 in 5.x (it read `claims.sub` or the Ory subject); limix
+  answers 403 with the reason `no-subject`, so a caller whose credential gives no
+  `subject` is told they are forbidden, not asked to sign in again.
 - A `relations` rule needs a `RelationChecker` ([12](#12-the-relations-port)). 5.x
   threw when a rule met a relation term with none; limix-graxia and limix-alxia
   refuse to start without one, and a direct `evaluateRest` call answers 503
   `limix.errors.unavailable` (`params.reason: 'no-relation-checker'`).
 
 The whole document, before and after. The "after" is the one `rules.ts` above
-writes in code, and the spec holds the two equal:
+writes in code, and the spec holds the two equal. It says `unmatched: allow`, which
+is what the "before" did by saying nothing; switch to `deny` once coverage lists
+no uncovered operation:
 
 <!-- before -->
 ```yaml
@@ -238,7 +259,8 @@ graphql:
 ```yaml
 limix: 1
 global:
-  unmatched: deny
+  # 5.x default; switch to deny once coverage lists no uncovered operation
+  unmatched: allow
 rest:
   /notes/:id:
     GET:
@@ -306,9 +328,10 @@ A 5.x `PolicyClaims` literal is Kratos- and OIDC-shaped (`sub`, `authorities`,
 | `PolicyClaims` | `Claims` |
 | --- | --- |
 | `sub` or `clientId` set | `authenticated: true` (required: `false` for an anonymous caller) |
-| `sub` | `subject: { type, id }`, what the relations port is asked about |
-| `authorities` and `roles` | `roles`, read by `roles` only |
-| `scope`, `permissions` | unchanged |
+| `sub`, else `clientId` | `subject: { type: 'user', id }`, else `{ type: 'client', id }`: what the relations port is asked about |
+| `authorities` and `roles` | `roles`, the union of both without duplicates, read by `roles` only |
+| the tokens of `scope`, read as authorities | `roles` too, through `scopeAsRoles` below; better, a `permissions` term |
+| `scope`, `permissions` | unchanged, except that a `null` `permissions` claim holds nothing (omit it) |
 | any other claim (`aal`, `email`, ...) | kept: a condition reads it |
 
 <!-- before -->
@@ -318,9 +341,11 @@ import type { PolicyClaims } from '@softistx/security/policy';
 const claims: PolicyClaims = { sub: 'user-1', authorities: ['ADMIN'] };
 ```
 
-`claimsFromOryPrincipal` has no counterpart: map your own credential. The
-function below is the whole job for a token with a `sub`, some `roles` and a
-`scope`. It is also the first half of the next section:
+`claimsFromOryPrincipal` has no counterpart: map your own credential. The function
+below is the whole job for a token with a `sub` or `clientId`, `authorities`,
+`roles` and a `scope`. 5.x read `authorities`, `roles` and the tokens of `scope`
+as one set, so `scopeAsRoles: true` keeps a rule that named a scope token under
+`roles` working. It is also the first half of the next section:
 
 <!-- checked: evaluate-rest.ts -->
 ```ts
@@ -330,16 +355,43 @@ import {
 	evaluateRest,
 } from '@softistx/limix';
 
-// What the 5.x `PolicyClaims` literal `{ sub, authorities }` becomes: the
-// caller is `subject`, and a caller with no `sub` is anonymous.
+interface Token {
+	sub?: string;
+	clientId?: string;
+	authorities?: string[];
+	roles?: string[];
+	scope?: string;
+}
+
+// What a 5.x `PolicyClaims` becomes. The caller is signed in when `sub` or
+// `clientId` is set, as in 5.x, and `subject` is who the relations are asked about.
 export function claimsOf(
-	token: { sub?: string; roles?: string[]; scope?: string } | undefined,
+	token: Token | undefined,
+	options: { scopeAsRoles?: boolean } = {},
 ): Claims {
-	if (token?.sub === undefined) return { authenticated: false };
+	if (token?.sub === undefined && token?.clientId === undefined) {
+		return { authenticated: false };
+	}
+	// 5.x read `authorities`, `roles` and the tokens of `scope` together as one set
+	// (evaluation.utils.ts of @softistx/security). `roles` reads `claims.roles` only,
+	// so `scopeAsRoles` keeps a rule that named a scope token under `roles`; prefer a
+	// `permissions` term for those.
+	const scopeTokens = options.scopeAsRoles
+		? (token.scope ?? '').split(' ').filter(Boolean)
+		: [];
 	return {
 		authenticated: true,
-		subject: { type: 'user', id: token.sub },
-		roles: token.roles ?? [],
+		subject:
+			token.sub === undefined
+				? { type: 'client', id: token.clientId ?? '' }
+				: { type: 'user', id: token.sub },
+		roles: [
+			...new Set([
+				...(token.authorities ?? []),
+				...(token.roles ?? []),
+				...scopeTokens,
+			]),
+		],
 		...(token.scope === undefined ? {} : { scope: token.scope }),
 	};
 }
@@ -387,6 +439,7 @@ The `mayDelete` function above is the limix call. How the results map:
 | `ALLOW`, `NOT_APPLICABLE` | `{ allow: true }` |
 | `UNAUTHENTICATED` | `{ allow: false }`, 401 `auth.errors.unauthenticated` |
 | `DENY` | 403 `auth.errors.forbidden`; from a relations rung, 404 with its `code` or `auth.errors.not-found` (`onDeny: NOT_FOUND`), or 403 with its `code` or `auth.errors.forbidden` (`onDeny: FORBIDDEN`) |
+| `UNAUTHENTICATED` because a relations rule had no subject | 403 `auth.errors.forbidden`, `params.reason: 'no-subject'` |
 | the guards' 503 while a source held no policy | 503 `limix.errors.unavailable`, `params.reason: 'no-policy'`, from the evaluator itself |
 
 `path` is the request path as served, `global.basePath` included. `route` is new:
@@ -407,10 +460,9 @@ import { evaluateGraphql } from '@softistx/security/policy';
 
 const result = await evaluateGraphql(policy, {
 	type: 'graphql',
-	operationType: 'Mutation',
-	field: 'updateNote',
+	operationType: 'Query',
+	field: 'me',
 	claims: { sub: 'user-1', authorities: ['ADMIN'] },
-	args: { id: 'n1' },
 });
 ```
 
@@ -423,16 +475,11 @@ import {
 	isLimixRefusal,
 } from '@softistx/limix';
 
-export async function mayUpdate(
-	policy: CompiledPolicy,
-	claims: Claims,
-	id: string,
-) {
+export async function mayReadMe(policy: CompiledPolicy, claims: Claims) {
 	const decision = await evaluateField(policy, {
-		type: 'Mutation',
-		field: 'updateNote',
+		type: 'Query',
+		field: 'me',
 		claims,
-		args: { id },
 	});
 	return decision.allow ? 'allowed' : decision.refusal.code;
 }
@@ -455,7 +502,7 @@ of that rung, and answering one boolean per query, in order:
 | --- | --- |
 | `RelationChecker = (queries) => Promise<boolean[]>` | `{ check(queries): Promise<boolean[]> }` |
 | query `{ namespace, object, relation, subject }` | query `{ subject: { type, id }, relation, object: { type, id } }` |
-| `subject` a string or a subject set | `subject` is `claims.subject` |
+| `subject` a string or a subject set | `subject` is `claims.subject`, always `{ type, id }` |
 | `permissions: oryRelations()` on a guard | `relations` on the integration's options: the checker, or a function of the context |
 
 <!-- before -->
@@ -465,7 +512,8 @@ interface RelationQuery { namespace: string; object: string; relation: string; s
 ```
 
 There is no Ory or Keto adapter. To keep Keto, write the few lines that spell a
-query for it. Over janus there is nothing to write: `janusRelations` from
+query for it. Keto stores the bare subject id, which is what 5.x sent, so the
+example leaves `subject.type` (limix's own field) out of the tuple. Over janus there is nothing to write: `janusRelations` from
 [`@softistx/limix-janus`](https://github.com/softistx/limix/blob/develop/packages/limix-janus/README.md)
 is the adapter.
 
@@ -475,6 +523,8 @@ import type { RelationChecker } from '@softistx/limix';
 
 // `ask` is your backend: one string per question, one boolean per string.
 // For janus, use `janusRelations` from `@softistx/limix-janus` instead.
+// Keto stores the bare subject id (as 5.x sent it), so `subject.type` is limix's
+// own field and is left out of the tuple.
 export function relationsOver(
 	ask: (tuples: readonly string[]) => Promise<boolean[]>,
 ): RelationChecker {
@@ -483,7 +533,7 @@ export function relationsOver(
 			ask(
 				queries.map(
 					({ object, relation, subject }) =>
-						`${object.type}:${object.id}#${relation}@${subject.type}:${subject.id}`,
+						`${object.type}:${object.id}#${relation}@${subject.id}`,
 				),
 			),
 	};
@@ -513,8 +563,10 @@ takes the place of its `message`.
 
 ## 14. Sources
 
-`policySource(impl)` and the `PolicySource` shape are unchanged. A source now holds
-a compiled policy rather than raw rules:
+`policySource(impl)` and the shape of a `PolicySource` are unchanged, and a 5.x
+source already held a compiled policy. But a source object from `@softistx/security`
+is not accepted by limix (the brand is limix's own): rebuild it with limix's
+`policySource`, or wrap the policy in `staticSource` or `mutableSource`:
 
 | 5.x | limix |
 | --- | --- |
@@ -545,8 +597,8 @@ live.swap(policy);
 
 ## 15. Remote rules
 
-`remotePolicy` changes three option names and gains one, and a pulled file is now
-in the limix format:
+`remotePolicy` renames two options (`url`, `token`), makes `typ` optional and gains
+`conditions`, and a pulled file is now in the limix format:
 
 | 5.x | limix |
 | --- | --- |
@@ -610,7 +662,8 @@ four lists of strings. It now takes operation objects, and the report is richer:
 | `{ covered, public, uncovered, stale }` | `{ operations, stale, summary }`: each operation has a `status` and a `label` |
 | `CoverageCheckOptions.placeholder` | gone: a route's parameters are never substituted |
 | `graphqlOperations(schema)` from `./policy/coverage` | `graphqlOperations` from `@softistx/limix-graxia/operations` |
-| `unnamedOperations(policy, app.routes)` | `coverage(policy, alxiaOperations(app))` |
+| `unnamedOperations(policy, app.routes)` | `coverage(policy, alxiaOperations(app))` for alxia, or the mapping of a Hono app below |
+| `openapiOperations(doc.paths, { prefix })` | `openapiOperations(doc)` from `@softistx/limix-codegen`, in rules-file spelling, with no prefix: servers and `basePath` are ignored |
 
 <!-- before -->
 ```ts
@@ -657,9 +710,36 @@ export const uncovered = report.operations
 export const stale = report.stale.map((rule) => rule.label);
 ```
 
-A Hono app has no route table limix reads: list its operations by hand, or from an
-OpenAPI document with `openapiOperations` of
-[`@softistx/limix-codegen`](https://github.com/softistx/limix/blob/develop/packages/limix-codegen/README.md).
+A Hono app's own route table gives the operations too. Hono spells a parameter
+`:id`, as the rules file does, so a path needs no conversion; `app.use` registers as
+`ALL` and is no operation, and a wildcard route has to be spelled as the rules file
+spells it. Without a route table, `openapiOperations` of
+[`@softistx/limix-codegen`](https://github.com/softistx/limix/blob/develop/packages/limix-codegen/README.md)
+reads an OpenAPI document:
+
+<!-- checked: hono-coverage.ts -->
+```ts
+import { coverage, type RestOperation } from '@softistx/limix/coverage';
+import { app, policy } from './hono';
+
+// Hono spells a parameter `:id`, as the rules file does, so a path needs no
+// conversion. `app.use` registers as `ALL` and is no operation; a wildcard
+// route (`/files/*`) must be spelled as the rules file spells it (`/files/*path`).
+export function honoOperations(hono: {
+	routes: readonly { method: string; path: string }[];
+}): RestOperation[] {
+	return hono.routes
+		.filter((route) => route.method !== 'ALL')
+		.map((route) => ({ kind: 'rest', method: route.method, path: route.path }));
+}
+
+export const report = coverage(policy, honoOperations(app));
+export const uncovered = report.operations
+	.filter((entry) => entry.status === 'uncovered')
+	.map((entry) => entry.label);
+export const stale = report.stale.map((rule) => rule.label);
+```
+
 The [Coverage guide](coverage.md) has the rest.
 
 ## 17. GraphQL on graxia
@@ -701,6 +781,7 @@ const options = {
 		}),
 	),
 	// was: getClaims. Read once per operation, from what your `context` option returned.
+	// stand-in: read these from your verified token, never from a client header
 	claims: (ctx: { request: Request }) => ({
 		authenticated: ctx.request.headers.has('authorization'),
 		scope: ctx.request.headers.get('x-scope') ?? '',
@@ -725,7 +806,8 @@ The option names move:
 | `fieldResolver`, `subscribeFieldResolver` | none: a governed field without a resolver uses `defaultFieldResolver` |
 | a `PolicySource` in place of raw rules | `policy` takes a `CompiledPolicy` or a `PolicySource` |
 
-What a client sees changes too. The error's `message` is the refusal's code (it was
+The `claims` function in the example is a stand-in (a header is what the client
+wrote): read the claims from your verified token. What a client sees changes too. The error's `message` is the refusal's code (it was
 the i18n key), `extensions.code` is that code (it was `FORBIDDEN` and the like),
 and `extensions.status` is new. A refused top-level field answers its HTTP status
 (401, 403, 404, or 503 with `retry-after`), where 5.x answered a 200 with the error
@@ -767,6 +849,7 @@ const limix: LimixAlxiaOptions<{ request: Request }> = {
 			graphql: { Query: { me: { authenticated: true } } },
 		}),
 	),
+	// stand-in: read these from your verified token, never from a client header
 	claims: (ctx) => ({
 		authenticated: ctx.request.headers.has('authorization'),
 	}),
@@ -840,9 +923,12 @@ export function limixHono(
 	relations?: RelationChecker,
 ) {
 	return createMiddleware<Env>(async (c, next) => {
-		// A relation term reading `json.` needs the body; Hono caches it for the handler.
+		// A relation term reading `json.` needs the body: read a clone, so the handler's stream is untouched.
 		const json = c.req.header('content-type')?.includes('json')
-			? await c.req.json().catch(() => undefined)
+			? await c.req.raw
+					.clone()
+					.json()
+					.catch(() => undefined)
 			: undefined;
 		const decision = await evaluateRest(policy, {
 			method: c.req.method,
@@ -861,11 +947,16 @@ export function limixHono(
 	});
 }
 
-const policy = compilePolicy(
+export const policy = compilePolicy(
 	definePolicy({
 		limix: 1,
 		global: { unmatched: 'deny', basePath: '/api' },
-		rest: { '/notes/:id': { GET: { authenticated: true } } },
+		rest: {
+			'/notes/:id': {
+				GET: { authenticated: true },
+				POST: { authenticated: true },
+			},
+		},
 	}),
 );
 
@@ -884,11 +975,15 @@ app.use('/api/*', async (c, next) => {
 });
 app.use('/api/*', limixHono(policy));
 app.get('/api/notes/:id', (c) => c.json({ id: c.req.param('id') }));
+app.post('/api/notes/:id', async (c) =>
+	c.json({ raw: await c.req.raw.text() }),
+);
 ```
 
 Two things to keep. The path is matched as served, so spell `/api` in the rules or
-set `global.basePath`, as the example does. And `c.req.json()` is cached by Hono,
-so the handler still reads the body the middleware parsed. The middleware answers
+set `global.basePath`, as the example does. And the middleware reads
+the JSON body from a clone of the raw request, as 5.x did, so the handler still has
+the untouched stream (`c.req.raw.text()`, a signature check) as well as `c.req.json()`. The middleware answers
 a refusal itself, so there is no `onError` branch to write; put the claims on the
 context before it, from your own authentication.
 

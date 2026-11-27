@@ -20,6 +20,7 @@ const options = {
 		}),
 	),
 	// was: getClaims. Read once per operation, from what your `context` option returned.
+	// stand-in: read these from your verified token, never from a client header
 	claims: (ctx: { request: Request }) => ({
 		authenticated: ctx.request.headers.has('authorization'),
 		scope: ctx.request.headers.get('x-scope') ?? '',

@@ -4,16 +4,43 @@ import {
 	evaluateRest,
 } from '@softistx/limix';
 
-// What the 5.x `PolicyClaims` literal `{ sub, authorities }` becomes: the
-// caller is `subject`, and a caller with no `sub` is anonymous.
+interface Token {
+	sub?: string;
+	clientId?: string;
+	authorities?: string[];
+	roles?: string[];
+	scope?: string;
+}
+
+// What a 5.x `PolicyClaims` becomes. The caller is signed in when `sub` or
+// `clientId` is set, as in 5.x, and `subject` is who the relations are asked about.
 export function claimsOf(
-	token: { sub?: string; roles?: string[]; scope?: string } | undefined,
+	token: Token | undefined,
+	options: { scopeAsRoles?: boolean } = {},
 ): Claims {
-	if (token?.sub === undefined) return { authenticated: false };
+	if (token?.sub === undefined && token?.clientId === undefined) {
+		return { authenticated: false };
+	}
+	// 5.x read `authorities`, `roles` and the tokens of `scope` together as one set
+	// (evaluation.utils.ts of @softistx/security). `roles` reads `claims.roles` only,
+	// so `scopeAsRoles` keeps a rule that named a scope token under `roles`; prefer a
+	// `permissions` term for those.
+	const scopeTokens = options.scopeAsRoles
+		? (token.scope ?? '').split(' ').filter(Boolean)
+		: [];
 	return {
 		authenticated: true,
-		subject: { type: 'user', id: token.sub },
-		roles: token.roles ?? [],
+		subject:
+			token.sub === undefined
+				? { type: 'client', id: token.clientId ?? '' }
+				: { type: 'user', id: token.sub },
+		roles: [
+			...new Set([
+				...(token.authorities ?? []),
+				...(token.roles ?? []),
+				...scopeTokens,
+			]),
+		],
 		...(token.scope === undefined ? {} : { scope: token.scope }),
 	};
 }

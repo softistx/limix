@@ -5,16 +5,11 @@ import {
 	isLimixRefusal,
 } from '@softistx/limix';
 
-export async function mayUpdate(
-	policy: CompiledPolicy,
-	claims: Claims,
-	id: string,
-) {
+export async function mayReadMe(policy: CompiledPolicy, claims: Claims) {
 	const decision = await evaluateField(policy, {
-		type: 'Mutation',
-		field: 'updateNote',
+		type: 'Query',
+		field: 'me',
 		claims,
-		args: { id },
 	});
 	return decision.allow ? 'allowed' : decision.refusal.code;
 }

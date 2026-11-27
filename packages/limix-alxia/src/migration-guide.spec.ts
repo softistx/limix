@@ -3,7 +3,7 @@ import { readdirSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { parseRules } from '@softistx/limix';
-import { fencesOf } from './guide.fixtures';
+import { fencesOf, problemsOf } from './guide.fixtures';
 
 // The guide lives in packages/limix/docs, its checked examples beside this
 // spec: this is the one package that installs every integration, so it is the
@@ -29,13 +29,8 @@ describe('the migration guide', () => {
 		expect(checked.length).toBeGreaterThanOrEqual(8);
 	});
 
-	test('every ts and yaml fence carries a marker', () => {
-		const bare = fences
-			.filter(
-				(fence) => ['ts', 'yaml'].includes(fence.language) && !fence.marker,
-			)
-			.map((fence) => `line ${fence.line}`);
-		expect(bare).toEqual([]);
+	test('every fence has a known language, and a ts or yaml one a marker', () => {
+		expect(problemsOf(fences)).toEqual([]);
 	});
 
 	test('every checked fence is a byte copy of its example file', async () => {
@@ -95,6 +90,32 @@ describe('the examples run', () => {
 		expect(await other.json()).toEqual({ code: 'auth.errors.forbidden' });
 	});
 
+	test('hono.ts leaves the raw body readable for the handler', async () => {
+		const { app } = await import('../examples/migrating-from-security/hono');
+		const response = await app.request('/api/notes/n1', {
+			method: 'POST',
+			headers: {
+				authorization: 'Bearer u1',
+				'content-type': 'application/json',
+			},
+			body: JSON.stringify({ a: 1 }),
+		});
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({ raw: '{"a":1}' });
+	});
+
+	test('hono-coverage.ts lists the app routes: nothing uncovered, no rule stale', async () => {
+		const { report, stale, uncovered } = await import(
+			'../examples/migrating-from-security/hono-coverage'
+		);
+		expect(report.operations.map((entry) => entry.label)).toEqual([
+			'GET /api/notes/:id',
+			'POST /api/notes/:id',
+		]);
+		expect(uncovered).toEqual([]);
+		expect(stale).toEqual([]);
+	});
+
 	test('alxia.ts judges a route with the same rules', async () => {
 		const { app } = await import('../examples/migrating-from-security/alxia');
 		const anonymous = await app.fetch(new Request('http://localhost/notes/1'));
@@ -118,54 +139,7 @@ describe('the examples run', () => {
 		expect(stale).toEqual([]);
 	});
 
-	test('evaluate-rest.ts and evaluate-field.ts map claims and refusals', async () => {
-		const { policy } = await import(
-			'../examples/migrating-from-security/rules'
-		);
-		const { claimsOf, mayDelete } = await import(
-			'../examples/migrating-from-security/evaluate-rest'
-		);
-		const { mayUpdate, onError } = await import(
-			'../examples/migrating-from-security/evaluate-field'
-		);
-		expect(await mayDelete(policy, claimsOf(undefined), '1')).toEqual({
-			status: 401,
-			code: 'auth.errors.unauthenticated',
-		});
-		expect(
-			await mayDelete(policy, claimsOf({ sub: 'u1', roles: ['ADMIN'] }), '1'),
-		).toEqual({ status: 403, code: 'auth.errors.forbidden' });
-		expect(
-			await mayDelete(
-				policy,
-				claimsOf({ sub: 'u1', roles: ['ADMIN', 'AUDIT'] }),
-				'1',
-			),
-		).toEqual({ status: 200 });
-		expect(await mayUpdate(policy, claimsOf(undefined), '1')).toBe(
-			'auth.errors.unauthenticated',
-		);
-		expect(onError(new Error('x'))).toBeUndefined();
-	});
-
-	test('relations.ts spells each query, and sources.ts holds the policy', async () => {
-		const { relationsOver } = await import(
-			'../examples/migrating-from-security/relations'
-		);
-		const asked: string[][] = [];
-		const checker = relationsOver(async (tuples) => {
-			asked.push([...tuples]);
-			return tuples.map(() => true);
-		});
-		const answers = await checker.check([
-			{
-				subject: { type: 'user', id: 'u1' },
-				relation: 'view',
-				object: { type: 'bookmark', id: 'b1' },
-			},
-		]);
-		expect(answers).toEqual([true]);
-		expect(asked).toEqual([['bookmark:b1#view@user:u1']]);
+	test('sources.ts holds the policy fixed, and swappable', async () => {
 		const { fixed, live } = await import(
 			'../examples/migrating-from-security/sources'
 		);

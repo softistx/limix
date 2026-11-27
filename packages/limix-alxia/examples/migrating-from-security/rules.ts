@@ -2,7 +2,8 @@ import { compilePolicy, definePolicy } from '@softistx/limix';
 
 export const rules = definePolicy({
 	limix: 1,
-	global: { unmatched: 'deny' },
+	// 5.x default; switch to deny once coverage lists no uncovered operation.
+	global: { unmatched: 'allow' },
 	rest: {
 		'/notes/:id': {
 			GET: { roles: [['USER'], ['ADMIN']] },

@@ -16,6 +16,7 @@ const limix: LimixAlxiaOptions<{ request: Request }> = {
 			graphql: { Query: { me: { authenticated: true } } },
 		}),
 	),
+	// stand-in: read these from your verified token, never from a client header
 	claims: (ctx) => ({
 		authenticated: ctx.request.headers.has('authorization'),
 	}),

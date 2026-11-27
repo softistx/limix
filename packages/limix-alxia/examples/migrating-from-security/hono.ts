@@ -20,9 +20,12 @@ export function limixHono(
 	relations?: RelationChecker,
 ) {
 	return createMiddleware<Env>(async (c, next) => {
-		// A relation term reading `json.` needs the body; Hono caches it for the handler.
+		// A relation term reading `json.` needs the body: read a clone, so the handler's stream is untouched.
 		const json = c.req.header('content-type')?.includes('json')
-			? await c.req.json().catch(() => undefined)
+			? await c.req.raw
+					.clone()
+					.json()
+					.catch(() => undefined)
 			: undefined;
 		const decision = await evaluateRest(policy, {
 			method: c.req.method,
@@ -41,11 +44,16 @@ export function limixHono(
 	});
 }
 
-const policy = compilePolicy(
+export const policy = compilePolicy(
 	definePolicy({
 		limix: 1,
 		global: { unmatched: 'deny', basePath: '/api' },
-		rest: { '/notes/:id': { GET: { authenticated: true } } },
+		rest: {
+			'/notes/:id': {
+				GET: { authenticated: true },
+				POST: { authenticated: true },
+			},
+		},
 	}),
 );
 
@@ -64,3 +72,6 @@ app.use('/api/*', async (c, next) => {
 });
 app.use('/api/*', limixHono(policy));
 app.get('/api/notes/:id', (c) => c.json({ id: c.req.param('id') }));
+app.post('/api/notes/:id', async (c) =>
+	c.json({ raw: await c.req.raw.text() }),
+);
