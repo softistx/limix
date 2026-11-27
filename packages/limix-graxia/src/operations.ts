@@ -5,6 +5,7 @@ import {
 	isObjectType,
 	isSchema,
 } from 'graphql';
+import { rootNames } from './governs';
 import { operationsFromSdl } from './operations-sdl';
 
 export interface GraphqlOperationsOptions {
@@ -19,15 +20,7 @@ function fromSchema(
 	schema: GraphQLSchema,
 	fields: 'roots' | 'all',
 ): GraphqlOperation[] {
-	const roots = [
-		...new Set(
-			[
-				schema.getQueryType(),
-				schema.getMutationType(),
-				schema.getSubscriptionType(),
-			].flatMap((type) => (type ? [type.name] : [])),
-		),
-	];
+	const roots = [...rootNames(schema)];
 	const names =
 		fields === 'all'
 			? [

@@ -1,5 +1,5 @@
 import { needsOf } from '@softistx/graxia/agent';
-import type { CompiledPolicy } from '@softistx/limix';
+import type { CompiledGraphqlEntry, CompiledPolicy } from '@softistx/limix';
 import {
 	type GraphQLField,
 	type GraphQLSchema,
@@ -8,6 +8,7 @@ import {
 	isIntrospectionType,
 	isObjectType,
 } from 'graphql';
+import { entryOf } from '../governs';
 import { type FieldFacts, issue, type NeedsIssue } from './issues';
 import {
 	type Cnf,
@@ -17,22 +18,6 @@ import {
 	dnfToCnf,
 	needsText,
 } from './logic';
-
-type Rule = { public?: boolean | null; permissions?: string[][] | null };
-
-/** The rule on `type.field`: own keys only, as evaluation reads them. */
-function ruleOf(
-	policy: CompiledPolicy,
-	type: string,
-	field: string,
-): Rule | undefined {
-	const fields = policy.graphql;
-	if (fields === undefined || !Object.hasOwn(fields, type)) return undefined;
-	const byField = fields[type];
-	return byField !== undefined && Object.hasOwn(byField, field)
-		? (byField[field]?.rule as Rule | undefined)
-		: undefined;
-}
 
 /** `@needs` of the type, the field and (one level) the type it returns, all ANDed. */
 function needsOfField(
@@ -49,44 +34,51 @@ function needsOfField(
 	];
 }
 
-function judge(facts: FieldFacts, rule: Rule | undefined): NeedsIssue[] {
-	const { needs } = facts;
-	const permissions = rule?.permissions ?? undefined;
-	const at = facts.coordinate;
+type Rule = CompiledGraphqlEntry['rule'];
+
+/** The permissions a rule enforces: none for no rule, a public one or one that names none. */
+function enforced(rule: Rule | undefined): string[][] | undefined {
+	return rule === undefined || rule.public === true
+		? undefined
+		: (rule.permissions ?? undefined);
+}
+
+/** The disagreement that needs no comparison: a bad `@needs`, or `@needs` where nothing is enforced. */
+function coverageIssue(
+	facts: FieldFacts,
+	rule: Rule | undefined,
+): NeedsIssue | undefined {
+	const { needs, coordinate: at } = facts;
 	if (needs.some((group) => group.length === 0)) {
-		return [
-			issue(
-				'needs-invalid',
+		return issue(
+			'needs-invalid',
+			facts,
+			'a @needs gives both `permission` and `anyOf`, or neither, so no caller meets it',
+			`Give each @needs on ${at} exactly one of permission or anyOf.`,
+		);
+	}
+	if (needs.length === 0 || enforced(rule) !== undefined) return undefined;
+	return rule === undefined
+		? issue(
+				'needs-without-rule',
 				facts,
-				'a @needs gives both `permission` and `anyOf`, or neither, so no caller meets it',
-				`Give each @needs on ${at} exactly one of permission or anyOf.`,
-			),
-		];
-	}
-	if (rule === undefined) {
-		return needs.length === 0
-			? []
-			: [
-					issue(
-						'needs-without-rule',
-						facts,
-						'@needs names permissions but the rules file has no rule here',
-						`Add a rule for ${at} under graphql, with the permissions @needs names.`,
-					),
-				];
-	}
-	if (rule.public === true || permissions === undefined) {
-		return needs.length === 0
-			? []
-			: [
-					issue(
-						'needs-unenforced',
-						facts,
-						'@needs names permissions but the rule enforces none',
-						`List the permissions @needs names under permissions of the rule on ${at}, or drop @needs.`,
-					),
-				];
-	}
+				'@needs names permissions but the rules file has no rule here',
+				`Add a rule for ${at} under graphql, with the permissions @needs names.`,
+			)
+		: issue(
+				'needs-unenforced',
+				facts,
+				'@needs names permissions but the rule enforces none',
+				`List the permissions @needs names under permissions of the rule on ${at}, or drop @needs.`,
+			);
+}
+
+/** `@needs` against the permissions the rule enforces: missing, too complex, looser, stricter. */
+function implicationIssues(
+	facts: FieldFacts,
+	permissions: string[][],
+): NeedsIssue[] {
+	const { needs, coordinate: at } = facts;
 	const withRule = { ...facts, permissions };
 	if (needs.length === 0) {
 		const cnf = dnfToCnf(permissions);
@@ -137,6 +129,13 @@ function judge(facts: FieldFacts, rule: Rule | undefined): NeedsIssue[] {
 	return out;
 }
 
+function judge(facts: FieldFacts, rule: Rule | undefined): NeedsIssue[] {
+	const bad = coverageIssue(facts, rule);
+	if (bad) return [bad];
+	const permissions = enforced(rule);
+	return permissions === undefined ? [] : implicationIssues(facts, permissions);
+}
+
 /**
  * Checks that each object field's `@needs` (its own, its type's and its
  * returned type's) says what the rule on it enforces, for permissions only:
@@ -155,7 +154,7 @@ export function checkNeeds(
 							coordinate: `${type.name}.${field.name}`,
 							needs: needsOfField(type, field),
 						},
-						ruleOf(policy, type.name, field.name),
+						entryOf(policy, type.name, field.name)?.rule,
 					),
 				)
 			: [],

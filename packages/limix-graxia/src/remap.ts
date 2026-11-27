@@ -13,16 +13,22 @@ function fieldOf(error: GraphQLError): string {
 	return typeof last === 'string' ? last : '';
 }
 
-/** A refusal a resolver threw, as the error `guardSchema` would have made, at the same place. */
+/**
+ * A refusal a resolver threw, as the error `guardSchema` would have made, at the same place.
+ * A result's error carries the field's name and path but not its parent type, so
+ * `mapRefusal` sees `at.type === ''` for these.
+ */
 function converted(error: unknown, mapRefusal?: MapRefusal): unknown {
 	if (!(error instanceof GraphQLError) || made.has(error)) return error;
 	const refusal = error.originalError;
 	if (!isLimixRefusal(refusal)) return error;
-	const fresh = refusalError(refusal, mapRefusal, {
-		type: '',
-		field: fieldOf(error),
-		root: error.path?.length === 1,
-	});
+	const top = error.path?.length === 1;
+	const fresh = refusalError(
+		refusal,
+		mapRefusal,
+		{ type: '', field: fieldOf(error), root: top },
+		top,
+	);
 	const out = new GraphQLError(fresh.message, {
 		nodes: error.nodes,
 		path: error.path,

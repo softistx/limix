@@ -27,7 +27,7 @@ function minimal(terms: readonly (readonly string[])[]): string[][] {
 		.map((mine) => [...mine]);
 }
 
-/** The product of the groups: one pick per group. `undefined` past the limit. */
+/** The product of the groups: one pick per group. `undefined` past the limit, checked before the quadratic reduction of a step. */
 function product(
 	groups: readonly (readonly string[])[],
 	limit: number,
@@ -38,8 +38,8 @@ function product(
 		for (const term of terms) {
 			for (const name of group) next.push([...term, name]);
 		}
+		if (next.length > limit) return undefined;
 		terms = minimal(next);
-		if (terms.length > limit) return undefined;
 	}
 	return terms;
 }

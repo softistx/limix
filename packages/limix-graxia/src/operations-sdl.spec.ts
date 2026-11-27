@@ -39,6 +39,18 @@ type Query { x: String }`;
 		]);
 	});
 
+	it('takes no conventional root once a schema block names the roots', () => {
+		const sdl = `schema { query: Root } type Root { a: String } type Mutation { b: String }`;
+		expect(label(graphqlOperations(sdl))).toEqual(['Root.a*']);
+		expect(label(graphqlOperations(sdl, { fields: 'all' }))).toEqual([
+			'Root.a*',
+			'Mutation.b',
+		]);
+		expect(graphqlOperations(sdl, { fields: 'all' })).toEqual(
+			graphqlOperations(buildSchema(sdl), { fields: 'all' }),
+		);
+	});
+
 	it('agrees with the schema reader', () => {
 		const sdl = `type Query { a: String } type Mutation { m: Int } type User { id: ID }`;
 		for (const fields of ['roots', 'all'] as const) {

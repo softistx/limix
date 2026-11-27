@@ -78,4 +78,55 @@ describe('guardSchema, policy source', () => {
 			}),
 		).not.toThrow();
 	});
+
+	describe('a held policy that does not fit the schema', () => {
+		const SDL = `
+			interface Node { id: ID }
+			type Thing implements Node { id: ID }
+			type Query { open: String  thing: Thing }
+		`;
+		const withRules = (graphql: Record<string, Record<string, unknown>>) =>
+			compilePolicy(
+				definePolicy({
+					limix: 1,
+					global: { unmatched: 'allow' },
+					graphql: graphql as never,
+				}),
+			);
+		const fits = withRules({ Query: { open: { public: true } } });
+		const misfits = {
+			'a rule on an interface': withRules({ Node: { id: { public: true } } }),
+			'a rule on an unknown type': withRules({
+				Ghost: { id: { public: true } },
+			}),
+			'a misspelt field': withRules({ Query: { opne: { public: true } } }),
+		};
+
+		for (const [name, bad] of Object.entries(misfits)) {
+			test(`${name} is refused as unavailable (policy-mismatch) until a fitting policy is swapped in`, async () => {
+				const source = mutableSource(bad);
+				let reports = 0;
+				const schema = guardSchema(fixtureSchema(SDL), {
+					policy: source,
+					claims: () => claims.admin,
+					onUnavailable: () => reports++,
+				});
+				const refused = await run(schema, '{ open }');
+				expect(refused.data).toEqual({ open: null });
+				expect(refused.errors?.[0]?.extensions).toMatchObject({
+					code: 'limix.errors.unavailable',
+					status: 503,
+					params: { reason: 'policy-mismatch' },
+					http: { status: 503, headers: { 'retry-after': '5' } },
+				});
+				await run(schema, '{ open thing { id } }');
+				expect(reports).toBe(1);
+				source.swap(fits);
+				expect((await run(schema, '{ open }')).data).toEqual({ open: 'open' });
+				source.swap(bad);
+				await run(schema, '{ open }');
+				expect(reports).toBe(2);
+			});
+		}
+	});
 });

@@ -4,9 +4,12 @@ import {
 	type GraphQLInterfaceType,
 	type GraphQLList,
 	type GraphQLNonNull,
-	type GraphQLObjectType,
+	GraphQLObjectType,
+	GraphQLSchema,
+	GraphQLString,
 	type GraphQLUnionType,
 	printSchema,
+	validateSchema,
 } from 'graphql';
 import { rebuildSchema } from './rebuild';
 import { fixtureSchema } from './schema.fixtures';
@@ -59,17 +62,84 @@ describe('rebuildSchema', () => {
 		expect(next.getType('Kind')).toBe(original.getType('Kind'));
 	});
 
-	test('keeps descriptions and calls the mapper once per object field', () => {
+	test('keeps descriptions and calls the mapper exactly once per object field', () => {
 		const seen: string[] = [];
 		const next = rebuildSchema(buildSchema(SDL), (type, name, config) => {
 			seen.push(`${type.name}.${name}`);
 			return config;
 		});
-		next.getQueryType()?.getFields();
-		next.getType('Thing');
-		(next.getType('Thing') as GraphQLObjectType).getFields();
-		expect(seen).toContain('Query.node');
-		expect(seen).toContain('Thing.kind');
+		for (const type of Object.values(next.getTypeMap())) {
+			if (type instanceof GraphQLObjectType) {
+				type.getFields();
+				type.getFields();
+			}
+		}
+		expect(seen.sort()).toEqual([
+			'Other.id',
+			'Query.all',
+			'Query.node',
+			'Query.pick',
+			'Thing.id',
+			'Thing.kind',
+		]);
+		expect(next.getQueryType()?.description).toBe('Query docs');
+	});
+
+	test('the rebuilt schema is valid', () => {
+		const next = rebuildSchema(buildSchema(SDL), (_t, _n, config) => config);
+		expect(validateSchema(next)).toEqual([]);
+	});
+
+	test('an interface implementing an interface survives', () => {
+		const sdl = `
+			interface Node { id: ID }
+			interface Entity implements Node { id: ID  name: String }
+			type User implements Entity & Node { id: ID  name: String }
+			type Query { entity: Entity }
+		`;
+		const next = rebuildSchema(buildSchema(sdl), (_t, _n, config) => config);
+		const entity = next.getType('Entity') as GraphQLInterfaceType;
+		const node = next.getType('Node') as GraphQLInterfaceType;
+		expect(entity.getInterfaces()).toEqual([node]);
+		expect((next.getType('User') as GraphQLObjectType).getInterfaces()).toEqual(
+			[entity, node],
+		);
+		expect(next.getPossibleTypes(entity)).toEqual([
+			next.getType('User') as GraphQLObjectType,
+		]);
+		expect(validateSchema(next)).toEqual([]);
+		expect(printSchema(next)).toBe(printSchema(buildSchema(sdl)));
+	});
+
+	test('repeatable directives on a field are kept', () => {
+		const sdl = `
+			directive @tag(name: String) repeatable on FIELD_DEFINITION
+			type Query { a: String @tag(name: "x") @tag(name: "y") }
+		`;
+		const next = rebuildSchema(buildSchema(sdl), (_t, _n, config) => config);
+		const field = next.getQueryType()?.getFields()['a'];
+		expect(field?.astNode?.directives?.map((d) => d.name.value)).toEqual([
+			'tag',
+			'tag',
+		]);
+		expect(next.getDirective('tag')?.isRepeatable).toBe(true);
+	});
+
+	test('extensions of types and fields are kept', () => {
+		const query = new GraphQLObjectType({
+			name: 'Query',
+			extensions: { onType: 1 },
+			fields: { a: { type: GraphQLString, extensions: { onField: 2 } } },
+		});
+		const next = rebuildSchema(
+			new GraphQLSchema({ query, extensions: { onSchema: 3 } }),
+			(_t, _n, config) => config,
+		);
+		expect(next.getQueryType()?.extensions).toEqual({ onType: 1 });
+		expect(next.getQueryType()?.getFields()['a']?.extensions).toEqual({
+			onField: 2,
+		});
+		expect(next.extensions).toEqual({ onSchema: 3 });
 	});
 
 	test('a mapped resolver is the one the new schema runs', async () => {

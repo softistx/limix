@@ -101,7 +101,7 @@ describe('guardSchema, static policy', () => {
 		expect(printSchema(next)).toBe(printSchema(original));
 	});
 
-	test('claims are read once per context and mapRefusal rewords', async () => {
+	test('without the plugin claims are read per governed field, and mapRefusal rewords', async () => {
 		let reads = 0;
 		const schema = guardSchema(fixtureSchema(), {
 			policy,
@@ -112,7 +112,7 @@ describe('guardSchema, static policy', () => {
 			mapRefusal: (r) => ({ code: `my.${r.code}`, status: 418 }),
 		});
 		const result = await run(schema, '{ me secret }', {});
-		expect(reads).toBe(1);
+		expect(reads).toBe(2);
 		expect(result.errors?.map((e) => e.message)).toEqual([
 			'my.auth.errors.unauthenticated',
 			'my.auth.errors.unauthenticated',
@@ -183,5 +183,37 @@ describe('guardSchema, static policy', () => {
 		});
 		const result = await run(schema, '{ open }', {});
 		expect(result.errors?.[0]?.originalError).toBeInstanceOf(TypeError);
+	});
+
+	test('a root-type field reached below another field carries no http', async () => {
+		const schema = fixtureSchema(`
+			type Query { secret: String }
+			type Mutation { save: Saved }
+			type Saved { ok: Boolean  query: Query }
+		`);
+		const mutation = schema.getMutationType()?.getFields()['save'];
+		if (mutation) mutation.resolve = (() => ({ ok: true, query: {} })) as never;
+		const guarded = guardSchema(schema, {
+			policy: compilePolicy(
+				definePolicy({
+					limix: 1,
+					global: { unmatched: 'allow' },
+					graphql: { Query: { secret: { roles: [['admin']] } } },
+				}),
+			),
+			claims: (ctx: { who: Claims }) => ctx.who,
+		});
+		const nested = await run(
+			guarded,
+			'mutation { save { ok query { secret } } }',
+			as(claims.reader),
+		);
+		expect(nested.data).toEqual({
+			save: { ok: true, query: { secret: null } },
+		});
+		expect(nested.errors?.[0]?.extensions?.['status']).toBe(403);
+		expect(nested.errors?.[0]?.extensions?.['http']).toBeUndefined();
+		const top = await run(guarded, '{ secret }', as(claims.reader));
+		expect(top.errors?.[0]?.extensions?.['http']).toEqual({ status: 403 });
 	});
 });

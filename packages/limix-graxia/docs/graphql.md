@@ -57,19 +57,30 @@ interface LimixGraxiaOptions<Ctx> {
 
 | Option | Type | Default | Effect |
 | --- | --- | --- | --- |
-| `policy` | `CompiledPolicy \| PolicySource` | required | The rules. A compiled policy is fixed and checked against the schema at setup; a [source](https://github.com/softistx/limix/blob/develop/packages/limix/docs/remote.md) (`mutableSource`, the remote client) is read on every call and may hold none |
-| `claims` | `(ctx) => Claims \| Promise<Claims>` | required | Who is calling. Read once per request, with the graxia context; must return an object |
-| `relations` | `RelationChecker \| (ctx) => RelationChecker` | none | Answers the rules' relation checks, for instance `janusRelations()` of `@softistx/limix-janus`. A static policy whose rules use relations throws at setup without it |
+| `policy` | `CompiledPolicy \| PolicySource` | required | The rules. A compiled policy is fixed and checked against the schema at setup; a [source](https://github.com/softistx/limix/blob/develop/packages/limix/docs/remote.md) (`mutableSource`, the remote client) is read on every call, may hold none, and has each policy it holds checked against the schema once (see [a policy that does not fit](#a-policy-that-does-not-fit-the-schema)) |
+| `claims` | `(ctx) => Claims \| Promise<Claims>` | required | Who is calling. Read once per operation with the plugin, once per governed field without it (see [claims](#claims-through-the-graxia-context-option)); must return an object |
+| `relations` | `RelationChecker \| (ctx) => RelationChecker` | none | Answers the rules' relation checks, for instance `janusRelations()` of `@softistx/limix-janus`. A function of the context is called once per operation with the plugin, once per governed field without it. A static policy whose rules use relations throws at setup without it |
 | `mapRefusal` | `(refusal, at) => { code?, message?, status? } \| undefined` | none | Rewords a refusal's code, message or status. Return `undefined` to keep it |
 | `nonNull` | `'refuse' \| 'allow'` | `'refuse'` | What a static policy does with a named non-null field, see [the non-null rule](#the-non-null-rule) |
 | `onUnavailable` | `() => void` | none | Called once each time a policy source stops holding a policy |
 
 ## Claims through the graxia `context` option
 
-`claims` receives the object your graxia `context` option returned, once per
-request, and its answer is shared by every field of that request. The plugin
-reads it and exposes it as `ctx.limix.claims()`; without the plugin,
-`guardSchema` reads `claims(ctx)` itself and remembers it per context object.
+`claims` receives the object your graxia `context` option returned. With the
+plugin, it is read once per operation and shared by every field of it: the
+plugin exposes the answer as `ctx.limix.claims()`. `relations`, when it is a
+function of the context, is called once per operation the same way.
+
+Without the plugin (a raw graphql-js host: `guardSchema` and `execute()`),
+nothing is remembered: `guardSchema` calls `claims(ctx)` and `relations(ctx)`
+for every governed field it resolves, so a host that reuses one context object
+for several callers always sees the caller of the moment, at the price of one
+claims read per governed field. Only the context the plugin made is trusted: a
+`ctx.limix` of your own is ignored.
+
+`claims` is typed against your host context: the plugin carries the type of
+its `ctx` parameter, so `createGraxia` refuses, at compile time, a `context`
+factory that does not return what `claims` reads.
 
 ```ts
 type Ctx = { request: Request }
@@ -87,7 +98,7 @@ const options = {
 
 `LimixContext` is the shape the plugin adds to the context
 (`{ limix: { claims(): Promise<Claims> } }`): use it in your own resolvers to
-read the claims again without a second lookup.
+read the claims again without a second lookup. It exists only with the plugin.
 
 ```ts
 import type { LimixContext } from '@softistx/limix-graxia'
@@ -108,12 +119,17 @@ it, as for any resolver error.
 | Policy | Wrapped | Left as is |
 | --- | --- | --- |
 | Static (`CompiledPolicy`) | The fields a rule names, and every root field when `unmatched` is `deny` | Every other field, with the same resolver |
-| Source (`PolicySource`) | Every object field | Introspection types. At run time a field passes straight through (no promise, no claims read) when the snapshot holds a policy, has no rule on it and it is not a root field under `deny` |
+| Source (`PolicySource`) | Every object field | Introspection types. At run time a field passes straight through (no promise, no claims read) when the snapshot holds a policy that fits the schema, has no rule on it and it is not a root field under `deny` |
 
 A root field is a field of the schema's Query, Mutation or Subscription type,
 whatever the schema calls them (`schema { query: RootQuery }` works). A field
 of another type with no rule is let through, as in
 [`evaluateField`](https://github.com/softistx/limix/blob/develop/packages/limix/docs/evaluation.md).
+
+A governed field that has no resolver of its own runs graphql's
+`defaultFieldResolver`; an `execute({ fieldResolver })` override (a custom
+default resolver of your host) is not used for it. Give such a field a
+`resolve` of its own, or leave it out of the rules.
 
 A realistic wiring: relations through janus, a swapped policy, a Hono mount.
 
@@ -151,10 +167,12 @@ A refused field throws a `GraphQLError` whose message is the refusal's code.
 | `code` | always | `auth.errors.unauthenticated` (401), `auth.errors.forbidden` (403), `auth.errors.not-found` (404), a rule's own `auth.errors.*` code, or `limix.errors.unavailable` (503) |
 | `status` | always | The refusal's HTTP status |
 | `params` | when there are some | For instance `{ reason: 'no-policy' }` on a 503 |
-| `http` | only for a refused root field | `{ status }`, and `headers: { 'retry-after': '5' }` on a 503. graxia answers that HTTP status |
+| `http` | only for a refused top-level field of the operation | `{ status }`, and `headers: { 'retry-after': '5' }` on a 503. graxia answers that HTTP status |
 
 A refusal on a nested field carries no `http`: the response stays a `200` with
-partial data and the error at its path.
+partial data and the error at its path. "Nested" is decided per call, by where
+the field sits in the operation, not by its type: `Query.secret` reached through
+`mutation { save { query { secret } } }` is nested and carries no `http`.
 
 ```jsonc
 // POST { me } by an anonymous caller: HTTP 401
@@ -181,8 +199,13 @@ interface RefusalAt { type: string; field: string; root?: boolean }
 interface RefusalAnswer { code?: string; message?: string; status?: number }
 ```
 
-`refusalError(refusal, mapRefusal?, at?)` builds the same error; use it when
-you call `evaluateField` yourself and want the same shape:
+`at.type` is `''` for a refusal a resolver threw itself (below): a result's
+error carries the field and its path but not its parent type.
+
+`refusalError(refusal, mapRefusal?, at?, topLevel?)` builds the same error;
+`topLevel` says whether it sits at the top of the operation (it asks for the
+`http` status) and defaults to `at.root`. Use it when you call `evaluateField`
+yourself and want the same shape:
 
 ```ts
 import { evaluateField, isLimixRefusal } from '@softistx/limix'
@@ -204,6 +227,12 @@ evaluated again with `source` set to the event payload and the same claims, so
 a rule can look at what is being delivered. A refused event is delivered as
 `null` plus an error, and the stream goes on.
 
+The claims are read once, when the subscription starts, and every event reuses
+them: a token revoked while the stream is open keeps receiving events until
+the client reconnects. The policy, on the other hand, is read again for every
+event, so a swapped or withdrawn policy takes effect on the next event (a
+withdrawn one refuses it as `limix.errors.unavailable`).
+
 A subscription starts with no `source`: a relation whose `from` reads
 `source.` fails at subscribe, so `guardSchema` refuses such a rule at setup for
 a static policy. Read `args.` instead.
@@ -212,7 +241,7 @@ a static policy. Read `args.` instead.
 
 With a policy source that holds nothing (no rules loaded yet, or withdrawn),
 every guarded field answers `limix.errors.unavailable`, status 503, params
-`{ reason: 'no-policy' }`, and a refused root field adds `retry-after: 5`.
+`{ reason: 'no-policy' }`, and a refused top-level field adds `retry-after: 5`.
 Nothing is allowed by default: the guard fails closed.
 
 `onUnavailable` runs once when the source goes from holding a policy to holding
@@ -227,6 +256,9 @@ guardSchema(schema, options)
 source.swap(null) // the next call refuses with 503 and fires onUnavailable once
 source.swap(policy) // served again, no new schema needed
 ```
+
+A source is read once per guarded field, not once per operation: a policy
+swapped while an operation runs can judge two of its fields by two policies.
 
 A remote client from `@softistx/limix` keeps its last good copy through an
 outage; see the [remote guide](https://github.com/softistx/limix/blob/develop/packages/limix/docs/remote.md).
@@ -244,8 +276,27 @@ parent is what you want.
 guardSchema(schema, { ...options, nonNull: 'allow' })
 ```
 
-A policy source is not checked (it may hold nothing yet): to keep the check,
-run `guardSchema(schema, { ...options, policy: compiledFile })` in a spec.
+A policy source is not checked for non-null fields (it may hold nothing yet):
+to keep the check, run `guardSchema(schema, { ...options, policy: compiledFile })`
+in a spec.
+
+## A policy that does not fit the schema
+
+A source can be handed any policy after `guardSchema` ran, so the guard checks
+each policy it holds against the schema, once per policy: a rule on an unknown
+type, on an interface or another type that is not an object type, or on a
+field the type lacks. Such a policy would silently enforce nothing for that
+rule, so the guard treats it as unavailable: every guarded field answers
+`limix.errors.unavailable`, status 503, params `{ reason: 'policy-mismatch' }`,
+and `onUnavailable` fires once, as for an empty source. Swap a fitting policy
+in and the next call is served.
+
+```ts
+source.swap(policyWithATypo) // every field now refuses with policy-mismatch
+source.swap(fixedPolicy)     // served again, no new schema needed
+```
+
+A static policy is checked at setup instead (below).
 
 ## Setup checks
 
@@ -291,7 +342,10 @@ function graphqlOperations(
 
 A renamed root keeps its real name and `root: true`. A string is read as SDL
 (`extend type`, `schema { query: ... }` included) without building a schema, so
-a spec can read the `.graphql` file as is. See the
+a spec can read the `.graphql` file as is. As in a built schema, once the SDL
+has a `schema { ... }` block or extension only the types it names are roots: a
+type called `Mutation` that the block leaves out is an ordinary type
+(`root: false`). See the
 [coverage guide](https://github.com/softistx/limix/blob/develop/packages/limix/docs/coverage.md)
 for the report.
 

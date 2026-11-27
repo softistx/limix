@@ -7,7 +7,10 @@ import type {
 } from '@softistx/limix';
 import { isPolicySource } from '@softistx/limix';
 
-/** Where a refusal happened: the field, and whether it is an operation root field. */
+/**
+ * Where a refusal happened: the field, and whether it is an operation root field.
+ * `type` is `''` for a refusal a resolver threw (its result carries no parent type).
+ */
 export interface RefusalAt {
 	type: string;
 	field: string;
@@ -29,7 +32,7 @@ export type MapRefusal = (
 export interface LimixGraxiaOptions<Ctx = never> {
 	/** The compiled rules, or a source that may hold none yet (fails closed). */
 	policy: CompiledPolicy | PolicySource;
-	/** Who is calling, read once per request context. */
+	/** Who is calling: read once per operation with the plugin, once per governed field without it. */
 	claims: (ctx: Ctx) => Claims | Promise<Claims>;
 	/** The relations port, or a function of the context. */
 	relations?: RelationChecker | ((ctx: Ctx) => RelationChecker);

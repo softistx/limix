@@ -27,7 +27,7 @@ declarations import without extensions, so `nodenext` is not supported.
 | Export | What it is |
 | --- | --- |
 | `guardSchema(schema, options)` | A copy of the schema whose fields answer to the rules; the original is never touched |
-| `limixGraxia(options)` | The graxia plugin: reads the claims once per request, refuses an unguarded schema, remaps refusals in every result |
+| `limixGraxia(options)` | The graxia plugin: reads the claims once per operation, refuses an unguarded schema, remaps refusals in every result |
 | `refusalError(refusal, mapRefusal?, at?)` | A refusal as the `GraphQLError` a guarded field throws |
 | `graphqlOperations(schemaOrSdl, { fields? })` | The operations of a schema, for `coverage()` |
 | `checkNeeds(policy, schema)` | Where a field's `@needs` and the rule that guards it disagree |
@@ -58,7 +58,7 @@ const options = {
       Mutation: { retire: { permissions: [['notes:retire']] } },
     },
   })),
-  // Read once per request, from what your `context` option returned.
+  // Read once per operation, from what your `context` option returned.
   claims: (ctx: { request: Request }) => ({
     authenticated: ctx.request.headers.has('authorization'),
     scope: ctx.request.headers.get('x-scope') ?? '',

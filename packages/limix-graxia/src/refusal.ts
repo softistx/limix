@@ -4,14 +4,17 @@ import type { MapRefusal, RefusalAt } from './options';
 
 /**
  * A refusal as a GraphQL error: the message is the code, `extensions.code` and
- * `status` carry it, `params` when there are some. A refused ROOT field also
- * asks for its HTTP status (`extensions.http`, a 503 with `retry-after`); a
- * nested refusal keeps the partial-data response at 200.
+ * `status` carry it, `params` when there are some. A refused TOP-LEVEL field of
+ * the operation also asks for its HTTP status (`extensions.http`, a 503 with
+ * `retry-after`); a nested refusal keeps the partial-data response at 200, a
+ * root-type field reached through another field included. `topLevel` says which
+ * one this is; it defaults to `at.root` for a caller with no resolve info.
  */
 export function refusalError(
 	refusal: LimixRefusal,
 	mapRefusal?: MapRefusal,
 	at?: RefusalAt,
+	topLevel: boolean = at?.root === true,
 ): GraphQLError {
 	const mapped = mapRefusal?.(refusal, {
 		type: at?.type ?? '',
@@ -26,7 +29,7 @@ export function refusalError(
 			code,
 			status,
 			...(params ? { params: refusal.params } : {}),
-			...(at?.root
+			...(topLevel
 				? {
 						http: {
 							status,

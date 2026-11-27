@@ -138,7 +138,7 @@ claims: async (ctx) => (await verify(ctx.request)) ?? { authenticated: false }
 ### `auth.errors.unauthenticated`, `auth.errors.forbidden`, `auth.errors.not-found`
 
 **When:** a field's rule refuses the caller. `extensions.status` is 401, 403
-and 404, and a refused root field also asks for that HTTP status.
+and 404, and a refused top-level field also asks for that HTTP status.
 **Why:** the claims do not meet the rule: not signed in, or a role, permission
 or relation is missing. A root field with no rule is refused too under
 `unmatched: deny`.
@@ -150,13 +150,65 @@ To show a different code, use [`mapRefusal`](graphql.md#refusals-and-their-exten
 ### `limix.errors.unavailable`
 
 **When:** every guarded field answers a 503 with `retry-after: 5`; `params` is
-`{ reason: 'no-policy' }` (the source holds no policy) or
-`{ reason: 'no-relation-checker' }` (a rule needs relations and `relations`
-gave none, with a policy source).
+`{ reason: 'no-policy' }` (the source holds no policy),
+`{ reason: 'policy-mismatch' }` (it holds one that does not fit the schema, see
+the next entry) or `{ reason: 'no-relation-checker' }` (a rule needs relations
+and `relations` gave none, with a policy source).
 **Why:** the source has not loaded rules yet, or withdrew them. The guard
 fails closed.
 **Fix:** load or swap a policy into the source; watch `onUnavailable` for the
 moment it happened. See [outage](graphql.md#outage-and-onunavailable).
+
+### `limix.errors.unavailable` with `params: { reason: 'policy-mismatch' }`
+
+**When:** a policy source holds a policy and every guarded field answers 503;
+`onUnavailable` fired.
+**Why:** the held policy has a rule the schema cannot take: on a type the
+schema lacks (a typo, a type removed), on an interface, union or other type
+that is not an object type, or on a field the type lacks. A source is never
+checked when a policy is swapped in, so the guard checks each policy it holds,
+once, and fails closed rather than leave that rule unenforced.
+**Fix:** correct the rules file and swap it in; the next call is served. To
+find the line before deploy, check the file against the schema in a spec with
+a static policy, which lists each problem:
+
+```ts
+test('the rules fit the schema', () => {
+  expect(() => guardSchema(schema, { policy: compiled, claims })).not.toThrow()
+})
+```
+
+## Behaviours that look like bugs
+
+### A rule on a field is not run through my `fieldResolver`
+
+**When:** `execute({ fieldResolver })` (or a host default resolver) is set, and
+a governed field that has no `resolve` of its own does not use it.
+**Why:** the guard wraps the field with graphql's `defaultFieldResolver`.
+**Fix:** give the field a `resolve` of its own, or leave it out of the rules.
+
+### A raw graphql-js host reads the claims once per field
+
+**When:** no `limixGraxia()` plugin, and `claims` (or a `relations` function)
+runs for every governed field.
+**Why:** only the plugin's own context is trusted to remember an answer, since a
+host may reuse one context object for several callers.
+**Fix:** add the plugin (one read per operation), or make `claims` cheap.
+
+### A revoked token still receives subscription events
+
+**When:** the caller's token is revoked or expires while a subscription is open.
+**Why:** the claims are read once, when the subscription starts; only the policy
+is evaluated again for each event.
+**Fix:** close the stream on your side when a token is revoked (or give tokens
+a short life), so the client reconnects and the claims are read again.
+
+### `mapRefusal` gets `at.type` equal to `''`
+
+**When:** a resolver threw a `LimixRefusal` itself and `mapRefusal` ran on it.
+**Why:** the error in a result names the field and its path, not its parent
+type. A refusal a guarded field made carries the real type.
+**Fix:** decide on `at.field`, the refusal's code or its params.
 
 ### `canOf: claims must be an object`
 

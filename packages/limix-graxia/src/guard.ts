@@ -22,7 +22,7 @@ export function guardSchema<Ctx = never>(
 	schema: GraphQLSchema,
 	options: LimixGraxiaOptions<Ctx>,
 ): GraphQLSchema {
-	const wide = options as LimixGraxiaOptions<never>;
+	const wide: LimixGraxiaOptions<never> = options;
 	checkOptions('guardSchema()', wide);
 	if (made.has(schema)) {
 		throw new TypeError('guardSchema(): this schema is already guarded');
@@ -32,7 +32,7 @@ export function guardSchema<Ctx = never>(
 	if (fixed) checkPolicy(fixed, schema, wide.nonNull ?? 'refuse');
 	const roots = rootNames(schema);
 	const subscription = schema.getSubscriptionType()?.name;
-	const guard = makeGuard(wide);
+	const guard = makeGuard(wide, schema);
 	const next = rebuildSchema(schema, (type, field, config) => {
 		const root = roots.has(type.name);
 		if (fixed && !governs(fixed, type.name, field, root)) return config;

@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 import { createGraxia } from '@softistx/graxia';
-import { LimixRefusal, mutableSource } from '@softistx/limix';
+import {
+	compilePolicy,
+	definePolicy,
+	LimixRefusal,
+	mutableSource,
+} from '@softistx/limix';
 import { guardSchema } from './guard';
 import { limixGraxia } from './plugin';
 import { claims, fixtureSchema, policy } from './schema.fixtures';
@@ -82,6 +87,42 @@ describe('limixGraxia()', () => {
 		});
 	});
 
+	test('a root-type field refused below a mutation answers 200 with partial data', async () => {
+		const schema = fixtureSchema(`
+			type Query { secret: String }
+			type Mutation { save: Saved }
+			type Saved { ok: Boolean  query: Query }
+		`);
+		const save = schema.getMutationType()?.getFields()['save'];
+		if (save) save.resolve = (() => ({ ok: true, query: {} })) as never;
+		const options = { policy, claims: claimsOfRequest };
+		const graxia = createGraxia({
+			schema: guardSchema(schema, {
+				...options,
+				policy: compilePolicy(
+					definePolicy({
+						limix: 1,
+						global: { unmatched: 'allow' },
+						graphql: { Query: { secret: { roles: [['admin']] } } },
+					}),
+				),
+			}),
+			plugins: [limixGraxia(options)],
+			context: ({ request }: { request: Request }) => ({ request }),
+			onUnexpected: false,
+		});
+		const response = await post(
+			graxia,
+			'mutation { save { ok query { secret } } }',
+		);
+		expect(response.status).toBe(200);
+		const body = (await response.json()) as {
+			errors: { extensions: Record<string, unknown> }[];
+		};
+		expect(body.errors[0]?.extensions['status']).toBe(401);
+		expect(body.errors[0]?.extensions['http']).toBeUndefined();
+	});
+
 	test('mapRefusal rewords the code the client sees', async () => {
 		const response = await post(
 			server({ mapRefusal: () => ({ code: 'mine', status: 418 }) }),
@@ -140,6 +181,32 @@ describe('limixGraxia()', () => {
 			code: 'auth.errors.forbidden',
 			status: 403,
 		});
+	});
+
+	test('a plain error shaped like a refusal stays masked', async () => {
+		const schema = fixtureSchema();
+		const field = schema.getQueryType()?.getFields()['free'];
+		if (field) {
+			field.resolve = (() => {
+				throw Object.assign(new Error('internal detail'), {
+					code: 'auth.errors.forbidden',
+					status: 403,
+					params: { why: 1 },
+				});
+			}) as never;
+		}
+		const options = { policy, claims: claimsOfRequest };
+		const graxia = createGraxia({
+			schema: guardSchema(schema, options),
+			plugins: [limixGraxia(options)],
+			context: ({ request }: { request: Request }) => ({ request }),
+			onUnexpected: false,
+		});
+		const response = await post(graxia, '{ free }');
+		const text = await response.text();
+		expect(text).not.toContain('internal detail');
+		expect(text).not.toContain('auth.errors.forbidden');
+		expect(response.status).toBe(200);
 	});
 
 	test('refuses bad options at construction', () => {

@@ -1,12 +1,12 @@
-import { definePlugin, type OnExecuteDone } from '@softistx/graxia';
-import { onceClaims } from './claims';
+import { definePlugin, type Empty, type OnExecuteDone } from '@softistx/graxia';
+import { pluginContext } from './claims';
 import { isGuarded } from './guard';
 import { checkOptions, type LimixGraxiaOptions } from './options';
 import { remapPayload } from './remap';
 
 /**
  * The graxia plugin of `guardSchema()`: adds `ctx.limix.claims()` (read once per
- * request), refuses to start on a schema `guardSchema()` did not make (its fields
+ * operation), refuses to start on a schema `guardSchema()` did not make (its fields
  * would be open), and gives a refusal a resolver threw the same error a guarded
  * field answers, in every result: plain, each subscription event, each
  * `@defer`/`@stream` payload.
@@ -19,15 +19,16 @@ import { remapPayload } from './remap';
  * });
  * ```
  */
-export function limixGraxia<Ctx = never>(options: LimixGraxiaOptions<Ctx>) {
-	const wide = options as LimixGraxiaOptions<unknown>;
-	checkOptions('limixGraxia()', options as LimixGraxiaOptions<never>);
+export function limixGraxia<Ctx extends object = Empty>(
+	options: LimixGraxiaOptions<Ctx>,
+) {
+	checkOptions('limixGraxia()', options);
 	const remap = () => (done: OnExecuteDone) => {
 		if (done.result !== undefined) {
-			done.setResult(remapPayload(done.result, wide.mapRefusal));
+			done.setResult(remapPayload(done.result, options.mapRefusal));
 		}
 	};
-	return definePlugin({
+	return definePlugin<Ctx>()({
 		name: 'limix',
 		setup: ({ schema }) => {
 			if (!isGuarded(schema)) {
@@ -36,13 +37,20 @@ export function limixGraxia<Ctx = never>(options: LimixGraxiaOptions<Ctx>) {
 				);
 			}
 		},
-		onContext: ({ context }) => ({
-			limix: { claims: onceClaims(() => wide.claims(context)) },
-		}),
+		onContext: ({ context }) =>
+			pluginContext(
+				() => options.claims(context),
+				() => {
+					const { relations } = options;
+					return typeof relations === 'function'
+						? relations(context)
+						: relations;
+				},
+			),
 		onExecute: remap,
 		onSubscribe: remap,
 		onResultChunk: ({ chunk, setChunk }) => {
-			const next = remapPayload(chunk, wide.mapRefusal);
+			const next = remapPayload(chunk, options.mapRefusal);
 			if (next !== chunk) setChunk(next);
 		},
 	});

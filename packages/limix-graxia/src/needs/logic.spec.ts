@@ -29,6 +29,14 @@ describe('needs logic', () => {
 		expect(cnfToDnf([['a'], []])).toEqual([]);
 	});
 
+	it('gives up on a wide any-of at once, without comparing every pair', () => {
+		const wide = [Array.from({ length: 30000 }, (_, i) => `p${i}`)];
+		const start = performance.now();
+		expect(cnfToDnf(wide)).toBeUndefined();
+		expect(performance.now() - start).toBeLessThan(500);
+		expect(cnfToDnf([wide[0]?.slice(0, 1024) ?? []])).toHaveLength(1024);
+	});
+
 	it('returns undefined past the limit', () => {
 		const groups = Array.from({ length: 11 }, (_, i) => [`a${i}`, `b${i}`]);
 		expect(cnfToDnf(groups)).toBeUndefined();

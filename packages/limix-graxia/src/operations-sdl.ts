@@ -9,25 +9,30 @@ import {
 const KINDS = ['query', 'mutation', 'subscription'] as const;
 type RootKind = (typeof KINDS)[number];
 
-const DEFAULT_ROOTS: Record<RootKind, string> = {
+const DEFAULT_ROOTS: Partial<Record<RootKind, string>> = {
 	query: 'Query',
 	mutation: 'Mutation',
 	subscription: 'Subscription',
 };
 
-/** Root type names: the `schema { ... }` block's when there is one, else the conventional ones. */
+/**
+ * Root type names: those the `schema { ... }` block or extension names, and
+ * only those when there is one (a type called `Mutation` is then no root); the
+ * conventional names when there is none.
+ */
 function rootNames(
 	definitions: readonly DefinitionNode[],
-): Record<RootKind, string> {
-	const names = { ...DEFAULT_ROOTS };
-	for (const definition of definitions) {
-		if (
+): Partial<Record<RootKind, string>> {
+	const blocks = definitions.filter(
+		(definition) =>
 			definition.kind === Kind.SCHEMA_DEFINITION ||
-			definition.kind === Kind.SCHEMA_EXTENSION
-		) {
-			for (const { operation, type } of definition.operationTypes ?? []) {
-				names[operation] = type.name.value;
-			}
+			definition.kind === Kind.SCHEMA_EXTENSION,
+	);
+	if (blocks.length === 0) return DEFAULT_ROOTS;
+	const names: Partial<Record<RootKind, string>> = {};
+	for (const block of blocks) {
+		for (const { operation, type } of block.operationTypes ?? []) {
+			names[operation] = type.name.value;
 		}
 	}
 	return names;
@@ -67,7 +72,7 @@ export function operationsFromSdl(
 	const { definitions } = parse(sdl, { noLocation: true });
 	const names = rootNames(definitions);
 	const types = fieldsByType(definitions);
-	const roots = [...new Set(KINDS.map((kind) => names[kind]))];
+	const roots = [...new Set(KINDS.flatMap((kind) => names[kind] ?? []))];
 	const of = (type: string, root: boolean): GraphqlOperation[] =>
 		(types.get(type) ?? []).map((field) => ({
 			kind: 'graphql',

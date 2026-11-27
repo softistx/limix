@@ -30,6 +30,17 @@ describe('refusalError', () => {
 		).toBeUndefined();
 	});
 
+	test('an explicit top-level flag decides the HTTP status over the root flag', () => {
+		const at = { type: 'Query', field: 'me', root: true };
+		expect(
+			refusalError(forbidden, undefined, at, false).extensions['http'],
+		).toBeUndefined();
+		expect(
+			refusalError(forbidden, undefined, { ...at, root: false }, true)
+				.extensions['http'],
+		).toEqual({ status: 403 });
+	});
+
 	test('a 503 carries retry-after and its params', () => {
 		const down = new LimixRefusal('limix.errors.unavailable', 503, {
 			reason: 'no-policy',

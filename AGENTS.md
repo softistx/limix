@@ -22,7 +22,9 @@ fixes only on 5.x) until nothing imports it, then `npm deprecate`d.
 - The rules format starts from `@softistx/security` 5 and may break it where
   that simplifies, with a migration guide and no compatibility aliases.
 - No Ory or Keto adapter: relations go through the port, janus first.
-- Pilot: clavix-api, whose roadmap waits on remote rules.
+- Pilot: clavix-api protects its own GraphQL API with a local rules file through
+  limix-graxia and limix-alxia (Clavix serves no signed rules, owner 2026-11-27).
+  Remote rules stay, proved by the limix-publish round-trip specs.
 - Later, not in 1.0: `restricted`, the gateway trust proof, how limix and
   `@softistx/alxia-access` fit together, moving core's `shared-hono` and
   `shared-graphql` off `@softistx/security`, and a type-safe rules editor built

@@ -82,6 +82,28 @@ describe('guardSchema, subscriptions', () => {
 		expect((await stream.next()).done).toBe(true);
 	});
 
+	test('a source emptied mid-stream refuses the next event as unavailable', async () => {
+		const source = mutableSource(policy);
+		const stream = (await open(
+			guardSchema(fixtureSchema(), { ...options, policy: source }),
+			claims.reader,
+		)) as AsyncGenerator<{
+			data?: unknown;
+			errors?: { extensions: Record<string, unknown> }[];
+		}>;
+		expect((await stream.next()).value?.data).toEqual({
+			noteChanged: { title: 'A' },
+		});
+		source.swap(null);
+		const second = (await stream.next()).value;
+		expect(second?.data).toEqual({ noteChanged: null });
+		expect(second?.errors?.[0]?.extensions).toMatchObject({
+			code: 'limix.errors.unavailable',
+			status: 503,
+			params: { reason: 'no-policy' },
+		});
+	});
+
 	test('the events see the payload as source', async () => {
 		const seen: unknown[] = [];
 		const withCondition = compilePolicy(
