@@ -32,7 +32,7 @@
     },
     "packages/limix-alxia": {
       "name": "@softistx/limix-alxia",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "devDependencies": {
         "@softistx/alxia": "^0.28.0",
         "@softistx/alxia-graphql": "^0.20.2",
@@ -60,7 +60,7 @@
     },
     "packages/limix-codegen": {
       "name": "@softistx/limix-codegen",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "bin": {
         "limix-codegen": "./dist/cli/main.js",
       },
@@ -83,7 +83,7 @@
     },
     "packages/limix-graxia": {
       "name": "@softistx/limix-graxia",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "devDependencies": {
         "@softistx/graxia": "^0.18.0",
         "@softistx/limix": "workspace:^",
