@@ -1,0 +1,82 @@
+{
+	"name": "@softistx/limix-codegen",
+	"version": "0.0.0",
+	"private": true,
+	"description": "Types for @softistx/limix rules from the API's operations (GraphQL SDL, OpenAPI) and the rules file, a starter rules file: CLI and graphql-codegen plugin",
+	"license": "MIT",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"bin": {
+		"limix-codegen": "./dist/cli/main.js"
+	},
+	"files": [
+		"dist",
+		"docs",
+		"README.md",
+		"package.json",
+		"LICENSE"
+	],
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"default": "./dist/index.js"
+		},
+		"./graphql-codegen": {
+			"types": "./dist/graphql-codegen/index.d.ts",
+			"import": "./dist/graphql-codegen/index.js",
+			"default": "./dist/graphql-codegen/index.js"
+		},
+		"./package.json": "./package.json"
+	},
+	"keywords": [
+		"policy",
+		"authorization",
+		"codegen",
+		"openapi",
+		"graphql",
+		"typescript"
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/softistx/limix.git",
+		"directory": "packages/limix-codegen"
+	},
+	"publishConfig": {
+		"registry": "https://registry.npmjs.org/",
+		"access": "restricted"
+	},
+	"scripts": {
+		"build": "bun run ../../build.ts",
+		"test": "bun test ./src/",
+		"typecheck": "bun check"
+	},
+	"nxgt": {
+		"entrypoints": [
+			"src/index.ts",
+			"src/graphql-codegen/index.ts",
+			"src/cli/main.ts"
+		]
+	},
+	"devDependencies": {
+		"@softistx/limix": "workspace:^",
+		"@softistx/limix-graxia": "workspace:^",
+		"@types/bun": "^1.4.5",
+		"graphql": "^17.1.0"
+	},
+	"peerDependencies": {
+		"@softistx/limix": "workspace:^",
+		"@softistx/limix-graxia": "workspace:^",
+		"graphql": "^17.1.0",
+		"typescript": "^6.0.3 || ^7.0.0"
+	},
+	"peerDependenciesMeta": {
+		"@softistx/limix-graxia": {
+			"optional": true
+		},
+		"graphql": {
+			"optional": true
+		}
+	}
+}
