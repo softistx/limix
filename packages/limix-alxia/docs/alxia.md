@@ -197,8 +197,8 @@ to the group's file.
 - A plugin without a prefix gives its chain, its guard included, to the host
   routes declared after it, so that guard judges them too. They are never left
   to it: the outer guard judges them, whatever handler or options they share
-  (the route must be the very one the guard's own app declared, by the hook
-  object in its chain).
+  (the route must be the plugin's own, mounted copy; a host route never takes
+  its place).
 - Under a host prefix, rules for a plugin's own guard use `global.basePath`.
   Its `limixGraphql` endpoint is then refused (403), because the guard cannot
   find the prefixed definition; use a group there.
