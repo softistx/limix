@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import { RulesError } from './error';
 import { parseRules } from './parse';
+import type { RestMethods } from './types';
 
 const base = { limix: 1 as const, global: { unmatched: 'allow' as const } };
 
@@ -20,7 +21,9 @@ describe('parseRules', () => {
 			...base,
 			rest: { '/a': { GET: { roles: [['admin']], when: ['open'] } } },
 		});
-		expect(rules.rest?.['/a']?.GET?.roles).toEqual([['admin']]);
+		expect((rules.rest?.['/a'] as RestMethods | undefined)?.GET?.roles).toEqual(
+			[['admin']],
+		);
 	});
 
 	it('drops x- keys and refuses any other unknown top-level key', () => {

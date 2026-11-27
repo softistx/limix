@@ -118,6 +118,41 @@ function pathFor(source: string): string {
 	return path;
 }
 
+/**
+ * path-to-regexp has no anonymous wildcard: a `*` with no name after it gets
+ * one, which the comparison then drops from the reference's params, as the
+ * matcher exposes none.
+ */
+const BARE = '__bare';
+function nameBareWildcards(source: string): string {
+	const chars = [...source];
+	let out = '';
+	let count = 0;
+	for (let i = 0; i < chars.length; i++) {
+		const char = chars[i] as string;
+		if (char === '\\') {
+			out += char + (chars[++i] ?? '');
+		} else if (char === ':' || char === '*') {
+			out += char;
+			const next = chars[i + 1];
+			if (next === '"') {
+				out += chars[++i];
+				while (++i < chars.length) {
+					out += chars[i];
+					if (chars[i] === '\\') out += chars[++i] ?? '';
+					else if (chars[i] === '"') break;
+				}
+			} else if (
+				char === '*' &&
+				(next === undefined || !/^[$_\p{ID_Start}]$/u.test(next))
+			) {
+				out += `${BARE}${count++}`;
+			}
+		} else out += char;
+	}
+	return out;
+}
+
 type Outcome =
 	| { kind: 'refused' }
 	| { kind: 'error'; name: string }
@@ -128,7 +163,11 @@ type Outcome =
 			proto: boolean;
 	  };
 
-function run(build: () => (path: string) => unknown, path: string): Outcome {
+function run(
+	build: () => (path: string) => unknown,
+	path: string,
+	dropBare = false,
+): Outcome {
 	try {
 		const result = build()(path) as
 			| false
@@ -137,7 +176,11 @@ function run(build: () => (path: string) => unknown, path: string): Outcome {
 		return {
 			kind: 'match',
 			path: result.path,
-			params: { ...result.params },
+			params: Object.fromEntries(
+				Object.entries(result.params).filter(
+					([name]) => !(dropBare && name.startsWith(BARE)),
+				),
+			),
 			proto: Object.getPrototypeOf(result.params) === null,
 		};
 	} catch (error) {
@@ -161,7 +204,9 @@ describe('compileMatcher against path-to-regexp v8', () => {
 			let reference: ((path: string) => unknown) | undefined;
 			let referenceError: unknown;
 			try {
-				reference = match(source, { decode: decodeURIComponent });
+				reference = match(nameBareWildcards(source), {
+					decode: decodeURIComponent,
+				});
 			} catch (error) {
 				referenceError = error;
 			}
@@ -184,7 +229,7 @@ describe('compileMatcher against path-to-regexp v8', () => {
 			}
 			for (let i = 0; i < 3; i++) {
 				const path = pathFor(source);
-				const want = run(() => reference as never, path);
+				const want = run(() => reference as never, path, true);
 				const got = run(() => ours as never, path);
 				expect([source, path, got]).toEqual([source, path, want]);
 				if (want.kind === 'match') {

@@ -25,7 +25,7 @@ describe('limixPath', () => {
 			definePolicy({
 				limix: 1,
 				global: { unmatched: 'deny' },
-				rest: { [pattern]: { GET: { public: true } } },
+				rest: { [pattern as '/x']: { GET: { public: true } } },
 			}),
 		);
 		const route = policy.restRoutesByMethod.get('GET')?.[0];

@@ -8,7 +8,8 @@ import {
 
 /**
  * The rule sets a request with this method must pass. Every method faces its
- * own routes, except HEAD: a server answers it by running the GET route, so
+ * own routes (those of method `*` among them, in their place), and a method
+ * outside the usual ten faces the `*` ones alone, except HEAD: a server answers it by running the GET route, so
  * HEAD faces its own rules and then the GET ones, and both must allow. The
  * last set is the handler's, and the only one that falls back to
  * `global.unmatched`.
@@ -17,9 +18,11 @@ export function ruleSetsForMethod(
 	policy: CompiledPolicy,
 	method: string,
 ): readonly (readonly CompiledRestRoute[])[] {
-	const own = policy.restRoutesByMethod.get(method) ?? [];
+	const get = (name: string) =>
+		policy.restRoutesByMethod.get(name) ?? policy.restRoutesByMethod.get('*');
+	const own = get(method) ?? [];
 	if (method !== 'HEAD') return [own];
-	return [own, policy.restRoutesByMethod.get('GET') ?? []];
+	return [own, get('GET') ?? []];
 }
 
 export interface RouteMatch {

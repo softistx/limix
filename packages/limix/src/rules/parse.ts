@@ -1,4 +1,5 @@
 import { formatPath, RulesError, type RulesIssue } from './error';
+import { BAD_KEY, graphqlKeyProblem, restKeyProblem } from './keys';
 import { type Rules, RulesSchema } from './schema';
 
 /**
@@ -16,7 +17,7 @@ export function parseRules(input: unknown, source?: string): Rules {
 				message: keyMessage(issue.message, key),
 			}));
 		}
-		return [{ path: formatPath(issue.path), message: issue.message }];
+		return [{ path: formatPath(issue.path), message: messageOf(issue) }];
 	});
 	throw new RulesError(issues, source);
 }
@@ -29,4 +30,18 @@ function keyMessage(message: string, key: string): string {
 			(part) => part.startsWith(`\`${key}\``) || part.includes(`\`${key}\``),
 		);
 	return own ?? message;
+}
+
+/** What zod said, except for a refused key of `rest` or `graphql`, which it only marks. */
+function messageOf(issue: {
+	path: readonly PropertyKey[];
+	message: string;
+}): string {
+	if (issue.message !== BAD_KEY) return issue.message;
+	const [block, key] = issue.path;
+	if (typeof key !== 'string') return issue.message;
+	return (
+		(block === 'rest' ? restKeyProblem(key) : graphqlKeyProblem(key)) ??
+		issue.message
+	);
 }

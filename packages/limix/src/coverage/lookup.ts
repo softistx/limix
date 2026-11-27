@@ -6,8 +6,9 @@ export interface OperationRoute {
 	/**
 	 * `exact`: the rule's own pattern. `pattern`: an earlier rule's matcher took
 	 * the path (or this rule's own, for a spelling it does not share).
+	 * `wildcard`: the rule is for method `*`, whichever way the path was found.
 	 */
-	match: 'exact' | 'pattern';
+	match: 'exact' | 'pattern' | 'wildcard';
 }
 
 /**
@@ -36,5 +37,8 @@ export function findOperationRoute(
 	const hit =
 		findRoute(routes, { route: path }, basePath) ??
 		findRoute(routes, { route: path }, basePath, true);
-	return hit && { route: hit.route, match: hit.exact ? 'exact' : 'pattern' };
+	if (!hit) return undefined;
+	const match =
+		hit.route.method === '*' ? 'wildcard' : hit.exact ? 'exact' : 'pattern';
+	return { route: hit.route, match };
 }

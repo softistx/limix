@@ -52,10 +52,18 @@ export type RestMethodName =
 	| 'TRACE'
 	| 'QUERY';
 
-/** The rules of one path pattern, by HTTP method. */
-export type RestMethods = { [M in RestMethodName]?: RestRule | undefined };
+/** A flat REST key: a method (or `*` for any), one space, the path pattern. */
+export type RestFlatKey = `${RestMethodName | '*'} ${string}`;
 
-/** Rules for the fields of one GraphQL type, by field name. */
+/** A flat GraphQL key: `Type.field`, or `Type.*` for every field of the type. */
+export type GraphqlFlatKey = `${string}.${string}`;
+
+/** The rules of one path pattern, by HTTP method (`*` for any). */
+export type RestMethods = {
+	[M in RestMethodName | '*']?: RestRule | undefined;
+};
+
+/** Rules for the fields of one GraphQL type, by field name (`*` for every other). */
 export type GraphqlFields = Record<string, GraphqlRule>;
 
 /** Settings applied across the whole document. */
@@ -64,18 +72,32 @@ export type RulesGlobal = {
 	unmatched: 'allow' | 'deny';
 };
 
-/** A validated rules document, as `parseRules` and `definePolicy` return it. */
+/**
+ * A validated rules document, as `parseRules` and `definePolicy` return it.
+ * A key under `rest` is flat (`"POST /users/:id"`, the value a rule) or a path
+ * pattern (the value keyed by method); a key under `graphql` is flat
+ * (`"Query.me"`, `"Note.*"`, the value a rule) or a type name (the value keyed
+ * by field). TypeScript cannot say "not flat" for the other case, so a rule
+ * under a path pattern or a type name type-checks and `compilePolicy` refuses it.
+ */
 export type Rules = {
 	limix: 1;
 	global: RulesGlobal;
-	/** REST rules by path pattern, then HTTP method, in document order. */
-	rest?: Record<string, RestMethods> | undefined;
-	/** GraphQL rules by type name, then field name. */
+	/** REST rules, in document order. */
+	rest?:
+		| {
+				[key: RestFlatKey]: RestRule;
+				[pattern: string]: RestMethods | RestRule;
+		  }
+		| undefined;
+	/** GraphQL rules, in document order. */
 	graphql?:
-		| ({
+		| {
 				Query?: GraphqlFields | undefined;
 				Mutation?: GraphqlFields | undefined;
 				Subscription?: GraphqlFields | undefined;
-		  } & Record<string, GraphqlFields>)
+				[key: GraphqlFlatKey]: GraphqlRule;
+				[type: string]: GraphqlFields | GraphqlRule | undefined;
+		  }
 		| undefined;
 };

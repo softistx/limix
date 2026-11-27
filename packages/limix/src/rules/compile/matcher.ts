@@ -87,7 +87,7 @@ function sequenceSource(
 		if (token.type === 'group') continue;
 		if (previous && !backtrack) {
 			throw new PatternError(
-				`Missing text before "${token.name}" ${token.type}, put a literal character between two captures`,
+				`Missing text before "${token.name || '*'}" ${token.type}, put a literal character between two captures`,
 				pattern,
 			);
 		}
@@ -120,7 +120,8 @@ function sequenceSource(
 /**
  * Compiles a pattern to one case-insensitive regular expression: a trailing
  * slash is optional, a parameter takes one segment, a wildcard the rest, and
- * each capture is percent-decoded (a wildcard as a list of segments). A
+ * each capture is percent-decoded (a wildcard as a list of segments; one with
+ * no name is matched and not captured). A
  * pattern that does not parse throws a `PatternError`. `names` lists the
  * parameter names the pattern captures.
  */
@@ -147,12 +148,17 @@ export function compileMatcher(
 			const value = found[i];
 			if (value === undefined) continue;
 			const key = keys[i - 1] as Capture;
-			params[key.name] =
+			const decoded =
 				key.type === 'param'
 					? decodeURIComponent(value)
 					: value.split('/').map(decodeURIComponent);
+			// An anonymous wildcard is decoded all the same, so a malformed escape
+			// in it throws as it does in a named one, but nothing is exposed.
+			if (key.name) params[key.name] = decoded;
 		}
 		return { path: found[0], params };
 	};
-	return Object.assign(match, { names: new Set(keys.map((key) => key.name)) });
+	return Object.assign(match, {
+		names: new Set(keys.map((key) => key.name).filter(Boolean)),
+	});
 }

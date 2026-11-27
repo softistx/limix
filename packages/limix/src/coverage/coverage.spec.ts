@@ -47,6 +47,7 @@ describe('coverage: REST', () => {
 			refused: 2,
 			open: 0,
 			byPattern: 0,
+			byWildcard: 0,
 			stale: 2,
 		});
 	});

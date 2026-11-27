@@ -4,9 +4,10 @@
  */
 /**
  * The syntax of a REST path pattern: literal text, `:name` (one segment),
- * `*name` (the rest of the path, slashes included), `{...}` (an optional
- * group) and `\` (the next character, literally). A name is an identifier or
- * a quoted string (`:"a-b"`). Parentheses, brackets, `+`, `?` and `!` are
+ * `*name` (the rest of the path, slashes included), `*` alone (the same, with
+ * no name: nothing is captured), `{...}` (an optional group) and `\` (the next
+ * character, literally). A name is an identifier or a quoted string
+ * (`:"a-b"`). Parentheses, brackets, `+`, `?` and `!` are
  * refused rather than read as regular-expression syntax.
  */
 export type PatternToken =
@@ -93,9 +94,9 @@ function readUntil(
 			text += chars[cursor.index++];
 		} else if (char === ':' || char === '*') {
 			const name = readName(cursor, pattern);
-			if (!name) {
+			if (!name && char === ':') {
 				throw new PatternError(
-					`Missing parameter name at index ${cursor.index}, write ${char}name (for example ${char === ':' ? '/:id' : '/*path'}) or escape the ${char} with a backslash`,
+					`Missing parameter name at index ${cursor.index}, write :name (for example /:id) or escape the : with a backslash`,
 					pattern,
 				);
 			}
