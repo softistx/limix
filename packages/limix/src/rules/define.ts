@@ -1,4 +1,4 @@
-import type { TypedRules } from './register';
+import type { TypedRulesInput } from './register';
 import type { Rules } from './schema';
 
 /**
@@ -10,8 +10,10 @@ import type { Rules } from './schema';
  *
  * Once a generated file registers the API's operations (`Register`, see
  * `@softistx/limix-codegen`), a rest path, method, GraphQL type or field the
- * list does not hold is refused too.
+ * list does not hold is refused too, and so is a flat key (`GET /notes`,
+ * `Query.me`, `Note.*`) it does not hold. A key with a wildcard (`* /x`, `/a/*`)
+ * or an optional group stays unchecked.
  */
-export function definePolicy(rules: TypedRules): Rules {
+export function definePolicy(rules: TypedRulesInput): Rules {
 	return rules as Rules;
 }

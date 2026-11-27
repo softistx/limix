@@ -488,8 +488,9 @@ definePolicy({
 
 `Permission`, `Role`, `ConditionName`, `RestOperationName` and
 `GraphqlOperationName` give the registered unions to your own code, and
-`TypedRules` and `ConditionMap` are what `definePolicy` and the `conditions`
-option of `compilePolicy` take. Nothing is registered by default: until a
+`TypedRulesInput` and `ConditionMap` are what `definePolicy` and the `conditions`
+option of `compilePolicy` take (`TypedRules` is the same narrowing over `Rules`,
+nested keys only; every `TypedRules` value is a `TypedRulesInput`). Nothing is registered by default: until a
 generated file is in your program, every type is what it was (`string`, `Rules`).
 
 `definePolicy` and `compilePolicy` take a `RulesInput`: a `Rules`, or a document
@@ -499,14 +500,45 @@ rule, so a tool that reads parsed `Rules` must test the key shape: the value of
 a flat key (`"GET /x"`, `"Query.me"`, `"Note.*"`) is a rule, the value of any
 other key is a map of methods or fields.
 
+Flat keys are checked the same way as nested ones:
+
+```ts
+definePolicy({
+  limix: 1,
+  global: { unmatched: 'deny' },
+  rest: {
+    'GET /notes': { authenticated: true },
+    // error: `GET /notez` is not an operation of the API
+    'GET /notez': { authenticated: true },
+  },
+  graphql: {
+    'Query.me': { authenticated: true },
+    'Note.*': { authenticated: true }, // a known type: accepted
+    // error: `Query.you` is not a field of the API
+    'Query.you': { authenticated: true },
+  },
+})
+```
+
+| Key you write | Checked against the registered list? |
+| --- | --- |
+| `rest: { '/notes': { GET } }` (nested) | Yes: the path, and the method on that path; the method `*` is accepted under a known path |
+| `rest: { 'GET /notes': rule }` (flat) | Yes, as written, `:id` names included |
+| `rest: { '* /notes': rule }`, `'/files/*path'`, `'/x/*'`, `'GET /a{/:b}'` | No: a wildcard or an optional group names several routes |
+| `graphql: { Query: { me } }` (nested) | Yes: the type, and the field; the field `*` is accepted under a known type |
+| `graphql: { 'Query.me': rule }`, `'Note.*'` (flat) | Yes: `Type.field` must be registered, `Type.*` needs a registered type |
+
+When only `rest` is registered, `graphql` is not checked, and the other way round.
+Writing the rules out and checking them in CI: [Writing rules](../../limix-codegen/docs/writing-rules.md).
+
 What is checked, and what is not:
 
 - A refusal holds only in an inline object literal given to `definePolicy`. A
   variable, a spread, an escaped `\*` key or a `{` key is accepted unchecked, and
   so is a key with a wildcard or a `{...}` group, which names several routes.
-- Flat keys (`"GET /notes"`, `"Query.me"`) are not checked against a registered
-  list yet: once a generated file registers the operations, write the nested form
-  for the checked keys.
+- A key with a wildcard or an optional group is never checked by the types;
+  `limix-codegen generate --check --rules` reports the ones that reach no
+  operation of the spec.
 - Only the keys of the `conditions` map given to `compilePolicy` are checked,
   not the `when` names inside the rules. A missing condition is still a
   `RulesError` at run time.

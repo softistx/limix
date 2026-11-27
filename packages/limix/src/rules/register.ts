@@ -70,6 +70,45 @@ export type TypedRules<R = Register> = [
 				| undefined;
 		};
 
+type CheckedRestInput<O extends string> = {
+	[P in PathOf<O>]?: {
+		[M in (MethodOf<O, P> & keyof RestMethods) | '*']?: RestRule;
+	};
+} & { [K in O]?: RestRule } & {
+	[P in OpenPattern]: RestMethods & RestRule;
+};
+type CheckedGraphqlInput<O extends string> = {
+	[T in TypeOf<O>]?: { [F in FieldOf<O, T> | '*']?: GraphqlRule };
+} & { [K in O | `${TypeOf<O>}.*`]?: GraphqlRule };
+
+/**
+ * What `definePolicy` takes: `TypedRules`' way of narrowing, over `RulesInput`
+ * instead of `Rules`. Where `Register` holds a `rest` or a `graphql` list, a
+ * flat key (`GET /notes`, `Query.me`, `Note.*`) the list does not hold is
+ * refused, and the method `*` and the field `*` are accepted under a key it
+ * holds. A key with a wildcard or an optional group (`* /x`, `/a/*`, `{`)
+ * stays unchecked, as in `TypedRules`. Unregistered, it is `RulesInput`.
+ *
+ * Every `TypedRules` value is assignable to it. The same limit holds: the
+ * refusal applies to an inline object literal only.
+ */
+export type TypedRulesInput<R = Register> = [
+	keyof R & ('rest' | 'graphql'),
+] extends [never]
+	? RulesInput
+	: Omit<RulesInput, 'rest' | 'graphql'> & {
+			rest?:
+				| (R extends Record<'rest', infer O extends string>
+						? CheckedRestInput<O>
+						: RulesInput['rest'])
+				| undefined;
+			graphql?:
+				| (R extends Record<'graphql', infer O extends string>
+						? CheckedGraphqlInput<O>
+						: RulesInput['graphql'])
+				| undefined;
+		};
+
 /**
  * The predicates `compilePolicy` takes: any name when nothing is registered,
  * else only the names the rules file holds (not every one is required).
