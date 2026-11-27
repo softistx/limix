@@ -115,6 +115,14 @@ register); without them a rule that names a condition is refused. It exits 1
 with the refusal's code (`SIGNATURE`, `CLAIMS`, `RULES_REFUSED`, `EXPIRED`) and
 message. A plain RSA key needs `--alg RS256` or `--alg PS256`.
 
+## Stability
+
+After 1.0, a new issue `kind` or error code is a minor release: handle an
+unknown one (a `default` branch) instead of closing the switch. The full policy
+is in the core README's
+[Stability](https://github.com/softistx/limix/blob/develop/packages/limix/README.md#stability)
+section.
+
 ## More
 
 The [documentation index](docs/README.md): the [publishing guide](docs/publishing.md),

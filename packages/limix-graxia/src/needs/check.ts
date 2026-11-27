@@ -147,7 +147,7 @@ function judge(facts: FieldFacts, rule: Rule | undefined): NeedsIssue[] {
 export function checkNeeds(
 	policy: CompiledPolicy,
 	schema: GraphQLSchema,
-): NeedsIssue[] {
+): readonly NeedsIssue[] {
 	return Object.values(schema.getTypeMap()).flatMap((type) =>
 		isObjectType(type) && !isIntrospectionType(type)
 			? Object.values(type.getFields()).flatMap((field) =>

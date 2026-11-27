@@ -148,6 +148,14 @@ printSchemaFor(schema, { can: canOf({ authenticated: true, scope: 'books:read' }
   rules file in a spec with `guardSchema(schema, { policy: compiled, ... })`:
   it also catches named non-null fields, which a source never checks.
 
+## Stability
+
+After 1.0, a new issue `kind` or error code is a minor release: handle an
+unknown one (a `default` branch) instead of closing the switch. The full policy
+is in the core README's
+[Stability](https://github.com/softistx/limix/blob/develop/packages/limix/README.md#stability)
+section.
+
 ## Documentation
 
 See [docs/](docs/README.md):

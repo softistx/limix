@@ -185,6 +185,14 @@ limixGraphql(app, { schema, limix }) // the SAME object
   authentication layer refuses before the guard runs
   ([why](docs/troubleshooting.md#a-public-route-needs-a-token-bearer-has-no-optional-mode)).
 
+## Stability
+
+After 1.0, a new issue `kind` or error code is a minor release: handle an
+unknown one (a `default` branch) instead of closing the switch. The full policy
+is in the core README's
+[Stability](https://github.com/softistx/limix/blob/develop/packages/limix/README.md#stability)
+section.
+
 ## Documentation
 
 See [docs/](docs/README.md):

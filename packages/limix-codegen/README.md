@@ -86,6 +86,14 @@ plugin reads those files through Bun. Keys other than `rules` and `openapi`
 | `limix-codegen` (bin) | `generate` and `init` |
 | `@softistx/limix-codegen/package.json` | The package manifest |
 
+## Stability
+
+After 1.0, a new issue `kind` or error code is a minor release: handle an
+unknown one (a `default` branch) instead of closing the switch. The full policy
+is in the core README's
+[Stability](https://github.com/softistx/limix/blob/develop/packages/limix/README.md#stability)
+section.
+
 ## Docs
 
 - [Codegen](docs/codegen.md): what each registered key checks, what stays unchecked, the OpenAPI conversion, `init`, the plugin
