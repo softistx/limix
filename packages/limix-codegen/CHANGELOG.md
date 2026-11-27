@@ -1,5 +1,13 @@
 # @softistx/limix-codegen
 
+## 0.1.1
+
+### Patch Changes
+
+- Updated dependencies [[`35d93c0`](https://github.com/softistx/limix/commit/35d93c016bed2112db44aadfa3b27cdb971c15c9)]:
+  - @softistx/limix@0.4.0
+  - @softistx/limix-graxia@0.1.1
+
 ## 0.1.0
 
 ### Minor Changes
