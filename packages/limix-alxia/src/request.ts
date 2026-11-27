@@ -57,8 +57,11 @@ async function jsonOf(request: Request): Promise<unknown> {
 }
 
 /** A pattern ending in a wildcard, named or not, alone or inside an optional group. */
-const endsWild = (pattern: string) =>
-	/(?<!\\)\*(?:[A-Za-z_$][\w$]*)?\}*$/.test(pattern);
+export const endsWild = (pattern: string) => {
+	const found = /(\\*)\*(?:[A-Za-z_$][\w$]*)?\}*$/.exec(pattern);
+	// An odd run of backslashes escapes the star: `\*` is a literal star, `\\*` a literal backslash then a wildcard.
+	return found !== null && (found[1] ?? '').length % 2 === 0;
+};
 
 /**
  * The rule an empty wildcard tail (`/users/me` on `/users/:id/*`) stands for,

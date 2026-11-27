@@ -4,7 +4,7 @@ import { compilePolicy, definePolicy } from '@softistx/limix';
 import { call, ok, whoOf } from './app.fixtures';
 import { limixGuard } from './guard';
 
-const rules = (rest: Record<string, object>) =>
+const rules = (rest: Record<string, Record<string, object>>) =>
 	compilePolicy(
 		definePolicy({
 			limix: 1,
@@ -182,7 +182,7 @@ describe('limixGuard, a rule with a bare * and one for any method', () => {
 		const policy = rules({
 			'GET /admin/health': { public: true },
 			'* /admin/*': { roles: [['admin']] },
-		});
+		} as never);
 		const app = appOf(policy, (a) => {
 			a.get('/admin/*', ok);
 			a.post('/admin/*', ok);
@@ -193,5 +193,18 @@ describe('limixGuard, a rule with a bare * and one for any method', () => {
 		expect(
 			(await call(app, '/admin/x', { method: 'POST', who: 'admin' })).status,
 		).toBe(200);
+	});
+});
+
+describe('endsWild counts the backslashes before the star', () => {
+	test('an odd run escapes the star, an even one does not', async () => {
+		const { endsWild } = await import('./request');
+		expect(endsWild('/a/*')).toBe(true);
+		expect(endsWild('/a/*path')).toBe(true);
+		expect(endsWild('/a{/*path}')).toBe(true);
+		expect(endsWild('/a/\\*')).toBe(false);
+		expect(endsWild('/a/\\\\*')).toBe(true);
+		expect(endsWild('/a/\\\\\\*')).toBe(false);
+		expect(endsWild('/a/b')).toBe(false);
 	});
 });

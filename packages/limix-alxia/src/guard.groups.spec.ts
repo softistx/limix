@@ -11,7 +11,7 @@ const outerRules = (unmatched: 'deny' | 'allow', health = '/health') =>
 			limix: 1,
 			global: { unmatched },
 			rest: {
-				[health as '/health']:
+				[health]:
 					unmatched === 'deny'
 						? { GET: { public: true } }
 						: { GET: { roles: [['admin']] } },
