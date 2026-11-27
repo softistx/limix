@@ -223,6 +223,15 @@ describe('TypedRulesInput: flat keys', () => {
 		expect(rules.rest).toBeDefined();
 	});
 
+	it('refuses a method map under a flat key, which parseRules refuses too', () => {
+		input<{ rest: 'GET /files/*path' }>()({
+			limix: 1,
+			global: unmatched,
+			// @ts-expect-error a flat key holds a rule, not a method map
+			rest: { 'GET /files/*path': { GET: rule } },
+		});
+	});
+
 	it('accepts flat graphql when only rest is registered', () => {
 		const rules = input<RestOnly>()({
 			limix: 1,
