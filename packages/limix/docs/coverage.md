@@ -82,9 +82,9 @@ renames `Query` to `RootQuery` still has a root, and any other type is not one.
 | `status: 'covered'` | A rule names the operation and asks something of the caller |
 | `status: 'public'` | A rule names it and says `public: true` |
 | `status: 'uncovered'` | No rule names it, so it falls to `global.unmatched` |
-| `match` | On `covered` and `public` REST entries: `'exact'` when the rule's own pattern names the path, `'pattern'` when its matcher took it (another spelling) |
+| `match` | On `covered` and `public` REST entries: `'exact'` when the rule's own pattern names the path, `'pattern'` when another spelling, or an earlier rule's matcher, took it |
 | `unmatched` | On `uncovered` only: `'allow'` or `'deny'`, what `global.unmatched` does to it. A GraphQL field that is not a root is never governed by it, so it is always `allow` |
-| `stale[]` | Rules that reach no operation: `{ kind: 'rest', method, path, label }` or `{ kind: 'graphql', type, field, label }`, `path` as the rules file spells it |
+| `stale[]` | Rules that reach no operation: `{ kind: 'rest', method, path, label, shadowedBy? }` (`shadowedBy: { path, label }` names the earlier rule whose matcher takes this one's pattern, so it never applies) or `{ kind: 'graphql', type, field, label }`, `path` as the rules file spells it |
 | `summary` | Counts: `total`, `covered`, `public`, `uncovered`, `refused` (uncovered with `unmatched: 'deny'`), `open` (uncovered with `unmatched: 'allow'`), `byPattern` (REST entries with `match: 'pattern'`), `stale` |
 
 `label` is `GET /documents/:id` or `Query.me`, ready to print.
@@ -96,11 +96,23 @@ renames `Query` to `RootQuery` still has a root, and any other type is not one.
 root is always one, by design).
 
 REST operations go through the lookup `evaluateRest` uses (`findRoute`, shared
-code, not a second matcher): the exact pattern first, then the rule's matcher on
-the path, with and without `global.basePath`, and `HEAD` faces its own rules and
-then the `GET` ones. Coverage reads one operation path as both the `route` and
-the `path` of a request, so it agrees with `evaluateRest` for the same inputs
-(a spec runs both). A `HEAD` operation is `public` only
+code, not a second matcher): one walk in document order, with no exact-first
+step. A rule applies when its pattern is the operation or its matcher takes it,
+with and without `global.basePath`, and the first such rule wins, so an earlier
+`/notes/:id` takes `/notes/new` before a later `/notes/new` is reached. `HEAD`
+faces its own rules and then the `GET` ones. Coverage reads an operation as an
+already-matched route, and `evaluateRest` gives the same rule for a `path`, a
+`route` or both on the cases the spec lists. A route is matched without a
+request path through stand-in paths (each parameter a sentinel segment, each
+optional group with and without): an earlier rule takes it only if its matcher
+takes every alternative. Limit: a route that opens (a wildcard, or an optional
+group holding a parameter) is matched by its own spelling only, so it can
+disagree with a `path` caller when an earlier wildcard takes it. Only coverage,
+and only when no rule is found otherwise, reads a whole-segment brace
+(`/docs/{id}`) as a parameter. `evaluateRest` reads a `route` in the
+rules-file spelling, so `{ route: '/docs/{id}' }` falls to `global.unmatched`:
+convert OpenAPI paths with `rulesPathOf` first.
+A `HEAD` operation is `public` only
 when every rule it faces is, and it is `uncovered` when no `GET` rule names it,
 even beside a `HEAD` rule (the guard refuses it under `deny`).
 
@@ -116,6 +128,10 @@ the type. The codegen types catch it
 
 An `operations` that is not an array, or an entry that is not an `Operation`,
 throws a `TypeError` (see [troubleshooting](troubleshooting.md)).
+
+Known limit: only a rule whose pattern does not open (no wildcard, no optional
+group holding a parameter) is reported shadowed, and only in full. A rule an
+earlier one takes in part (`/files/:name` before `/files/*path`) is not.
 
 ## A CI check
 
@@ -150,6 +166,11 @@ const spelled = report.operations.filter((entry) => entry.match === 'pattern')
 for (const entry of uncovered) console.error(`uncovered (${entry.unmatched}): ${entry.label}`)
 for (const entry of spelled) console.error(`spelled differently from its rule: ${entry.label}`)
 for (const rule of report.stale) console.error(`stale: ${rule.label}`)
+for (const rule of report.stale) {
+  if (rule.kind === 'rest' && rule.shadowedBy) {
+    console.error(`shadowed: ${rule.label} by ${rule.shadowedBy.label}`)
+  }
+}
 
 console.log(report.summary)
 if (uncovered.length + spelled.length + report.stale.length > 0) process.exit(1)

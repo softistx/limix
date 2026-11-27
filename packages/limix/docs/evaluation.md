@@ -136,12 +136,15 @@ evaluateRest(policy, {
 })
 ```
 
-- `route` is a route pattern your framework already matched. It is tried
-  first, and may be written with or without `global.basePath`. It must be the
-  spelling of the rules file (`/documents/:id`, not the framework's
-  `/documents/{id}`); coverage checks that spelling.
-  When it names no rule and `path` is given, `path` is matched before
-  `global.unmatched` applies. Pass `params` yourself with `route`.
+- `route` is a route pattern your framework already matched. It is matched in
+  document order like `path`: the first rule whose pattern equals it, or whose
+  matcher takes it, with or without `global.basePath`, applies. So a rule
+  written before it that takes it wins, as for a `path`. Write it as the rules
+  file does (`/documents/:id`, not the framework's `/documents/{id}`);
+  coverage checks that spelling. A literal route (`/notes/new`) keeps the params
+  the rule captures; a route that is itself a pattern captures none, so pass
+  `params` yourself. A route that opens (a wildcard, or an optional group with
+  a parameter) is matched only by its own spelling.
 - `path` is matched against the compiled table, first pattern in document
   order; what it captures is merged under `request.params` (yours win).
 - Neither given throws `evaluateRest: pass the \`route\` or the \`path\``, unless the source holds no policy: that answers 503 first.

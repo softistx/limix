@@ -1,4 +1,8 @@
-import { ruleSetsForMethod } from '../evaluation/rest-routes';
+import {
+	ruleSetsForMethod,
+	standInsOf,
+	takesAll,
+} from '../evaluation/rest-routes';
 import { ROOT_TYPES } from '../evaluation/roots';
 import type { CompiledPolicy, CompiledRestRoute } from '../rules';
 import { findOperationRoute } from './lookup';
@@ -6,7 +10,14 @@ import type { GraphqlOperation, RestOperation } from './operation';
 
 /** A rule in the policy that no operation of the list reaches. */
 export type StaleRule =
-	| { kind: 'rest'; method: string; path: string; label: string }
+	| {
+			kind: 'rest';
+			method: string;
+			path: string;
+			label: string;
+			/** The earlier rule whose matcher takes this one's pattern, so it never applies. */
+			shadowedBy?: { path: string; label: string };
+	  }
 	| { kind: 'graphql'; type: string; field: string; label: string };
 
 /**
@@ -36,11 +47,28 @@ export function staleRest(
 	const base = policy.global.basePath ?? '';
 	const stale: StaleRule[] = [];
 	for (const [method, routes] of policy.restRoutesByMethod) {
-		for (const route of routes) {
+		for (const [index, route] of routes.entries()) {
 			if (used.has(route)) continue;
 			// The rules-file spelling, without the basePath compile put in front.
 			const path = route.pattern.slice(base.length);
-			stale.push({ kind: 'rest', method, path, label: `${method} ${path}` });
+			const standIns = standInsOf(route.pattern);
+			const earlier =
+				standIns &&
+				routes
+					.slice(0, index)
+					.find((candidate) => takesAll(candidate, standIns));
+			stale.push({
+				kind: 'rest',
+				method,
+				path,
+				label: `${method} ${path}`,
+				...(earlier && {
+					shadowedBy: {
+						path: earlier.pattern.slice(base.length),
+						label: `${method} ${earlier.pattern.slice(base.length)}`,
+					},
+				}),
+			});
 		}
 	}
 	return stale;

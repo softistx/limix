@@ -27,8 +27,10 @@ interface RestBase {
 
 /**
  * What the integration read off the request, and where: an already-matched
- * `route` pattern (as the rules file spells it), the request `path`, or both
- * (`path` is tried when `route` names no rule). Neither is a type error.
+ * `route` pattern (as the rules file spells it), the request `path`, or both.
+ * Both follow document order: the first rule whose pattern is `route` or whose
+ * matcher takes `path` applies, `route` is not tried first. Neither is a type
+ * error.
  */
 export type RestInput = RestBase &
 	(

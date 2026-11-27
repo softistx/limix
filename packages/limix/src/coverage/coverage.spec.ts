@@ -143,6 +143,29 @@ describe('coverage: REST', () => {
 		);
 	});
 
+	it('agrees with evaluateRest on the request path alone', async () => {
+		const inputs = [
+			['/things', '/api/things'],
+			['/things/{id}', '/api/things/7'],
+			['/things/:docId', '/api/things/7'],
+			['/other', '/api/other'],
+		] as const;
+		const report = coverage(
+			policy,
+			inputs.map(([operation]) => rest('GET', operation)),
+		);
+		for (const [index, [, path]] of inputs.entries()) {
+			const decision = await evaluateRest(policy, {
+				method: 'GET',
+				path,
+				claims: { authenticated: true },
+			});
+			expect(report.operations[index]?.status !== 'uncovered').toBe(
+				decision.allow,
+			);
+		}
+	});
+
 	it('does not let a literal rule cover a parametrised operation', () => {
 		const literal = policyOf({
 			global: { unmatched: 'deny' },

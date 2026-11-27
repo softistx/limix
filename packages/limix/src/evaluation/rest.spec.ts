@@ -234,6 +234,66 @@ describe('a matched route and the path', () => {
 		}
 	});
 
+	it('a route follows document order', async () => {
+		const ordered = policyOf({
+			global: { unmatched: 'deny' },
+			rest: {
+				'/notes/:id': { GET: { authenticated: true } },
+				'/notes/new': { GET: { public: true } },
+			},
+		});
+		const decision = await evaluateRest(ordered, {
+			method: 'GET',
+			route: '/notes/new',
+			claims: anonymous,
+		});
+		expect(refusalOf(decision).status).toBe(401);
+	});
+
+	it('a literal route keeps the params the rule captures', async () => {
+		const seen: unknown[] = [];
+		const capturing = policyOf(
+			{
+				global: { unmatched: 'deny' },
+				rest: { '/notes/:id': { GET: { when: ['see'] } } },
+			},
+			{
+				see: ({ request }) => {
+					seen.push((request as { params: unknown }).params);
+					return true;
+				},
+			},
+		);
+		await evaluateRest(capturing, {
+			method: 'GET',
+			route: '/notes/new',
+			claims: user(),
+		});
+		expect(seen).toEqual([{ id: 'new' }]);
+	});
+
+	it('a pattern route captures none', async () => {
+		const seen: unknown[] = [];
+		const capturing = policyOf(
+			{
+				global: { unmatched: 'deny' },
+				rest: { '/notes/:id': { GET: { when: ['see'] } } },
+			},
+			{
+				see: ({ request }) => {
+					seen.push((request as { params: unknown }).params);
+					return true;
+				},
+			},
+		);
+		await evaluateRest(capturing, {
+			method: 'GET',
+			route: '/notes/:slug',
+			claims: user(),
+		});
+		expect(seen).toEqual([{}]);
+	});
+
 	it('needs a route or a path', async () => {
 		await expect(
 			evaluateRest(policy, { method: 'GET', claims: user() } as never),
