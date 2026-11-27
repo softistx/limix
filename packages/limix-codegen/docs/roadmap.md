@@ -5,9 +5,7 @@ are no dates here, and the version something shipped in is the only number.
 
 ## Now
 
-- **Types for the rules** — a CLI (`generate`, `init`) and a graphql-codegen
-  plugin that register the API's operations and the rules file's names in
-  `@softistx/limix`'s `Register`. Not published yet.
+Nothing in progress: the next items are below.
 
 ## Next
 
@@ -24,4 +22,6 @@ Nothing yet.
 
 ## Shipped
 
-Nothing yet.
+- **0.1.0** — a CLI (`generate`, `init`) and a graphql-codegen
+  plugin that register the API's operations and the rules file's names in
+  `@softistx/limix`'s `Register`.

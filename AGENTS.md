@@ -59,9 +59,10 @@ Carried from janus: `.github/actions/setup`, the `ci.yml`,
 (`scripts/publish*.ts`, `scripts/verify-artifacts.ts` with `scripts/artifacts/`,
 `affected.ts`, `check-changesets.ts`, `close-released-issues*.ts`), each with
 its spec. Every file but the byte copies of `close-released-issues*.ts` is adapted
-to limix (see the divergences below). `@softistx/limix`, `@softistx/limix-janus` and `@softistx/limix-publish`
-publish, from 0.1 on, through the Version PR and a tag; a new package starts `"private": true` and
-publishes from a commit of its own that removes it, with its changeset.
+to limix (see the divergences below). Every package
+publishes, from 0.1 on, through the Version PR and a tag; a new package starts
+`"private": true` and publishes from a commit of its own that removes it, with
+its changeset.
 
 The migration guide's TypeScript fences are byte copies of
 `packages/limix-alxia/examples/migrating-from-security/*.ts`, which

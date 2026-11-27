@@ -1,7 +1,6 @@
 {
 	"name": "@softistx/limix-graxia",
 	"version": "0.0.0",
-	"private": true,
 	"description": "The graxia and graphql-js integration of @softistx/limix: field guard, plugin, coverage, @needs checks",
 	"license": "MIT",
 	"type": "module",

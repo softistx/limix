@@ -1,7 +1,6 @@
 {
 	"name": "@softistx/limix-codegen",
 	"version": "0.0.0",
-	"private": true,
 	"description": "Types for @softistx/limix rules from the API's operations (GraphQL SDL, OpenAPI) and the rules file, a starter rules file: CLI and graphql-codegen plugin",
 	"license": "MIT",
 	"type": "module",
