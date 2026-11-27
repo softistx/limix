@@ -23,6 +23,7 @@ describe('publishPackage', () => {
 	) {
 		let published = 0;
 		const errors: string[] = [];
+		const logs: string[] = [];
 		const deps: PublishDeps = {
 			isPublished: async () => onNpm,
 			missingEntryPoints: async () => absent,
@@ -31,10 +32,10 @@ describe('publishPackage', () => {
 				return { ok: !refusing, output: refusing ? refusal : '' };
 			},
 			sleep: async () => {},
-			log: () => {},
+			log: (line) => logs.push(line),
 			error: (line) => errors.push(line),
 		};
-		return { deps, published: () => published, errors };
+		return { deps, published: () => published, errors, logs };
 	}
 
 	test('missing on npmjs, accepted: published and tagged', async () => {
@@ -82,7 +83,7 @@ describe('publishPackage', () => {
 	});
 
 	test('npmjs already holds the version it said was missing: skipped, not failed', async () => {
-		const { deps, published, errors } = setup(
+		const { deps, published, errors, logs } = setup(
 			false,
 			true,
 			[],
@@ -95,6 +96,18 @@ describe('publishPackage', () => {
 		});
 		expect(published()).toBe(1);
 		expect(errors).toEqual([]);
+		expect(logs.join('\n')).toContain('refuses it as already published');
+	});
+
+	test('any other 403 still fails the package', async () => {
+		const { deps, errors } = setup(
+			false,
+			true,
+			[],
+			'403 Forbidden - PUT https://registry.npmjs.org/@softistx%2fx',
+		);
+		expect((await publishPackage(pkg, deps)).failed).toBe(true);
+		expect(errors[0]).toContain('FAILED');
 	});
 
 	test('a registry that cannot be asked fails the package and publishes nothing', async () => {

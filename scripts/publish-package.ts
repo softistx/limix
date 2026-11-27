@@ -51,7 +51,9 @@ const ALREADY_HELD = /cannot publish over the previously published versions?/i;
  * a new package lags behind its first publish (seen on limix 0.1.0, a run
  * queued behind the tag-triggered one). Its 403 "cannot publish over the
  * previously published versions" is then the registry's own word that the
- * version is taken, so the package is skipped, not failed.
+ * version is taken, so the package is skipped, not failed. Two blind spots:
+ * a version unpublished earlier gets the same answer (the log line says so),
+ * and a first attempt that landed behind a transient error is skipped untagged.
  */
 export async function publishPackage(
 	pkg: Pkg,
@@ -88,7 +90,9 @@ export async function publishPackage(
 		},
 	);
 	if (!ok && !landed && ALREADY_HELD.test(output)) {
-		log(`  skip      ${id} (${NPMJS.label} already holds this version)`);
+		log(
+			`  skip      ${id} (${NPMJS.label} refuses it as already published: held, or unpublished; check \`npm view ${id}\`)`,
+		);
 		return { failed: false, published: false, tag: undefined };
 	}
 	if (!ok && !landed) {
