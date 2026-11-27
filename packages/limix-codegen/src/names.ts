@@ -35,7 +35,11 @@ export function rulesNames(rules: Rules): RulesNames {
 	for (const [key, value] of Object.entries(rules.rest ?? {})) {
 		// A flat key holds the rule itself, a path pattern a rule per method.
 		if (FLAT_REST_KEY.test(key)) visit(value as RuleLike);
-		else for (const rule of Object.values(value)) if (rule) visit(rule);
+		else {
+			for (const rule of Object.values(value) as (RuleLike | undefined)[]) {
+				if (rule) visit(rule);
+			}
+		}
 	}
 	for (const [key, value] of Object.entries(rules.graphql ?? {})) {
 		// `Type.field` and `Type.*` hold the rule itself, a type name a rule per field.

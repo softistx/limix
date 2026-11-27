@@ -21,3 +21,4 @@ export type {
 	TypedRules,
 } from './register';
 export { LIMIX_FORMAT_VERSION, type Rules } from './schema';
+export type { RulesInput } from './types';

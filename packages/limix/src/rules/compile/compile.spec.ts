@@ -185,7 +185,7 @@ describe('compilePolicy', () => {
 				limix: 1,
 				global: { unmatched: 'allow' },
 				rest: {
-					[path as '/docs/:id']: {
+					[path]: {
 						GET: {
 							relations: [
 								{

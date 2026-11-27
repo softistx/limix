@@ -1,6 +1,6 @@
 import type { Condition } from './compile/types';
 import type { Rules } from './schema';
-import type { GraphqlRule, RestMethods, RestRule } from './types';
+import type { GraphqlRule, RestMethods, RestRule, RulesInput } from './types';
 
 /**
  * The hook a generated file fills by module augmentation
@@ -46,7 +46,7 @@ type CheckedGraphql<O extends string> = {
 
 /**
  * `Rules`, narrowed where `Register` holds a `rest` or a `graphql` list: a key
- * the list does not hold is refused. Unregistered, it is `Rules`.
+ * the list does not hold is refused. Unregistered, it is `RulesInput`.
  *
  * The refusal holds only in an inline object literal: a variable, a spread, an
  * escaped `\*` key or a `{` key is accepted unchecked. A value already typed
@@ -56,7 +56,7 @@ type CheckedGraphql<O extends string> = {
 export type TypedRules<R = Register> = [
 	keyof R & ('rest' | 'graphql'),
 ] extends [never]
-	? Rules
+	? RulesInput
 	: Omit<Rules, 'rest' | 'graphql'> & {
 			rest?:
 				| (R extends Record<'rest', infer O extends string>

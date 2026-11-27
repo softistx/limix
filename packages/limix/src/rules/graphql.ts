@@ -36,6 +36,11 @@ const zFields = z.record(
  * unchanged, so the document order survives the intersection (the records
  * come first: the object lists its own keys first).
  */
+// The intersection merges what each side returns, key by key, and relies on
+// every side returning a rule unchanged: a rule schema (here or in `terms.ts`)
+// must never carry a transform, a default or a preprocess, or the merge fails
+// on an unmergeable value. `flat-keys.spec.ts` parses both spellings together,
+// which fails on one.
 // Typed as `Rules['graphql']`: see `zRestRules`.
 export const zGraphqlRules = z
 	.intersection(

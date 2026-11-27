@@ -29,7 +29,9 @@ describe('parseRules: flat keys', () => {
 			graphql: { 'Query.me': { authenticated: true } },
 		});
 		expect(rules.rest?.['POST /users/:id']).toEqual({ roles: [['admin']] });
-		expect(rules.graphql?.['Query.me']).toEqual({ authenticated: true });
+		expect((rules.graphql as Record<string, unknown>)['Query.me']).toEqual({
+			authenticated: true,
+		});
 	});
 
 	it('mixes flat and nested keys and keeps document order', () => {

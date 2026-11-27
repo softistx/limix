@@ -1,6 +1,7 @@
 import { formatPath, RulesError, type RulesIssue } from '../error';
 import { FLAT_GRAPHQL_KEY, graphqlKeyProblem, REST_METHODS } from '../keys';
 import type { Rules } from '../schema';
+import type { RulesInput } from '../types';
 import {
 	checkContradictions,
 	checkParams,
@@ -32,9 +33,10 @@ export type {
  * name, or a contradictory rule, throws a `RulesError` listing every one.
  */
 export function compilePolicy(
-	rules: Rules,
+	input: RulesInput,
 	options: CompileOptions = {},
 ): CompiledPolicy {
+	const rules = input as Rules;
 	const registry = options.conditions ?? {};
 	const issues: RulesIssue[] = [];
 

@@ -60,6 +60,11 @@ export const zMethods = strict(
  * records by its shape, and the others let it through unchanged, so the
  * document order survives the intersection.
  */
+// The intersection merges what each side returns, key by key, and relies on
+// every side returning a rule unchanged: a rule schema (here or in `terms.ts`)
+// must never carry a transform, a default or a preprocess, or the merge fails
+// on an unmergeable value. `flat-keys.spec.ts` parses both spellings together,
+// which fails on one.
 // The intersection of records infers a type no document has; the explicit
 // `Rules['rest']` is what the schema accepts, and `types.spec.ts` holds the
 // rule and method shapes to it.

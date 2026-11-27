@@ -133,3 +133,42 @@ describe('coverage: wildcards', () => {
 		expect(kept).toEqual([]);
 	});
 });
+
+describe('coverage: a wildcard name is not part of the spelling', () => {
+	it('takes a bare * rule for the operation GET /a/*path, as a pattern hit, and not stale', () => {
+		const report = coverage(
+			policyOf({
+				global: { unmatched: 'deny' },
+				rest: { 'GET /a/*': { authenticated: true } },
+			}),
+			[rest('GET', '/a/*path')],
+		);
+		expect(statuses(report)).toEqual(['GET /a/*path covered']);
+		expect(report.operations[0]?.match).toBe('pattern');
+		expect(report.stale).toEqual([]);
+	});
+
+	it('takes a method * rule with a bare * for GET /admin/*path as a wildcard hit', () => {
+		const report = coverage(
+			policyOf({
+				global: { unmatched: 'deny' },
+				rest: { '* /admin/*': { roles: [['admin']] } },
+			}),
+			[rest('GET', '/admin/*path')],
+		);
+		expect(statuses(report)).toEqual(['GET /admin/*path covered']);
+		expect(report.operations[0]?.match).toBe('wildcard');
+		expect(report.stale).toEqual([]);
+	});
+
+	it('does not take a different wildcard position for the same shape', () => {
+		const report = coverage(
+			policyOf({
+				global: { unmatched: 'deny' },
+				rest: { 'GET /a/*': { authenticated: true } },
+			}),
+			[rest('GET', '/b/*path')],
+		);
+		expect(statuses(report)).toEqual(['GET /b/*path uncovered']);
+	});
+});
