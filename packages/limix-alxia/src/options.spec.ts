@@ -48,6 +48,7 @@ describe('checkOptions', () => {
 			[{ ...base(), app: undefined }, /pass `app`/],
 			[{ ...base(), app: {} }, /pass `app`/],
 			[{ ...base(), mapRefusal: 3 }, /`mapRefusal` is a function/],
+			[{ ...base(), onMismatch: 3 }, /`onMismatch` is a function/],
 		];
 		for (const [options, message] of cases) {
 			expect(() => check(options)).toThrow(message);

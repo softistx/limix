@@ -6,7 +6,7 @@ import {
 	Reply,
 } from '@softistx/alxia';
 import type { LimixRefusal } from '@softistx/limix';
-import type { MapRefusal, Refusal } from './options';
+import type { ErrorStatus, MapRefusal, Refusal } from './options';
 
 const PREFIXES = ['auth.errors.', 'tenancy.errors.'];
 
@@ -33,16 +33,17 @@ export function refusalOfError(error: unknown): Refusal | undefined {
 	return { code, status, params: given };
 }
 
-type Status = Parameters<typeof problem>[0]['status'];
+const isErrorStatus = (status: number): boolean =>
+	Number.isInteger(status) && status >= 400 && status <= 599;
 
-function checkedStatus(status: number): Status {
-	if (!Number.isInteger(status) || status < 400 || status > 599) {
+function checkedStatus(status: number): ErrorStatus {
+	if (!isErrorStatus(status)) {
 		throw new TypeError(
 			`limix-alxia: a refusal's status is an HTTP error status (400 to 599), not ${status}`,
 		);
 	}
 	// A number the check above bounded: alxia types its error statuses as a union of literals.
-	return status as Status;
+	return status as ErrorStatus;
 }
 
 /**

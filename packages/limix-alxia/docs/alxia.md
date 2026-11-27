@@ -42,6 +42,7 @@ interface LimixAlxiaOptions<Ctx extends object = Empty> {
   app: RoutesOf // { routes, sockets? }: the app or group
   mapRefusal?: (refusal: Refusal, ctx: Ctx) => RefusalAnswer | Response | undefined
   onUnavailable?: () => void
+  onMismatch?: (problems: readonly string[]) => void
 }
 function limixGuard<Ctx extends object = Empty>(options: LimixAlxiaOptions<Ctx>): Middleware
 ```
@@ -53,7 +54,8 @@ function limixGuard<Ctx extends object = Empty>(options: LimixAlxiaOptions<Ctx>)
 | `relations` | `RelationChecker \| (ctx) => RelationChecker` | none | The relations port; a function is called once per request, and only when the held rules use relations |
 | `app` | `{ routes, sockets? }` | required | The app (or group) the guard is used on, so its routes are checked against the rules |
 | `mapRefusal` | `(refusal, ctx) => RefusalAnswer \| Response \| undefined` | none | Rewords a refusal, or answers it yourself |
-| `onUnavailable` | `() => void` | none | Called once each time a source stops holding a fitting policy |
+| `onUnavailable` | `() => void` | none | Called once each time a source stops holding a fitting policy; once for REST and GraphQL together when both share the options |
+| `onMismatch` | `(problems: readonly string[]) => void` | `console.error` | Called once per policy that does not fit the app, with each cause; when absent, one `console.error` says it |
 
 `Ctx` is the context your `claims` function reads. Annotate its parameter and
 alxia refuses, at the type level, to give the guard to a route chain that does
@@ -103,9 +105,12 @@ app.get('/reports', ({ reply }) => reply(200, []))
 ```
 
 A route declared before `app.use(limixGuard(...))` never runs the guard and
-stays open. When a rule reaches only such routes, the guard refuses every
-request 503 `policy-mismatch` rather than leave them open (see
-[Outages](#sources-outages-and-policy-mismatch)).
+would stay open, so `limixGuard()` throws when the app (or group) it is given
+already holds one, naming each (`limixGuard(): routes declared before the guard
+never run it and stay open: GET /health`). Declare the guard first, then the
+routes; a health route gets a `public: true` rule. Only a `limixGraphql`
+endpoint may come first: its fields carry their own guard. See
+[troubleshooting](troubleshooting.md).
 
 There is no built-in OPTIONS handler in alxia: a CORS layer answers preflights.
 Put it first, or a preflight reaching a route is judged by that route's rule
@@ -137,6 +142,15 @@ app.group('/admin', (admin) => {
 ```
 
 A request is judged by the full declared path, prefix included (`/admin/stats`).
+
+### Forks
+
+`app.fork()` makes a new app with its own routes. A guard belongs to the app it
+was given: each fork carries its own,
+`base.fork().use(limixGuard({ ..., app: fork }))`. A guard on `base` that
+serves routes declared on a fork does not see them in `base.routes`, so it
+answers 503 `policy-mismatch` rather than judge routes it never checked. See
+[troubleshooting](troubleshooting.md#fork-answers-503-policy-mismatch).
 
 ## Claims and tenants
 
@@ -268,12 +282,13 @@ app.use(limixGuard({
 
 ```ts
 interface Refusal { readonly code: string; readonly status: number; readonly params: Readonly<Record<string, unknown>> }
-interface RefusalAnswer { code?: string; status?: number; detail?: string }
+interface RefusalAnswer { code?: string; status?: ErrorStatus; detail?: string } // ErrorStatus: alxia's 4xx and 5xx
 ```
 
 `detail` is the problem's `detail`, or the JSON body's `message`. Returning a
-`Response` replaces the answer entirely. A `status` outside 400 to 599 throws a
-`TypeError` when the request is answered.
+`Response` replaces the answer entirely. `status` is typed as alxia's error
+statuses (a `302` is a compile error); a value outside 400 to 599 that gets
+past the types still throws a `TypeError` when the request is answered.
 
 ## HTTP methods
 
@@ -281,11 +296,21 @@ interface RefusalAnswer { code?: string; status?: number; detail?: string }
 | --- | --- |
 | `HEAD` | By the `HEAD` rule, else the `GET` rule |
 | `OPTIONS` | By its own rule like any method; put a CORS layer first to answer preflights |
-| `ALL` routes (`app.all`) | By the request's method: a `GET` rule does not cover a `POST` to the same route |
+| `ALL` routes (`app.all`) | By the request's method: a `GET` rule does not cover a `POST` to the same route. The route also takes methods such as `PROPFIND` that `alxiaOperations` cannot list, so coverage reports them under `unmatched` |
 | `QUERY` | A method like another |
 | WebSocket upgrade | As a `GET` on the socket's path, refused before the upgrade |
 
 A plain `GET` on a socket path is answered 426 by alxia before the guard runs.
+
+## The path a request is judged by
+
+The rules are matched against the path as the handler sees it, not against the
+route pattern: the guard rebuilds the declared route (prefix included) with the
+decoded path parameters put back, then core walks the rules in document order.
+So a literal `/users/me` rule written before `/users/:id` applies to
+`GET /users/me`, `/users/me/` and `/users/%6De` alike. A `/` or `%` inside a
+parameter's value stays inside its segment (`/users/a%2Fb` is one segment); a
+wildcard (`*`) keeps its slashes.
 
 ## Unmatched requests
 
@@ -298,9 +323,14 @@ route.
 
 A rule's relation term may read `json.` from the request body. When one does
 (its `readsBody` is set on the compiled rule), the guard reads the body from a
-clone, for a JSON `content-type` only; the handler still reads its own. A body
-over the route's `bodyLimit` stays 413, and text that is not JSON leaves the
-term with nothing to read.
+clone, for a JSON `content-type` only (any type that mentions `json`, as alxia
+reads one: `application/json`, `text/json`, `application/vnd.api+json`); the
+handler still reads its own. A body over the route's `bodyLimit` stays 413, and
+text that is not JSON leaves the term with nothing to read.
+
+Two limits. A custom `app.parser` is not seen by body rules: the guard parses
+the body as plain JSON. And a rule's `when` condition never sees `request.json`:
+core reads the body only for relation terms (`json.` in a `from`).
 
 ## Sources, outages and `policy-mismatch`
 
@@ -314,15 +344,17 @@ closed and reads the source once per request.
 | A source's rules use relations and there is no `relations` | 503, `params.reason: 'no-relation-checker'` |
 
 `onUnavailable` runs once per outage and is re-armed when a fitting policy is
-swapped in. `policy-mismatch` is decided once per policy, on the first request
+swapped in. With `limixGraphql` on the same options object, the REST guard and
+the GraphQL field guard share one outage: a source swapped to `null` reports
+once, whichever request sees it first. `policy-mismatch` is decided once per policy, on the first request
 (routes are declared after `use()`), and has these causes:
 
 - a relation rung's `code` outside `auth.errors.`;
-- a REST rule that no route of the app takes (a typo, a removed route);
-- a REST rule that only routes declared before the guard take.
+- a REST rule that no route of the app takes (a typo, a removed route).
 
-A policy that does not fit logs one `console.error` listing each cause, so the
-503 is explained once. A static policy's rung codes throw at `limixGuard()`;
+A policy that does not fit calls `onMismatch(problems)` once, so the 503 is
+explained once; without `onMismatch` it logs one `console.error` listing each
+cause. A static policy's rung codes throw at `limixGuard()`;
 its routes are checked on the first request.
 
 ### `checkRoutes`
@@ -396,9 +428,15 @@ A refused top-level field answers with the HTTP status of its refusal; a refused
 nested field answers 200 with the error in `errors`. Claims are read once per
 operation. See the [limix-graxia guide](https://github.com/softistx/limix/blob/develop/packages/limix-graxia/docs/graphql.md).
 
-If you pass a copy of the object instead of the same one, the endpoint is not
-recognised and the REST rules judge it: under `unmatched: deny` with no
-`/graphql` rule, every GraphQL request is refused.
+The endpoint is known by its handler on the app the guard sits on: whatever
+mounts it there (`limixGraphql` on the app, on a group, or on a plugin app that
+the guarded app mounts, with or without a prefix) is left to the field guard,
+and a REST route of your own at `POST /graphql`, even one sharing the options,
+is judged by the REST rules. The REST guard and the GraphQL field guard also
+share one outage state per options object (`onUnavailable` runs once). If the
+guard cannot find the definition of the matched route in `app`, it judges the
+request (fail closed). Pass `limixGraphql` the guarded app, or a group or plugin
+mounted on it.
 See [GraphQL answered by the REST guard](troubleshooting.md#graphql-answered-by-the-rest-guard).
 
 ## Coverage
@@ -436,6 +474,10 @@ if (report.summary.uncovered > 0) {
 ```ts
 function alxiaOperations(app: RoutesOf): RestOperation[]
 ```
+
+An `all` route also takes methods such as `PROPFIND` or `PURGE` that coverage
+cannot list; requests with them are judged by the rules and, with no rule for
+them, fall under `unmatched`.
 
 See the [coverage guide](https://github.com/softistx/limix/blob/develop/packages/limix/docs/coverage.md)
 for the report.

@@ -146,7 +146,7 @@ describe('limixGuard, mapRefusal', () => {
 		const app = guardedApp({
 			mapRefusal: (refusal, ctx) => ({
 				code: `app.${refusal.code}`,
-				status: refusal.status === 401 ? 403 : refusal.status,
+				status: refusal.status === 401 ? 403 : 404,
 				detail: ctx.request.method,
 			}),
 		});

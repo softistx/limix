@@ -19,7 +19,9 @@ const ALL_METHODS = [
  * of `@softistx/limix/coverage` takes: each route with the pattern spelling of the
  * rules file, `all` expanded to the methods it takes, each socket as the `GET` that
  * upgrades it, and the `HEAD` every `GET` answers. The endpoints `limixGraphql`
- * declared are left out: their fields are listed by `graphqlOperations`.
+ * declared are left out: their fields are listed by `graphqlOperations`. An
+ * `all` route also takes methods such as `PROPFIND` that no list can name: the
+ * guard judges them, and coverage cannot, so they fall under `unmatched`.
  */
 export function alxiaOperations(app: RoutesOf): RestOperation[] {
 	const operations = new Map<string, RestOperation>();

@@ -135,6 +135,7 @@ Deliberate duplication:
 
 | What | Where | Why |
 | --- | --- | --- |
+| `held.ts` and `options.ts` checks of `limix-alxia` | `packages/limix-alxia/src/` and `packages/limix-graxia/src/{wrap,options}.ts` | The same shape (a policy held once per source, a fit check cached per policy, an outage reporter, the options checks), but the fit checks differ: graxia judges a policy against a schema, alxia against the routes. graxia checks a static policy at setup; alxia checks its routes on the first request, because routes are declared after the guard, and that difference stays. Extract a shared snapshot helper into `@softistx/limix` when a third integration needs it. |
 | `close-released-issues.ts`, `-lib.ts`, `-git.ts` and their spec | `scripts/close-released-issues*.ts` | Byte copies of softistx/plugins `plugins/nxgt-base/scripts/issues/release/`: re-copy, never edit. The 1,165-line spec is not split for that reason. |
 
 Imports carry no extension; consumers resolve as a bundler does

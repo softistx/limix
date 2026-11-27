@@ -110,14 +110,14 @@ describe('limixGraphql', () => {
 		});
 	});
 
-	test('a copy of the options is a guard of its own: the endpoint is judged by the REST rules', async () => {
+	test('a copy of the options still leaves the endpoint to the field guard: it is known by its handler on the guarded app', async () => {
 		const app = alxia();
 		const limix = { policy: gqlPolicy, claims: whoOf, app };
 		app.use(limixGuard(limix));
 		app.get('/open', ok);
 		limixGraphql(app, { schema: schema(), limix: { ...limix } });
 		const res = await query(app, '{ open }', 'admin');
-		expect(res.status).toBe(403);
+		expect(res.status).toBe(200);
 	});
 });
 

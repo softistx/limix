@@ -1,5 +1,4 @@
 import type { CompiledPolicy } from '@softistx/limix';
-import type { RestOperation } from '@softistx/limix/coverage';
 import { alxiaOperations } from './operations';
 import type { RoutesOf } from './options';
 
@@ -90,39 +89,28 @@ function reaches(rule: string, path: string, basePath: string): boolean {
 		.some((a) => routes.some((b) => overlap(a, b)));
 }
 
-const keyOf = (operation: RestOperation) =>
-	`${operation.method} ${operation.path}`;
-
 /**
  * What a policy gets wrong against the routes it guards: a rung code outside
- * `auth.errors.`, a REST rule no route of the app can take (a typo that leaves
- * the route to `unmatched`), and a REST rule only routes declared before the
- * guard can take (they never run the guard, so they stay open). `before` is
- * what the app held when the guard was made; leave it out to skip that last check.
+ * `auth.errors.`, and a REST rule no route of the app can take (a typo that
+ * leaves the route to `unmatched`).
  */
 export function policyProblems(
 	policy: CompiledPolicy,
 	app: RoutesOf,
-	before?: RoutesOf,
 ): string[] {
 	const problems = rungCodeProblems(policy);
 	const operations = alxiaOperations(app);
-	const early = new Set(before ? alxiaOperations(before).map(keyOf) : []);
 	const basePath = policy.global.basePath ?? '';
 	for (const [method, routes] of policy.restRoutesByMethod) {
 		for (const { pattern } of routes) {
-			const reached = operations.filter(
+			const reached = operations.some(
 				(operation) =>
 					operation.method === method &&
 					reaches(pattern, operation.path, basePath),
 			);
-			if (reached.length === 0) {
+			if (!reached) {
 				problems.push(
 					`${method} ${pattern}: no route of the app takes this rule, so the routes it was written for are left to \`unmatched\``,
-				);
-			} else if (reached.every((operation) => early.has(keyOf(operation)))) {
-				problems.push(
-					`${method} ${pattern}: only routes declared before the guard take this rule, and they never run it; declare them after \`use(limixGuard(...))\``,
 				);
 			}
 		}

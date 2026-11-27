@@ -65,6 +65,14 @@ describe('limixGuard, the JSON body', () => {
 		);
 	});
 
+	test('a JSON body under text/json or application/x-json is judged too', async () => {
+		const { app } = build();
+		for (const type of ['text/json', 'application/x-json']) {
+			expect((await post(app, '{"folderId":"f1"}', type)).status).toBe(200);
+			expect((await post(app, '{"folderId":"f2"}', type)).status).toBe(404);
+		}
+	});
+
 	test('a body over the route limit stays 413', async () => {
 		const { app } = build();
 		const res = await post(

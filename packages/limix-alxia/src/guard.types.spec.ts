@@ -39,6 +39,27 @@ describe('limixGuard, types', () => {
 		).not.toThrow();
 	});
 
+	test('mapRefusal answers an error status, a 302 is a compile error', () => {
+		const app = alxia();
+		const mapped = (status: 404 | 409) =>
+			limixGuard({
+				policy,
+				claims: whoOf,
+				app,
+				mapRefusal: () => ({ status }),
+			});
+		expect(() => mapped(404)).not.toThrow();
+		expect(() =>
+			limixGuard({
+				policy,
+				claims: whoOf,
+				app: alxia(),
+				// @ts-expect-error 302 is no error status alxia can answer a refusal with
+				mapRefusal: () => ({ status: 302 }),
+			}),
+		).not.toThrow();
+	});
+
 	test('a route that declares its responses still compiles and answers behind the guard', async () => {
 		const body = {
 			'~standard': {

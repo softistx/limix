@@ -6,7 +6,12 @@ import {
 	isPolicySource,
 	type RelationChecker,
 } from '@softistx/limix';
-import { claimApp, isEndpointOf } from './endpoints';
+import {
+	claimApp,
+	declaredRoutes,
+	definitionOf,
+	isEndpoint,
+} from './endpoints';
 import { makeHeld } from './held';
 import { checkOptions, type LimixAlxiaOptions } from './options';
 import { answer, refusalOfError } from './refusal';
@@ -28,7 +33,8 @@ async function who<Ctx extends object>(
 /**
  * The middleware that judges every request that reached a route by the rules:
  * `app.use(limixGuard({ policy, claims, app }))`, before the routes it guards.
- * A refusal is answered in the app's error format (401, 403, 404 by the rule;
+ * It throws when the app already holds a route (a `limixGraphql` endpoint
+ * aside): a route declared before the guard never runs it. A refusal is answered in the app's error format (401, 403, 404 by the rule;
  * 503 when no fitting policy is held), a request that reached no route is left
  * to alxia's 404, 405 or 426, and the endpoints `limixGraphql` declared are
  * left to their field guard.
@@ -46,15 +52,30 @@ export function limixGuard<Ctx extends object = Empty>(
 			);
 		}
 	}
+	const early = declaredRoutes(app);
+	if (early.length > 0) {
+		throw new TypeError(
+			`limixGuard(): routes declared before the guard never run it and stay open: ${early.join(', ')}. Declare the guard first, then the routes: \`app.use(limixGuard({ ..., app }))\` before them; a health route gets a \`public: true\` rule`,
+		);
+	}
 	claimApp(app);
-	const held = makeHeld(options as LimixAlxiaOptions<never>, {
-		routes: [...app.routes],
-		sockets: [...(app.sockets ?? [])],
-	});
+	const held = makeHeld(options as LimixAlxiaOptions<never>);
+	const exempt = new Map<string, boolean>();
+	const isExempt = (method: string, route: string): boolean => {
+		const key = `${method} ${route}`;
+		let found = exempt.get(key);
+		if (found === undefined) {
+			const definition = definitionOf(app, method, route);
+			// A definition the app does not hold is judged: fail closed.
+			found = definition !== undefined && isEndpoint(definition);
+			exempt.set(key, found);
+		}
+		return found;
+	};
 	return defineMiddleware<Ctx>()(async (ctx, next) => {
 		const { route } = ctx;
 		if (route === undefined) return next();
-		if (isEndpointOf(options, ctx.request.method, route)) return next();
+		if (isExempt(ctx.request.method, route)) return next();
 		const rules = held.snapshot();
 		if (isLimixRefusal(rules)) return answer(ctx, rules, mapRefusal);
 		try {

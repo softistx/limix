@@ -125,7 +125,7 @@ describe('answer', () => {
 
 	test('a status that is no HTTP error is a mistake of the host: the request fails closed with 500', async () => {
 		const res = await get(
-			appAnswering('json', refusal, () => ({ status: 200 })),
+			appAnswering('json', refusal, () => ({ status: 200 as never })),
 		);
 		expect(res.status).toBe(500);
 	});

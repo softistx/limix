@@ -14,6 +14,7 @@ import {
 } from '@softistx/limix-graxia';
 import { registerEndpoints } from '../endpoints';
 import { checkOptions, type LimixAlxiaOptions } from '../options';
+import { outageOf } from '../outage';
 import { rungCodeProblems } from '../setup-check';
 
 /** graphql()'s own bound on `plugins`: a plugin of any context. */
@@ -60,9 +61,9 @@ function graxiaOptions<Ctx extends object>({
 		policy: limix.policy,
 		claims: limix.claims,
 		...(limix.relations === undefined ? {} : { relations: limix.relations }),
-		...(limix.onUnavailable === undefined
-			? {}
-			: { onUnavailable: limix.onUnavailable }),
+		// One outage for REST and GraphQL: limix-graxia reports through the state
+		// the REST guard of the same options feeds, so `onUnavailable` runs once.
+		onUnavailable: () => outageOf(limix).graphql(),
 		...(mapRefusal === undefined ? {} : { mapRefusal }),
 		...(nonNull === undefined ? {} : { nonNull }),
 	};
@@ -113,7 +114,6 @@ export function limixGraphql<
 		plugins: [limixGraxia(wanted), ...(rest.plugins ?? [])],
 	} as never);
 	registerEndpoints(
-		limix,
 		app.routes.filter((route) => !routes.includes(route)),
 		app.sockets.filter((socket) => !sockets.includes(socket)),
 	);

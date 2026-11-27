@@ -51,7 +51,6 @@ describe('restCall', () => {
 	test('reads the method, the declared route, the path, the params and the query', async () => {
 		expect(await read(reading(), '/a/7?x=1&x=2&y=3')).toEqual({
 			method: 'GET',
-			route: '/a/:id',
 			path: '/a/7',
 			request: { params: { id: '7' }, query: { x: ['1', '2'], y: '3' } },
 		});
@@ -60,7 +59,7 @@ describe('restCall', () => {
 	test('keeps HEAD as HEAD and names a wildcard path', async () => {
 		expect(await read(reading(), '/f/a/b', { method: 'HEAD' })).toMatchObject({
 			method: 'HEAD',
-			route: '/f/*path',
+			path: '/f/a/b',
 			request: { params: { path: 'a/b' } },
 		});
 	});
@@ -78,6 +77,31 @@ describe('restCall', () => {
 			body: '{"noteId":"n1"}',
 		});
 		expect('json' in skipped.request).toBe(false);
+	});
+
+	test('rebuilds the path from the route and the decoded parameters, never the raw URL', async () => {
+		const app = reading();
+		expect((await read(app, '/a/%6De')).path).toBe('/a/me');
+		expect((await read(app, '/a/x%2Fy')).path).toBe('/a/x%2Fy');
+		expect((await read(app, '/a/50%25')).path).toBe('/a/50%25');
+		expect((await read(app, '/a/me/')).path).toBe('/a/me');
+		expect('route' in (await read(app, '/a/1'))).toBe(false);
+	});
+
+	test('a JSON type is any that mentions json, as alxia reads one', async () => {
+		for (const type of [
+			'text/json',
+			'application/x-json',
+			'application/vnd.api+json; charset=utf-8',
+			'APPLICATION/JSON',
+		]) {
+			const call = await read(reading(), '/notes', {
+				method: 'POST',
+				headers: { 'content-type': type },
+				body: '{"noteId":"n1"}',
+			});
+			expect(call.request.json).toEqual({ noteId: 'n1' });
+		}
 	});
 
 	test('a body that is not JSON, or not declared JSON, gives no json', async () => {

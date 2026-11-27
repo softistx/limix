@@ -1,4 +1,9 @@
-import type { Empty, RouteDefinition, SocketDefinition } from '@softistx/alxia';
+import type {
+	Empty,
+	problem,
+	RouteDefinition,
+	SocketDefinition,
+} from '@softistx/alxia';
 import type {
 	Claims,
 	CompiledPolicy,
@@ -13,6 +18,9 @@ export interface RoutesOf {
 	readonly sockets?: readonly SocketDefinition[];
 }
 
+/** The statuses alxia answers an error with. */
+export type ErrorStatus = Parameters<typeof problem>[0]['status'];
+
 /** Why a request was refused: a limix refusal, or one the claims function threw (a `TenancyError`). */
 export interface Refusal {
 	readonly code: string;
@@ -23,7 +31,7 @@ export interface Refusal {
 /** What `mapRefusal` may change on the answer; `detail` is the problem's, or the JSON `message`. */
 export interface RefusalAnswer {
 	code?: string;
-	status?: number;
+	status?: ErrorStatus;
 	detail?: string;
 }
 
@@ -43,8 +51,10 @@ export interface LimixAlxiaOptions<Ctx extends object = Empty> {
 	app: RoutesOf;
 	/** Rewords a refusal's code, status or detail, or answers with a `Response` of its own. */
 	mapRefusal?: MapRefusal<Ctx>;
-	/** Called once each time a policy source stops holding a policy, or holds one that does not fit the routes. */
+	/** Called once each time a policy source stops holding a policy, or holds one that does not fit the routes (once for REST and GraphQL together). */
 	onUnavailable?: () => void;
+	/** Called once per policy that does not fit the app, with what is wrong; `console.error` says it when absent. */
+	onMismatch?: (problems: readonly string[]) => void;
 }
 
 /** Fails fast on a wiring mistake, naming the caller. */
@@ -76,6 +86,12 @@ export function checkOptions(
 		throw new TypeError(
 			`${caller}: pass \`app\`, the alxia app (or group) the guard is used on`,
 		);
+	}
+	if (
+		options.onMismatch !== undefined &&
+		typeof options.onMismatch !== 'function'
+	) {
+		throw new TypeError(`${caller}: \`onMismatch\` is a function`);
 	}
 	if (
 		options.mapRefusal !== undefined &&

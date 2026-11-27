@@ -73,21 +73,6 @@ describe('policyProblems', () => {
 		expect(policyProblems(based, alxia().get('/api/a', ok))).toEqual([]);
 	});
 
-	test('a rule only the routes before the guard take is a fail-open', () => {
-		const app = alxia().get('/early', ok);
-		const before = { routes: [...app.routes], sockets: [...app.sockets] };
-		app.get('/late', ok);
-		const rules = rest({
-			'/early': { GET: { public: true } },
-			'/late': { GET: { public: true } },
-			'/:any': { POST: { public: true } },
-		});
-		const problems = policyProblems(rules, app, before);
-		expect(problems.filter((p) => p.includes('before the guard'))).toEqual([
-			'GET /early: only routes declared before the guard take this rule, and they never run it; declare them after `use(limixGuard(...))`',
-		]);
-	});
-
 	test('a rung code outside auth.errors. is named, in REST and in GraphQL', () => {
 		const bad = compilePolicy(
 			definePolicy({

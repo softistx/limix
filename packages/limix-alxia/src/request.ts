@@ -1,11 +1,10 @@
 import type { BaseContext } from '@softistx/alxia';
 import type { CompiledPolicy, RestRequest } from '@softistx/limix';
-import { limixPath, paramsOf } from './path';
+import { decodedPath, paramsOf } from './path';
 
 /** What the guard reads off a request, as `evaluateRest` takes it (the claims are added by the caller). */
 export interface RestCall {
 	method: string;
-	route: string;
 	path: string;
 	request: RestRequest;
 }
@@ -36,7 +35,8 @@ export function readsBody(policy: CompiledPolicy, method: string): boolean {
  */
 async function jsonOf(request: Request): Promise<unknown> {
 	const type = request.headers.get('content-type') ?? '';
-	if (!/^application\/(?:[\w.+-]+\+)?json\b/i.test(type)) return undefined;
+	// As alxia reads one: any type that mentions json.
+	if (!type.toLowerCase().includes('json')) return undefined;
 	const text = await request.clone().text();
 	try {
 		return JSON.parse(text);
@@ -46,9 +46,11 @@ async function jsonOf(request: Request): Promise<unknown> {
 }
 
 /**
- * The route the request reached (`ctx.route`, given by the caller once it has
- * checked one was reached), its path, parameters and query, and the JSON body
- * when a rule of this method reads it.
+ * What the request is judged by: its method, its path (the route it reached,
+ * `route` given by the caller once it has checked one was reached, with the
+ * decoded parameters put back), the parameters and query, and the JSON body
+ * when a rule of this method reads it. No route pattern goes to the rules:
+ * they are walked in order against the path as the handler sees it.
  */
 export async function restCall(
 	ctx: BaseContext,
@@ -58,8 +60,7 @@ export async function restCall(
 	const { method } = ctx.request;
 	return {
 		method,
-		route: limixPath(route),
-		path: ctx.url.pathname,
+		path: decodedPath(route, ctx.pathParams),
 		request: {
 			params: paramsOf(ctx.pathParams),
 			query: queryOf(ctx.url),

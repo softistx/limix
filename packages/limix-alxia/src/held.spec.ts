@@ -19,7 +19,7 @@ const build = (options: Partial<LimixAlxiaOptions<never>>) => {
 		app,
 		...options,
 	};
-	return makeHeld(full, { routes: [], sockets: [] });
+	return makeHeld(full);
 };
 
 describe('makeHeld', () => {
@@ -40,6 +40,19 @@ describe('makeHeld', () => {
 		held.snapshot();
 		expect(reports).toBe(1);
 		expect(errors).toHaveBeenCalledTimes(1);
+	});
+
+	test('onMismatch hears the problems once per unfit policy, and console.error stays quiet', () => {
+		const heard: (readonly string[])[] = [];
+		const held = build({
+			app: alxia().get('/open', ok),
+			onMismatch: (problems) => heard.push(problems),
+		});
+		held.snapshot();
+		held.snapshot();
+		expect(heard).toHaveLength(1);
+		expect(heard[0]?.some((p) => p.startsWith('GET /me'))).toBe(true);
+		expect(errors).not.toHaveBeenCalled();
 	});
 
 	test('a source holding none answers 503 no-policy, reports once, and re-arms on a swap', () => {

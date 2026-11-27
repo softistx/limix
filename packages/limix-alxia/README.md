@@ -150,12 +150,23 @@ limixGraphql(app, { schema, limix }) // the SAME object
 
 ## Traps
 
-- Give `limixGraphql` the very object `limixGuard` has, never a copy: the
-  endpoint is then left to the field rules. With a copy, the REST rules judge
-  `POST /graphql` and, under `unmatched: deny`, refuse it.
 - Declare routes after `app.use(limixGuard(...))`: a route declared before it
-  never runs the guard, so it stays open. `limixGuard` reports it as a 503
-  `policy-mismatch`.
+  never runs the guard, so it would stay open. `limixGuard()` throws when the
+  app already holds one (a health route gets a `public: true` rule).
+- Give `limixGraphql` the guarded app (or a group or plugin mounted on it): the
+  endpoint is known by its handler there and left to the field rules. A REST
+  route of your own at `POST /graphql` is judged by the REST rules.
+- Requests are judged by the decoded path as the handler sees it, so a literal
+  `/users/me` rule written before `/users/:id` applies, and `/users/%6De` is
+  `/users/me`.
+- Each `fork()` carries its own guard (`limixGuard({ ..., app: fork })`); a
+  guard on the base serving fork routes answers 503 `policy-mismatch`.
+- `onUnavailable` runs once per outage for REST and GraphQL together;
+  `onMismatch(problems)` replaces the `console.error` for an unfit policy.
+- JSON bodies are detected as alxia does (any type mentioning `json`); a custom
+  `app.parser` is not seen by body rules, and `when` never sees `request.json`.
+- An `all` route also takes methods such as `PROPFIND` that `alxiaOperations`
+  cannot list; they fall under `unmatched`.
 - A public route behind a bearer middleware needs a token anyway: the
   authentication layer refuses before the guard runs
   ([why](docs/troubleshooting.md#a-public-route-needs-a-token-bearer-has-no-optional-mode)).

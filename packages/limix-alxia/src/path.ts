@@ -20,3 +20,24 @@ export function paramsOf(
 	}
 	return params;
 }
+
+/**
+ * The path a request is judged by: the declared route (prefix included) with
+ * the decoded parameters put back. A parameter stays one segment (`/` and `%`
+ * in its value are percent-encoded again), a wildcard keeps its slashes. So
+ * `/users/%6De` on `/users/:id` is judged as `/users/me`, as the handler sees it.
+ */
+export function decodedPath(
+	route: string,
+	pathParams: Readonly<Record<string, string>>,
+): string {
+	return route
+		.split('/')
+		.map((segment) => {
+			if (segment === '*') return pathParams['*'] ?? '';
+			if (!segment.startsWith(':')) return segment;
+			const value = pathParams[segment.slice(1)] ?? '';
+			return value.replace(/%/g, '%25').replace(/\//g, '%2F');
+		})
+		.join('/');
+}

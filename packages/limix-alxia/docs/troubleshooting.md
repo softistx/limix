@@ -103,6 +103,20 @@ app.group('/admin', (admin) => {
 })
 ```
 
+### `limixGuard(): routes declared before the guard never run it and stay open: <METHOD path, ...>`
+
+**When:** the `app` given to `limixGuard` already holds a route or a socket
+(`GET /health`, `WS /sock`) other than a `limixGraphql` endpoint.
+**Why:** a middleware runs only for the routes declared after it. A route
+declared first never runs the guard, whatever the rules say.
+**Fix:** declare the guard first, then the routes; a health route gets a
+`public: true` rule:
+
+```ts
+app.use(limixGuard({ policy, claims, app }))
+app.get('/health', ({ reply }) => reply(200, { ok: true })) // rule: '/health': { GET: { public: true } }
+```
+
 ### `<limixGuard() | limixGraphql()>: the policy does not fit:` `- <where>: the relation rung's code "<code>" is outside `auth.errors.`, which an alxia host reads its refusals by (...)`
 
 **When:** a static policy has a relation rung (REST or GraphQL) with a `code`
@@ -126,7 +140,7 @@ the `policy-mismatch` entry under Refusals.
 
 **When:** `checkRoutes(policy, app)`. Each line is one problem:
 
-- `<METHOD> <pattern>: no route of the app takes this rule, so the routes it was written for are left to `unmatched``: a typo in the rule, or a route that was removed.
+- `<METHOD> <pattern>: no route of the app takes this rule, so the routes it was written for are left to `unmatched``: a typo in the rule, or a route that was removed (the same check the guard makes on the first request).
 - `<where>: the relation rung's code "<code>" is outside `auth.errors.` ...`: as above.
 
 **Why:** the rule judges nothing, or a refusal would not be read.
@@ -142,21 +156,27 @@ checkRoutes(policy, app)
 **When:** answering a request whose refusal, or the `status` your `mapRefusal`
 returned, is not an integer from 400 to 599.
 **Why:** a refusal is an error answer.
-**Fix:**
+**Fix:** `RefusalAnswer.status` is typed as alxia's error statuses, so a `302`
+is a compile error; the check stays for a value that gets past the types:
 
 ```ts
-mapRefusal: (refusal) => ({ status: refusal.status === 401 ? 403 : refusal.status })
+mapRefusal: (refusal) => ({ status: refusal.status === 401 ? 403 : 404 })
 ```
 
 ### `limix-alxia: the policy does not fit the app, every request is refused with 503:` `- <problem>`
 
 **When:** logged once, with `console.error`, when a policy is first looked at
 and does not fit the app's routes. Every request is then refused with
-the `policy-mismatch` entry under Refusals.
-**Why:** the lines are the problems `checkRoutes` finds, plus this one:
-`<METHOD> <pattern>: only routes declared before the guard take this rule, and they never run it; declare them after `use(limixGuard(...))``.
+the `policy-mismatch` entry under Refusals. Give `onMismatch(problems)` to hear
+it yourself instead: it is called once per unfit policy and the `console.error`
+is then not written.
+**Why:** the lines are the problems `checkRoutes` finds.
 **Fix:** correct the rules or the routes; a source holding a fitting policy
 swapped in clears it.
+
+```ts
+limixGuard({ policy, claims, app, onMismatch: (problems) => logger.error({ problems }) })
+```
 
 ## Refusals
 
@@ -179,10 +199,10 @@ source.swap(policy)
 **When:** the held policy does not fit the app's routes. It is decided once per
 policy, on the first request.
 **Why:** one of: a relation rung's `code` outside `auth.errors.`; a REST rule
-that no route takes; a REST rule only routes declared before the guard take (they
-never run it, so they would be open). The log line above lists which.
-**Fix:** run `checkRoutes(policy, app)` in a spec to find the rule, and declare
-every route after `app.use(limixGuard(...))`.
+that no route takes. The log line (or `onMismatch`) lists which.
+**Fix:** run `checkRoutes(policy, app)` in a spec to find the rule. Also check
+the guard is given the app that serves the routes: see
+[a fork answers 503 policy-mismatch](#fork-answers-503-policy-mismatch).
 
 ### `503 { "code": "limix.errors.unavailable", "params": { "reason": "no-relation-checker" } }`
 
@@ -200,15 +220,34 @@ limixGuard({ policy: source, claims, app, relations: janusRelations(/* ... */) }
 **When:** `POST /graphql` answers 401, 403 or 404 with a REST refusal, though
 the field rules would allow the operation, or every GraphQL request is refused
 under `unmatched: deny`.
-**Why:** `limixGraphql` recorded its endpoint against the options object it was
-given, and `limixGuard` leaves that endpoint alone only for that very object. A
-copy (`{ ...limix }`, or two literals) is a different guard's.
-**Fix:** one object, given to both:
+**Why:** `limixGuard` leaves an endpoint to the field rules only when its
+handler is one `limixGraphql` declared on the app the guard sits on (the
+`app` of its options, or a group or plugin mounted on it). A GraphQL endpoint
+declared on an app the guard is not on, or a REST route of your own at
+`POST /graphql`, is judged by the REST rules, and under `unmatched: deny` with
+no `/graphql` rule it is refused.
+**Fix:** declare it on the guarded app (or a group or plugin of it), with the
+same options object:
 
 ```ts
 const limix = { policy, claims, app }
 app.use(limixGuard(limix))
 limixGraphql(app, { schema, limix })
+```
+
+### A fork answers 503 policy-mismatch
+
+**When:** the guard sits on a base app (`base.use(limixGuard({ ..., app: base }))`)
+and the routes are declared on `base.fork()`.
+**Why:** a guard checks the routes of the `app` it was given. A fork's routes are
+not in `base.routes`, so no route of the app takes the rules and the guard
+answers 503 `policy-mismatch` instead of judging routes it never checked.
+**Fix:** each fork carries its own guard, given the fork:
+
+```ts
+const fork = base.fork()
+fork.use(limixGuard({ policy, claims, app: fork }))
+fork.get('/open', handler)
 ```
 
 ### A public route needs a token: bearer has no optional mode

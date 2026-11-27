@@ -1,49 +1,68 @@
 import type { RouteDefinition, SocketDefinition } from '@softistx/alxia';
+import type { RoutesOf } from './options';
 
 /**
  * What `limixGraphql` declared, so the guard leaves it to the field guard and
- * `alxiaOperations` leaves it out of the REST list. Keyed by object identity:
- * no global name, and nothing kept alive past its app.
+ * `alxiaOperations` leaves it out of the REST list. Told apart by the handler
+ * (a route's `handler`, a socket's `handlers`): a plugin or a group mounting
+ * the app copies the definition and keeps the handler, so the copy is still
+ * known, and a REST route that merely shares the path is not.
  */
-const keysByOptions = new WeakMap<object, Set<string>>();
-const declared = new WeakSet<object>();
+const handlers = new WeakSet<object>();
 const guarded = new WeakSet<object>();
 
-/** `METHOD path`, with HEAD read as the GET that answers it. */
-const keyOf = (method: string, path: string) =>
-	`${method === 'HEAD' ? 'GET' : method} ${path}`;
+type Definition = RouteDefinition | SocketDefinition;
 
-/** Records the routes and sockets one `limixGraphql` call declared, for the guard built from `options`. */
+const handlerOf = (definition: Definition): object =>
+	'handler' in definition ? definition.handler : definition.handlers;
+
+/** Records the routes and sockets one `limixGraphql` call declared. */
 export function registerEndpoints(
-	options: object,
 	routes: readonly RouteDefinition[],
 	sockets: readonly SocketDefinition[],
 ): void {
-	const keys = keysByOptions.get(options) ?? new Set<string>();
-	for (const route of routes) {
-		declared.add(route);
-		if (route.method === 'ALL') continue;
-		keys.add(keyOf(route.method, route.path));
+	for (const definition of [...routes, ...sockets]) {
+		handlers.add(handlerOf(definition));
 	}
-	for (const socket of sockets) {
-		declared.add(socket);
-		keys.add(keyOf('GET', socket.path));
-	}
-	keysByOptions.set(options, keys);
 }
 
-/** Whether `limixGraphql(app, { limix: options })` declared this route: the field guard answers it, not the REST rules. */
-export function isEndpointOf(
-	options: object,
+/** Whether `limixGraphql` declared this route or socket (or what a plugin or group made of it). */
+export const isEndpoint = (definition: Definition): boolean =>
+	handlers.has(handlerOf(definition));
+
+/**
+ * The definition of `app` that answers `method` at the declared path `route`
+ * (what `ctx.route` holds): the route of that method, a HEAD's GET, an `all`
+ * route, or the socket a GET upgrades. `undefined` when `app` holds none.
+ */
+export function definitionOf(
+	app: RoutesOf,
 	method: string,
 	route: string,
-): boolean {
-	return keysByOptions.get(options)?.has(keyOf(method, route)) === true;
+): Definition | undefined {
+	const here = app.routes.filter((candidate) => candidate.path === route);
+	const named = (name: string) => here.find((c) => c.method === name);
+	return (
+		named(method) ??
+		(method === 'HEAD' ? named('GET') : undefined) ??
+		named('ALL') ??
+		(method === 'GET' || method === 'HEAD'
+			? app.sockets?.find((socket) => socket.path === route)
+			: undefined)
+	);
 }
 
-/** Whether `limixGraphql` declared this route or socket. */
-export const isEndpoint = (definition: RouteDefinition | SocketDefinition) =>
-	declared.has(definition);
+/** What `app` already declares that is not a `limixGraphql` endpoint: `METHOD path`, `WS path`. */
+export function declaredRoutes(app: RoutesOf): string[] {
+	return [
+		...app.routes
+			.filter((route) => !isEndpoint(route))
+			.map((route) => `${route.method} ${route.path}`),
+		...(app.sockets ?? [])
+			.filter((socket) => !isEndpoint(socket))
+			.map((socket) => `WS ${socket.path}`),
+	];
+}
 
 /** One rule set per service: a second guard on the same app is a mistake. */
 export function claimApp(app: object): void {
