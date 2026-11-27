@@ -1,8 +1,9 @@
+import type { Empty } from '@softistx/graxia';
 import type {
 	Claims,
 	CompiledPolicy,
-	LimixRefusal,
 	PolicySource,
+	Refusal,
 	RelationChecker,
 } from '@softistx/limix';
 import { isPolicySource } from '@softistx/limix';
@@ -25,11 +26,11 @@ export interface RefusalAnswer {
 }
 
 export type MapRefusal = (
-	refusal: LimixRefusal,
+	refusal: Refusal,
 	at: RefusalAt,
 ) => RefusalAnswer | undefined;
 
-export interface LimixGraxiaOptions<Ctx = never> {
+export interface LimixGraxiaOptions<Ctx extends object = Empty> {
 	/** The compiled rules, or a source that may hold none yet (fails closed). */
 	policy: CompiledPolicy | PolicySource;
 	/** Who is calling: read once per operation with the plugin, once per governed field without it. */

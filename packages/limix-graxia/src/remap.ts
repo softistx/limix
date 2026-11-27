@@ -23,12 +23,11 @@ function converted(error: unknown, mapRefusal?: MapRefusal): unknown {
 	const refusal = error.originalError;
 	if (!isLimixRefusal(refusal)) return error;
 	const top = error.path?.length === 1;
-	const fresh = refusalError(
-		refusal,
+	const fresh = refusalError(refusal, {
 		mapRefusal,
-		{ type: '', field: fieldOf(error), root: top },
-		top,
-	);
+		at: { type: '', field: fieldOf(error), root: top },
+		topLevel: top,
+	});
 	const out = new GraphQLError(fresh.message, {
 		nodes: error.nodes,
 		path: error.path,

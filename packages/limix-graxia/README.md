@@ -28,12 +28,12 @@ declarations import without extensions, so `nodenext` is not supported.
 | --- | --- |
 | `guardSchema(schema, options)` | A copy of the schema whose fields answer to the rules; the original is never touched |
 | `limixGraxia(options)` | The graxia plugin: reads the claims once per operation, refuses an unguarded schema, remaps refusals in every result |
-| `refusalError(refusal, mapRefusal?, at?)` | A refusal as the `GraphQLError` a guarded field throws |
+| `refusalError(refusal, options?)` | A refusal as the `GraphQLError` a guarded field throws |
 | `graphqlOperations(schemaOrSdl, { fields? })` | The operations of a schema, for `coverage()` |
 | `checkNeeds(policy, schema)` | Where a field's `@needs` and the rule that guards it disagree |
 | `canOf(claims)` | The `can` predicate of `@softistx/graxia/agent` and `@softistx/graxia-mcp` |
 | `isGuarded(schema)` | Whether `guardSchema` made this schema |
-| types `LimixGraxiaOptions`, `LimixContext`, `MapRefusal`, `RefusalAnswer`, `RefusalAt`, `NeedsIssue`, `NeedsIssueKind`, `GraphqlOperationsOptions` | The shapes the functions take and return |
+| types `LimixGraxiaOptions`, `LimixContext`, `MapRefusal`, `RefusalAnswer`, `RefusalErrorOptions`, `RefusalAt`, `NeedsIssue`, `NeedsIssueKind`, `GraphqlOperationsOptions` | The shapes the functions take and return |
 | `@softistx/limix-graxia/operations` | `graphqlOperations` alone, importing only `graphql` (no graxia): for build-time tools |
 | `@softistx/limix-graxia/package.json` | The package manifest |
 

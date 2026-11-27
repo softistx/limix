@@ -1,3 +1,4 @@
+import type { Empty } from '@softistx/graxia';
 import { isPolicySource } from '@softistx/limix';
 import type { GraphQLSchema } from 'graphql';
 import { governs, rootNames } from './governs';
@@ -18,7 +19,7 @@ export const isGuarded = (schema: GraphQLSchema): boolean => made.has(schema);
  * here and only the fields it decides are wrapped; a policy source wraps every
  * object field (a field with no rule passes straight through at run time).
  */
-export function guardSchema<Ctx = never>(
+export function guardSchema<Ctx extends object = Empty>(
 	schema: GraphQLSchema,
 	options: LimixGraxiaOptions<Ctx>,
 ): GraphQLSchema {

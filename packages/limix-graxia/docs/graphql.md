@@ -45,15 +45,17 @@ not make (its fields would be open).
 ## Options
 
 ```ts
-interface LimixGraxiaOptions<Ctx> {
+interface LimixGraxiaOptions<Ctx extends object = Empty> {
   policy: CompiledPolicy | PolicySource
   claims: (ctx: Ctx) => Claims | Promise<Claims>
   relations?: RelationChecker | ((ctx: Ctx) => RelationChecker)
-  mapRefusal?: (refusal: LimixRefusal, at: RefusalAt) => RefusalAnswer | undefined
+  mapRefusal?: MapRefusal  // (refusal: Refusal, at: RefusalAt) => RefusalAnswer | undefined
   nonNull?: 'refuse' | 'allow'
   onUnavailable?: () => void
 }
 ```
+
+A bare `LimixGraxiaOptions` means a context that reads nothing.
 
 | Option | Type | Default | Effect |
 | --- | --- | --- | --- |
@@ -204,17 +206,19 @@ interface RefusalAnswer { code?: string; message?: string; status?: number }
 `at.type` is `''` for a refusal a resolver threw itself (below): a result's
 error carries the field and its path but not its parent type.
 
-`refusalError(refusal, mapRefusal?, at?, topLevel?)` builds the same error;
+`refusalError(refusal, { mapRefusal?, at?, topLevel? })` builds the same error;
 `topLevel` says whether it sits at the top of the operation (it asks for the
 `http` status) and defaults to `at.root`. Use it when you call `evaluateField`
 yourself and want the same shape:
 
 ```ts
-import { evaluateField, isLimixRefusal } from '@softistx/limix'
+import { evaluateField } from '@softistx/limix'
 import { refusalError } from '@softistx/limix-graxia'
 
 const decision = await evaluateField(policy, { type: 'Query', field: 'me', claims })
-if (!decision.allow) throw refusalError(decision.refusal, undefined, { type: 'Query', field: 'me', root: true })
+if (!decision.allow) throw refusalError(decision.refusal, {
+  at: { type: 'Query', field: 'me', root: true },
+})
 ```
 
 A resolver that throws a `LimixRefusal` itself (say from a nested

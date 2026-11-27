@@ -14,4 +14,4 @@ export type {
 	RefusalAt,
 } from './options';
 export { limixGraxia } from './plugin';
-export { refusalError } from './refusal';
+export { type RefusalErrorOptions, refusalError } from './refusal';

@@ -9,6 +9,7 @@ import type {
 	NeedsIssueKind,
 	RefusalAnswer,
 	RefusalAt,
+	RefusalErrorOptions,
 } from './index';
 import * as api from './index';
 
@@ -34,6 +35,7 @@ export type _Types = [
 	NeedsIssueKind,
 	RefusalAnswer,
 	RefusalAt,
+	RefusalErrorOptions,
 ];
 
 test('the package exports map', () => {
