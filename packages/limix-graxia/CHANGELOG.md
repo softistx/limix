@@ -1,5 +1,16 @@
 # @softistx/limix-graxia
 
+## 0.3.0
+
+### Minor Changes
+
+- [#56](https://github.com/softistx/limix/pull/56) [`eb52f89`](https://github.com/softistx/limix/commit/eb52f898f37a011c39bc955203969ff39b80873d) Thanks [@SteveGT96](https://github.com/SteveGT96)! - A `Type.*` rule guards every field of the type that has no rule of its own, root or not: `entryOf` falls back to the wildcard, so such a field is wrapped instead of left open. Under `nonNull: 'refuse'` the setup check names each non-null field a wildcard covers. Needs `@softistx/limix` with flat keys and wildcards.
+
+### Patch Changes
+
+- Updated dependencies [[`5ebdc55`](https://github.com/softistx/limix/commit/5ebdc5564ebcc7ece1c7033649857271eefd6155), [`eb52f89`](https://github.com/softistx/limix/commit/eb52f898f37a011c39bc955203969ff39b80873d)]:
+  - @softistx/limix@0.6.0
+
 ## 0.2.0
 
 ### Minor Changes
