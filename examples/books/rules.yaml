@@ -1,0 +1,92 @@
+# yaml-language-server: $schema=../../packages/limix/schema/rules.schema.json
+#
+# Who may reach what in the books API. One file guards REST and GraphQL.
+# Reference: packages/limix/docs/rules.md
+limix: 1
+
+global:
+  # The file is the exhaustive list of what the service exposes: a route or a
+  # root field no rule names is refused (401 anonymous, 403 signed in).
+  unmatched: deny
+
+rest:
+  "GET /health":
+    public: true
+
+  # Document order: the first rule that matches applies. /admin/health is
+  # public, so it is written BEFORE the "* /admin/*" wildcard further down,
+  # which would otherwise take it and ask for an admin.
+  "GET /admin/health":
+    public: true
+
+  # Nested form: one path, its methods together.
+  /books:
+    GET:
+      public: true
+  # Flat form: one key per operation, "METHOD /path".
+  # Roles are in disjunctive normal form: the outer list is OR, each inner
+  # list is AND. Here: an editor OR an admin, and in both cases the permission.
+  "POST /books":
+    roles: [[editor], [admin]]
+    permissions: [[books:write]]
+
+  /books/:id:
+    GET:
+      public: true
+    # `when` names a condition registered in code (src/policy.ts): an editor
+    # may change only a book they own; an admin may change any.
+    PUT:
+      roles: [[editor], [admin]]
+      permissions: [[books:write]]
+      when: [ownsBook]
+    DELETE:
+      roles: [[editor], [admin]]
+      permissions: [[books:write]]
+      when: [ownsBook]
+
+  "GET /authors":
+    public: true
+  "GET /authors/:id":
+    public: true
+  # A pattern with a parameter in the middle: it takes /authors/7/books.
+  "GET /authors/:id/books":
+    public: true
+
+  # Method wildcard: every method under /admin. The "*" of the path takes one
+  # or more characters. Quoted, because a YAML key starting with * is an alias.
+  "* /admin/*":
+    roles: [[admin]]
+
+graphql:
+  # Flat form: "Type.field".
+  Query.books:
+    public: true
+  Query.book:
+    public: true
+  Query.authors:
+    public: true
+  Query.author:
+    public: true
+  Query.me:
+    authenticated: true
+
+  # Every Mutation field with no rule of its own: an editor or an admin.
+  # An exact rule beats the wildcard wherever it is written.
+  Mutation.*:
+    roles: [[editor], [admin]]
+    permissions: [[books:write]]
+  # Nested form: a type, then its fields.
+  Mutation:
+    updateBook:
+      roles: [[editor], [admin]]
+      permissions: [[books:write]]
+      when: [ownsBook]
+    # Deleting from GraphQL is stricter than over REST: admin only.
+    deleteBook:
+      roles: [[admin]]
+
+  # A rule on a field of a non-root type: wherever an Author appears (a list,
+  # a book's author), reading its email needs an admin. The field is nullable,
+  # so a refusal nulls the email and leaves the rest of the author.
+  Author.email:
+    roles: [[admin]]

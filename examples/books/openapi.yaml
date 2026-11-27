@@ -1,0 +1,60 @@
+openapi: 3.0.3
+info:
+  title: Books and authors
+  version: 1.0.0
+paths:
+  /health:
+    get:
+      responses:
+        "200": { description: Alive }
+  /books:
+    get:
+      responses:
+        "200": { description: The books }
+    post:
+      responses:
+        "201": { description: The book added }
+  /books/{id}:
+    get:
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: The book }
+    put:
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: The book updated }
+    delete:
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "204": { description: The book deleted }
+  /authors:
+    get:
+      responses:
+        "200": { description: The authors }
+  /authors/{id}:
+    get:
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: The author }
+  /authors/{id}/books:
+    get:
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: The books of the author }
+  /admin/health:
+    get:
+      responses:
+        "200": { description: Alive, for the load balancer }
+  /admin/cache:
+    delete:
+      responses:
+        "204": { description: Cache emptied }
+  /admin/stats:
+    get:
+      responses:
+        "200": { description: Counts }

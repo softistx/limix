@@ -89,6 +89,12 @@ The migration guide's TypeScript fences are byte copies of
 `packages/limix-alxia/examples/migrating-from-security/*.ts`, which
 `migration-guide.spec.ts` holds: edit the file, then paste it.
 
+`examples/books` is a private workspace package (`@softistx/limix-example-books`, never published, no
+changeset): a books and authors API on alxia served over REST and GraphQL behind one rules file, with
+committed generated types (`bun run generate`, `check:limix`) and specs. The root `typecheck` and `test` scripts
+and `ci.yml` run it (not `build`: a break there must not block a publish); `affected.ts`, `verify-artifacts` and `check-changesets` read
+`packages/*` only, so they skip it.
+
 Declared divergences from janus:
 
 - No database services in `ci.yml` and the setup action (PostgreSQL, MongoDB,

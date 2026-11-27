@@ -1,0 +1,28 @@
+type Query {
+	books: [Book!]
+	book(id: ID!): Book
+	authors: [Author!]
+	author(id: ID!): Author
+	me: String
+}
+
+type Mutation {
+	addBook(title: String!, year: Int!, authorId: ID!): Book
+	updateBook(id: ID!, title: String, year: Int): Book
+	deleteBook(id: ID!): Boolean
+}
+
+type Book {
+	id: ID!
+	title: String!
+	year: Int!
+	author: Author!
+}
+
+type Author {
+	id: ID!
+	name: String!
+	books: [Book!]!
+	"Restricted: only an admin may read it (rules.yaml, Author.email)."
+	email: String
+}

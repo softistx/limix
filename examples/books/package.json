@@ -1,0 +1,27 @@
+{
+	"name": "@softistx/limix-example-books",
+	"version": "0.0.0",
+	"private": true,
+	"description": "A books and authors API guarded by limix over REST and GraphQL (an example, never published)",
+	"type": "module",
+	"scripts": {
+		"start": "bun src/server.ts",
+		"generate": "limix-codegen generate --openapi openapi.yaml --graphql schema.graphql --rules rules.yaml",
+		"check:limix": "limix-codegen generate --check --openapi openapi.yaml --graphql schema.graphql --rules rules.yaml",
+		"test": "bun run check:limix && bun test ./src/",
+		"typecheck": "bun check"
+	},
+	"dependencies": {
+		"@softistx/alxia": "^0.28.0",
+		"@softistx/alxia-graphql": "^0.20.2",
+		"@softistx/graxia": "^0.18.0",
+		"@softistx/limix": "workspace:^",
+		"@softistx/limix-alxia": "workspace:^",
+		"@softistx/limix-graxia": "workspace:^",
+		"graphql": "^17.1.0"
+	},
+	"devDependencies": {
+		"@softistx/limix-codegen": "workspace:^",
+		"@types/bun": "^1.4.5"
+	}
+}
