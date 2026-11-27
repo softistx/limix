@@ -150,6 +150,7 @@ printSchemaFor(schema, { can: canOf({ authenticated: true, scope: 'books:read' }
 
 See [docs/](docs/README.md):
 
+- [Migrating from `@softistx/security`](https://github.com/softistx/limix/blob/develop/packages/limix/docs/migrating-from-security.md): each change with the 5.x code and the limix code.
 - [GraphQL guide](docs/graphql.md): the guard, the plugin, refusals, outages.
 - [`@needs` guide](docs/needs.md): `checkNeeds` and `canOf`.
 - [Troubleshooting](docs/troubleshooting.md): the errors this package throws.

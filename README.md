@@ -5,6 +5,8 @@ relations through a port (janus first), coverage, and signed remote rules.
 
 0.x on npm (restricted access); versions stay 0.x until a pilot runs on them.
 
+Moving from `@softistx/security`? See the [migration guide](packages/limix/docs/migrating-from-security.md).
+
 | Package | What it is |
 | --- | --- |
 | [`@softistx/limix-alxia`](packages/limix-alxia/README.md) | The alxia integration: route guard, refusals, coverage operations, GraphQL endpoint behind the same rules |

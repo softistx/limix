@@ -330,7 +330,8 @@ What is checked, and what is not:
 | no version key | `limix: 1` |
 
 Each removed key fails with a message saying what to write instead; see
-[troubleshooting](troubleshooting.md).
+[troubleshooting](troubleshooting.md). The [migration guide](migrating-from-security.md)
+gives a before and after for each.
 
 ## Editor completion
 

@@ -41,6 +41,10 @@ fixes only on 5.x) until nothing imports it, then `npm deprecate`d.
   (`duplicate-keys.differential.spec.ts` checks that the duplicate-key scanner
   of `./bun` reports a duplicate exactly when `yaml` refuses the key). It is
   never imported by `src` nor a dependency of a package.
+- `hono` stays a root devDependency, declared: the Hono recipe of the migration
+  guide (`packages/limix-alxia/examples/migrating-from-security/hono.ts`)
+  compiles against it and `migration-guide.spec.ts` runs it. It is never imported
+  by `src` nor a dependency of a package.
 
 ## Layout
 
@@ -58,6 +62,10 @@ its spec. Every file but the byte copies of `close-released-issues*.ts` is adapt
 to limix (see the divergences below). `@softistx/limix`, `@softistx/limix-janus` and `@softistx/limix-publish`
 publish, from 0.1 on, through the Version PR and a tag; a new package starts `"private": true` and
 publishes from a commit of its own that removes it, with its changeset.
+
+The migration guide's TypeScript fences are byte copies of
+`packages/limix-alxia/examples/migrating-from-security/*.ts`, which
+`migration-guide.spec.ts` holds: edit the file, then paste it.
 
 Declared divergences from janus:
 

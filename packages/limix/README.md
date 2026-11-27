@@ -5,6 +5,8 @@ reach a route or a field, written in YAML or JSON or through a typed builder,
 with relations checked through a port, coverage over your operations and signed
 rules pulled from a policy server.
 
+Moving from `@softistx/security`? See the [migration guide](docs/migrating-from-security.md).
+
 ## Install
 
 The package is published with restricted access: installing it needs an npm
@@ -340,7 +342,7 @@ token never follows one. See [remote](docs/remote.md).
 
 ## Documentation
 
-See [docs/](docs/README.md): the [rules format](docs/rules.md),
+See [docs/](docs/README.md): the [migration guide from `@softistx/security`](docs/migrating-from-security.md), the [rules format](docs/rules.md),
 [evaluation](docs/evaluation.md), [relations](docs/relations.md),
 [coverage](docs/coverage.md), [remote rules](docs/remote.md), the
 [roadmap](docs/roadmap.md) and [troubleshooting](docs/troubleshooting.md).
