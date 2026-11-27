@@ -10,11 +10,15 @@ import {
 	FIXTURE_SDL,
 } from '../codegen.fixtures';
 import { generateModule, sourceNames } from '../module';
+import type { LimixCodegenPluginConfig } from './index';
 import * as api from './index';
+
+// A removed or renamed type fails `bun check`, which also covers the specs.
+export type _Types = [LimixCodegenPluginConfig];
 
 describe('the graphql-codegen plugin', () => {
 	it('exports plugin alone', () => {
-		expect(Object.keys(api)).toEqual(['plugin']);
+		expect(Object.keys(api).sort()).toEqual(['plugin']);
 	});
 
 	it('gives what generateModule gives for the same inputs', async () => {
