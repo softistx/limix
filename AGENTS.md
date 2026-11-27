@@ -15,6 +15,7 @@ fixes only on 5.x) until nothing imports it, then `npm deprecate`d.
 | `@softistx/limix-janus` | The `RelationChecker` adapter over janus `can`. |
 | `@softistx/limix-graxia` | The graxia and graphql-js integration: a field guard (`guardSchema`) and graxia plugin (`limixGraxia`), `checkNeeds` and `canOf` for `@needs`, `graphqlOperations` for coverage. |
 | `@softistx/limix-alxia` | The alxia integration: `limixGuard` (a middleware judging every request that reaches a route, refusals in the app's error format), `alxiaOperations` for coverage, `checkRoutes`, and `limixGraphql` (`./graphql`, the endpoint behind `limix-graxia`). |
+| `@softistx/limix-codegen` | Build-time types for the rules: a CLI and a graphql-codegen plugin that register the API's operations (GraphQL SDL through `limix-graxia/operations`, OpenAPI) and the rules file's permission, role and condition names in core's `Register`, `--check` for CI, and `init` for a starter rules file. |
 | `@softistx/limix-publish` | The emitter: signs a rules file as a JWS and serves the JWKS (API and CLI). |
 
 ## Decisions (owner, 2026-11-26)
@@ -78,7 +79,9 @@ Declared divergences from janus:
 - `@softistx/limix-graxia` accepts any `@softistx/graxia` `>=0.18.0 <1.0.0`
   (declared: it reads `definePlugin` and, through `./agent`, `needsOf`, so any
   0.x minor from 0.18 is accepted). With no peer-floor tooling, a new graxia
-  minor is untested until a limix-graxia release.
+  minor is untested until a limix-graxia release. It also has a `./operations`
+  subpath (`graphqlOperations` alone, importing only `graphql`, never graxia) for
+  build-time tools such as `@softistx/limix-codegen`.
 - `@softistx/limix-alxia` accepts any `@softistx/alxia` `>=0.28.0 <1.0.0` and
   `@softistx/alxia-graphql` `>=0.20.2 <1.0.0` (declared: it reads `ctx.route`,
   `app.routes` and `app.sockets`, `ctx.pathParams`, `RouteDefinition.handler`
@@ -99,7 +102,7 @@ Declared divergences from janus:
   `noPropertyAccessFromIndexSignature`; janus's naming-convention rule is its
   own.
 - No `typecheck:tsc` script: limix typechecks with `bun check` alone.
-- No "generated code is committed" CI step: no package generates code.
+- No "generated code is committed" CI step: no package commits generated code of its own (limix-codegen's golden `generated.fixtures.ts` is held by its spec).
 - No `format` or `lint` root scripts: `fix` covers both.
 - `.gitignore` re-includes `packages/*/src/coverage/` (the `./coverage` subpath's
   source), which janus's `coverage` line, a test-report folder, would ignore, until

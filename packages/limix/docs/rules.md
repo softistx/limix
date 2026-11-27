@@ -264,6 +264,44 @@ admits every caller, so it cannot be combined with `roles`, `permissions`,
 `when` or `relations` either, which would narrow who may reach the rule:
 `compilePolicy` throws, on REST and GraphQL alike.
 
+## Typed operations and names
+
+`definePolicy` and `compilePolicy` read a `Register` interface that a generated
+file fills, so a typo in a path, a method, a GraphQL type or field, or a
+condition name fails to compile. [`@softistx/limix-codegen`](../../limix-codegen/docs/codegen.md)
+writes that file from the API's OpenAPI document and GraphQL schema and from the
+rules file:
+
+```ts
+// src/generated/limix.ts (generated)
+declare module '@softistx/limix' {
+  interface Register {
+    rest: 'GET /notes' | 'GET /notes/:id'
+    graphql: 'Query.me'
+    permission: 'notes:read'
+    role: 'admin'
+    condition: 'workingHours'
+  }
+}
+```
+
+```ts
+definePolicy({
+  limix: 1,
+  global: { unmatched: 'deny' },
+  // error: `/notez` is not an operation of the API
+  rest: { '/notez': { GET: { authenticated: true } } },
+})
+```
+
+`Permission`, `Role`, `ConditionName`, `RestOperationName` and
+`GraphqlOperationName` give the registered unions to your own code, and
+`TypedRules` and `ConditionMap` are what `definePolicy` and the `conditions`
+option of `compilePolicy` take. Nothing is registered by default: until a
+generated file is in your program, every type is what it was (`string`, `Rules`).
+A key written with a `*` or a `{...}` group names several routes and is accepted
+unchecked; the rule bodies (`permissions`, `roles`, `when`) are not narrowed.
+
 ## What was removed from `@softistx/security` 5
 
 | Was | Now |

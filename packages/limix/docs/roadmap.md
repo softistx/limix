@@ -11,15 +11,16 @@ dates here, and the version something shipped in is the only number.
   the same rules. Not published yet.
 - **graxia integration** — rules on GraphQL fields in a graxia API (`@softistx/limix-graxia`): a field guard, a graxia plugin, `@needs` checks and coverage operations.
 
+- **Code generation** — `Register`, and `@softistx/limix-codegen` (a CLI and a
+  graphql-codegen plugin) that types `definePolicy` against the API's operations
+  (GraphQL schema, OpenAPI spec) and the permission, role and condition names of
+  the rules file, plus a starter rules file. `Register` ships with the next
+  minor; the generator is not published yet.
+
 ## Next
 
 - **Migration from @softistx/security** — a guide from the `policy` part of
   `@softistx/security`.
-- **Code generation** — a CLI and a graphql-codegen plugin that type
-  `definePolicy` against the API's operations (from the GraphQL schema or the
-  OpenAPI spec) and type permission, role and condition names from the rules
-  file, plus a starter rules file.
-
 ## Later
 
 - **Typed condition contexts** — field args, route params and body typed per
