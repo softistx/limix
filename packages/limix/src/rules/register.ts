@@ -35,7 +35,7 @@ type CheckedRest<O extends string> = {
 	[P in PathOf<O>]?: {
 		[M in MethodOf<O, P> & keyof RestMethods]?: RestRule;
 	};
-} & { [P in OpenPattern]?: RestMethods };
+} & { [P in OpenPattern]: RestMethods };
 type TypeOf<O> = O extends `${infer T}.${string}` ? T : never;
 type FieldOf<O, T extends string> = O extends `${T}.${infer F}` ? F : never;
 type CheckedGraphql<O extends string> = {
@@ -45,6 +45,11 @@ type CheckedGraphql<O extends string> = {
 /**
  * `Rules`, narrowed where `Register` holds a `rest` or a `graphql` list: a key
  * the list does not hold is refused. Unregistered, it is `Rules`.
+ *
+ * The refusal holds only in an inline object literal: a variable, a spread, an
+ * escaped `\*` key or a `{` key is accepted unchecked. A value already typed
+ * `Rules` (the output of `parseRules`) goes to `compilePolicy` directly, not
+ * through `definePolicy`.
  */
 export type TypedRules<R = Register> = [
 	keyof R & ('rest' | 'graphql'),

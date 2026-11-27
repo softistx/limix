@@ -267,8 +267,8 @@ admits every caller, so it cannot be combined with `roles`, `permissions`,
 ## Typed operations and names
 
 `definePolicy` and `compilePolicy` read a `Register` interface that a generated
-file fills, so a typo in a path, a method, a GraphQL type or field, or a
-condition name fails to compile. [`@softistx/limix-codegen`](../../limix-codegen/docs/codegen.md)
+file fills, so a typo in a path, a method, a GraphQL type or field in a
+`definePolicy` literal, or a name in the `conditions` map, fails to compile. [`@softistx/limix-codegen`](../../limix-codegen/docs/codegen.md)
 writes that file from the API's OpenAPI document and GraphQL schema and from the
 rules file:
 
@@ -299,8 +299,19 @@ definePolicy({
 `TypedRules` and `ConditionMap` are what `definePolicy` and the `conditions`
 option of `compilePolicy` take. Nothing is registered by default: until a
 generated file is in your program, every type is what it was (`string`, `Rules`).
-A key written with a `*` or a `{...}` group names several routes and is accepted
-unchecked; the rule bodies (`permissions`, `roles`, `when`) are not narrowed.
+
+What is checked, and what is not:
+
+- A refusal holds only in an inline object literal given to `definePolicy`. A
+  variable, a spread, an escaped `\*` key or a `{` key is accepted unchecked, and
+  so is a key with a wildcard or a `{...}` group, which names several routes.
+- Only the keys of the `conditions` map given to `compilePolicy` are checked,
+  not the `when` names inside the rules. A missing condition is still a
+  `RulesError` at run time.
+- The rule bodies (`permissions`, `roles`, `when`) are not narrowed.
+- A value already typed `Rules`, such as the output of `parseRules`, is passed to
+  `compilePolicy` directly. It does not go through `definePolicy` once graphql
+  is registered.
 
 ## What was removed from `@softistx/security` 5
 

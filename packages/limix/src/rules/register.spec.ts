@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import type { Condition } from './compile/types';
+import type { Rules } from './schema';
 import type { ConditionMap, Permission, TypedRules } from './register';
 
 type Reg = {
@@ -94,6 +95,22 @@ describe('TypedRules (unregistered)', () => {
 			graphql: { Any: { field: { authenticated: true } } },
 		});
 		expect(rules.rest).toBeDefined();
+	});
+});
+
+describe('TypedRules stays assignable to Rules', () => {
+	it('holds with rest only, graphql only and both registered', () => {
+		const both: TypedRules<Reg> = { limix: 1, global: unmatched };
+		const rest: TypedRules<RestOnly> = { limix: 1, global: unmatched };
+		const graphql: TypedRules<{ graphql: 'Query.me' }> = {
+			limix: 1,
+			global: unmatched,
+			graphql: { Query: { me: { authenticated: true } } },
+		};
+		const a: Rules = both;
+		const b: Rules = rest;
+		const c: Rules = graphql;
+		expect([a, b, c]).toHaveLength(3);
 	});
 });
 
