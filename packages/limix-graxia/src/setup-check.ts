@@ -12,7 +12,7 @@ const readsSource = (policy: CompiledPolicy, type: string, field: string) =>
 /**
  * What a static policy cannot get right against this schema, before any request:
  * a rule on an unknown or non-object type or an unknown field, a non-null named
- * field (a refusal would null its parent) and a subscription rule reading `source.`
+ * field or one a `Type.*` covers (a refusal would null its parent) and a subscription rule reading `source.`
  * (a subscription starts with no source). Throws one TypeError listing them all.
  */
 export function checkPolicy(
@@ -34,13 +34,28 @@ export function checkPolicy(
 		}
 		const fields = type.getFields();
 		for (const field of Object.keys(rules)) {
-			const found = Object.hasOwn(fields, field) ? fields[field] : undefined;
-			if (!found) {
-				problems.push(`${typeName}.${field}: the type has no such field`);
-			} else if (nonNull === 'refuse' && found.type instanceof GraphQLNonNull) {
-				problems.push(
-					`${typeName}.${field}: is non-null, so a refusal would null its parent; make it nullable, or pass \`nonNull: 'allow'\``,
-				);
+			if (field === '*') {
+				// A wildcard stands for every field without a rule of its own.
+				for (const covered of Object.values(fields)) {
+					if (Object.hasOwn(rules, covered.name)) continue;
+					if (nonNull === 'refuse' && covered.type instanceof GraphQLNonNull) {
+						problems.push(
+							`${typeName}.*: covers ${typeName}.${covered.name}, which is non-null, so a refusal would null its parent; make it nullable, or pass \`nonNull: 'allow'\``,
+						);
+					}
+				}
+			} else {
+				const found = Object.hasOwn(fields, field) ? fields[field] : undefined;
+				if (!found) {
+					problems.push(`${typeName}.${field}: the type has no such field`);
+				} else if (
+					nonNull === 'refuse' &&
+					found.type instanceof GraphQLNonNull
+				) {
+					problems.push(
+						`${typeName}.${field}: is non-null, so a refusal would null its parent; make it nullable, or pass \`nonNull: 'allow'\``,
+					);
+				}
 			}
 			if (typeName === subscription && readsSource(policy, typeName, field)) {
 				problems.push(
