@@ -253,7 +253,7 @@ describe('coverage of an app and of a group', () => {
 		expect(inner).toEqual(['GET /console/users', 'HEAD /console/users']);
 	});
 
-	test('an outer rule left for a route a group guard judges is not taken: checkRoutes throws', () => {
+	test('an outer rule left for a route a group guard judges is not taken: checkRoutes reports it', () => {
 		const stale = compilePolicy(
 			definePolicy({
 				limix: 1,
@@ -273,8 +273,9 @@ describe('coverage of an app and of a group', () => {
 				.use(limixGuard({ policy: consoleRules, claims: whoOf, app: group }))
 				.get('/users', ok),
 		);
-		expect(() => checkRoutes(stale, app)).toThrow(
-			/no route of the app takes this rule/,
-		);
+		const issues = checkRoutes(stale, app);
+		expect(issues.map((i) => [i.kind, i.path])).toEqual([
+			['unmatched-rule', 'GET /console/users'],
+		]);
 	});
 });

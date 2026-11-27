@@ -1,10 +1,11 @@
+export type { Refusal } from '@softistx/limix';
 export { limixGuard } from './guard';
 export { alxiaOperations } from './operations';
 export type {
+	ErrorStatus,
 	LimixAlxiaOptions,
 	MapRefusal,
-	Refusal,
 	RefusalAnswer,
 	RoutesOf,
 } from './options';
-export { checkGuard, checkRoutes } from './setup-check';
+export { checkGuard, checkRoutes, type RouteIssue } from './setup-check';

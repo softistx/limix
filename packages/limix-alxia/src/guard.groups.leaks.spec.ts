@@ -66,9 +66,15 @@ describe('a hook between the outer guard and the group guard', () => {
 				200,
 			);
 			expect((await call(app, '/console/users')).status).toBe(401);
-			expect(() => checkGuard(outer, app)).toThrow(
-				/GET \/console\/users: a hook stands between this guard and the group's guard, so both judge it; put the group's guard first in the group and limixGuard last among the app's own middlewares/,
-			);
+			expect(checkGuard(outer, app)).toEqual([
+				{
+					kind: 'separated-guards',
+					path: 'GET /console/users',
+					message:
+						"a hook stands between this guard and the group's guard, so both judge it",
+					fix: "put the group's guard first in the group and limixGuard last among the app's own middlewares",
+				},
+			]);
 		});
 	}
 });

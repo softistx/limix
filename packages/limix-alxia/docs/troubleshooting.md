@@ -6,7 +6,7 @@ your message. `<...>` stands for the part that varies. `limixGuard()` and
 called.
 
 - [Setup](#setup): thrown when you build the guard
-- [Checks](#checks): thrown by `checkRoutes` or while answering
+- [Checks](#checks): reported by `checkRoutes` and `checkGuard`, or thrown at start
 - [Refusals](#refusals): an HTTP answer you did not expect
 
 ## Setup
@@ -133,7 +133,7 @@ group as `app`; give a plugin that carries a guard a prefix of its own. See
 
 ### `checkGuard(): <METHOD path>: a hook stands between this guard and the group's guard, so both judge it; put the group's guard first in the group and limixGuard last among the app's own middlewares`
 
-**When:** `checkGuard(guard, app)` (also at start) finds a route a group's or
+**When:** `checkGuard(guard, app)` returns a `separated-guards` issue (also thrown at start) for a route a group's or
 plugin's guard owns, behind a hook that is not that guard.
 **Why:** a middleware between the two guards, such as a cache that answers from a
 store, answers before the inner guard. The outer guard then keeps judging the
@@ -176,7 +176,7 @@ the `policy-mismatch` entry under Refusals.
 
 ### `checkRoutes(): the policy does not fit the app:` `- <where>: ...`
 
-**When:** `checkRoutes(policy, app)`. Each line is one problem:
+**When:** `checkRoutes(policy, app)` returns issues (`RouteIssue`: `kind`, `path`, `message`, `fix`); the line is `path: message`. Each issue is one problem:
 
 - `<METHOD> <pattern>: no route of the app takes this rule, so the routes it was written for are left to `unmatched``: a typo in the rule, or a route that was removed (the same check the guard makes on the first request).
 - `<where>: the relation rung's code "<code>" is outside `auth.errors.` ...`: as above.
@@ -188,15 +188,16 @@ file for a route a group's guard judges is not taken either: move it to that
 group's file.
 
 ```ts
-checkRoutes(policy, app)
+expect(checkRoutes(policy, app)).toEqual([])
 ```
 
 ### `checkGuard(): routes that never run the guard and stay open: <METHOD path, ...>`
 
-**When:** `checkGuard(guard, app)` finds a route or socket of `app` whose chain
-does not hold the guard, or the app was started through `listen` (the guard
-registers the same check on `onStart`: the server is stopped and the error
-logged, since alxia only logs what a start hook throws).
+**When:** `checkGuard(guard, app)` returns `open-route` issues for a route or
+socket of `app` whose chain does not hold the guard; an app started through
+`listen` throws this message (the guard registers the same check on `onStart`:
+the server is stopped and the error logged, since alxia only logs what a start
+hook throws).
 **Why:** the route was declared before `app.use(guard)` (a guard built first,
 a route, then `use()`), or outside the scope the guard was used in. It never
 runs the rules. An app never started through `listen` answers the guarded routes

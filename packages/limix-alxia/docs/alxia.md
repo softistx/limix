@@ -172,7 +172,7 @@ The outer file names no console route; the console file names the full paths
 (`/console/users`) and the fields of its own schema. `alxiaOperations(app)` leaves
 out the routes the group's guard judges: cover them with `alxiaOperations(group)`
 against the console rules. An outer rule left for such a route is not taken:
-`checkRoutes` throws and the guard answers 503 `policy-mismatch`; move the rule
+`checkRoutes` reports it and the guard answers 503 `policy-mismatch`; move the rule
 to the group's file.
 
 - Order matters: `limixGuard` goes last among the app's own middlewares and the
@@ -451,12 +451,16 @@ import { checkGuard } from '@softistx/limix-alxia'
 const guard = limixGuard({ policy, claims, app })
 app.use(guard)
 app.get('/health', handler)
-checkGuard(guard, app) // throws if a route of `app` does not run `guard`
+expect(checkGuard(guard, app)).toEqual([]) // issues when a route of `app` does not run `guard`
 ```
 
 ```ts
-function checkGuard(guard: Middleware, app: RoutesOf): void
+function checkGuard(guard: unknown, app: RoutesOf): readonly RouteIssue[]
 ```
+
+It returns issues, empty when fine, and never throws; only the guard's own
+`onStart` hook throws (a `TypeError` with the messages below). See
+[`RouteIssue`](#routeissue).
 
 A policy that does not fit calls `onMismatch(problems)` once, so the 503 is
 explained once; without `onMismatch` it logs one `console.error` listing each
@@ -466,8 +470,8 @@ its routes are checked on the first request.
 ### `checkRoutes`
 
 The same checks, run on your terms, in a spec or at boot once the routes are
-declared. It throws one `TypeError` listing the stale-rule and rung-code
-problems.
+declared. It returns the stale-rule and rung-code problems as
+[`RouteIssue`](#routeissue)s, empty when the policy fits, and never throws.
 
 ```ts
 import { alxia } from '@softistx/alxia'
@@ -481,12 +485,34 @@ const policy = compilePolicy(definePolicy({
   rest: { '/health': { GET: { public: true } } },
 }))
 
-checkRoutes(policy, app) // throws when no route of `app` takes `GET /health`
+checkRoutes(policy, app) // one `unmatched-rule` issue when no route of `app` takes `GET /health`
 ```
 
 ```ts
-function checkRoutes(policy: CompiledPolicy, app: RoutesOf): void
+function checkRoutes(policy: CompiledPolicy, app: RoutesOf): readonly RouteIssue[]
 ```
+
+### `RouteIssue`
+
+What `checkRoutes` and `checkGuard` return, one per problem:
+
+```ts
+interface RouteIssue {
+  readonly kind: 'rung-code' | 'unmatched-rule' | 'open-route' | 'separated-guards'
+  readonly path: string // the rule or route: `GET /files/*path`, `Query.me`, `GET /admin`
+  readonly message: string
+  readonly fix: string
+}
+```
+
+| `kind` | From | Meaning |
+| --- | --- | --- |
+| `rung-code` | `checkRoutes` | A relation rung's `code` is outside `auth.errors.` |
+| `unmatched-rule` | `checkRoutes` | A REST rule no route of the app takes |
+| `open-route` | `checkGuard` | A route or socket that never runs the guard |
+| `separated-guards` | `checkGuard` | A hook stands between a group's guard and the app's |
+
+The list grows with new checks: switch on `kind` with a default branch.
 
 ## GraphQL
 
@@ -529,6 +555,17 @@ not a REST rule for `POST /graphql`. `limixGraphql` takes everything
 | `limix` | `LimixAlxiaOptions` | required | The guard's options object, the same one |
 | `mapRefusal` | limix-graxia's `MapRefusal` | none | Rewords a refused field's GraphQL error; the guard's REST `mapRefusal` is not used here |
 | `nonNull` | `'refuse' \| 'allow'` | `'refuse'` | A named field that is non-null would turn a refusal into a null parent; `'refuse'` rejects it at setup |
+
+The extras are exported as `LimixGraphqlExtras<Ctx extends object = Empty>` from
+`@softistx/limix-alxia/graphql`; `limixGraphql`'s own options type (the extras
+joined to `graphql()`'s, which has five generics) is not exported, so a new
+`graphql()` generic is no break here. Type a shared object as the extras:
+
+```ts
+import type { LimixGraphqlExtras } from '@softistx/limix-alxia/graphql'
+
+const extras: LimixGraphqlExtras<{ request: Request }> = { limix }
+```
 
 A refused top-level field answers with the HTTP status of its refusal; a refused
 nested field answers 200 with the error in `errors`. Claims are read once per

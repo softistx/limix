@@ -89,9 +89,9 @@ describe('limixGuard, every route of its app carries the guard', () => {
 		const guard = limixGuard({ policy, claims: whoOf, app });
 		app.get('/admin', ok);
 		app.use(guard);
-		expect(() => checkGuard(guard, app)).toThrow(
-			/^checkGuard\(\): routes that never run the guard and stay open: GET \/admin\./,
-		);
+		expect(checkGuard(guard, app).map((i) => [i.kind, i.path])).toEqual([
+			['open-route', 'GET /admin'],
+		]);
 		await expectStopped(app, /stay open: GET \/admin/);
 	});
 
@@ -99,9 +99,9 @@ describe('limixGuard, every route of its app carries the guard', () => {
 		const app = alxia();
 		const guard = limixGuard({ policy, claims: whoOf, app });
 		app.group('/api', (g) => g.use(guard).get('/admin', ok));
-		expect(() => checkGuard(guard, app)).not.toThrow();
+		expect(checkGuard(guard, app)).toEqual([]);
 		app.get('/late', ok);
-		expect(() => checkGuard(guard, app)).toThrow(/GET \/late/);
+		expect(checkGuard(guard, app).map((i) => i.path)).toEqual(['GET /late']);
 		await expectStopped(app, /GET \/late/);
 	});
 

@@ -8,6 +8,7 @@ import type {
 	Claims,
 	CompiledPolicy,
 	PolicySource,
+	Refusal,
 	RelationChecker,
 } from '@softistx/limix';
 import { isPolicySource } from '@softistx/limix';
@@ -21,13 +22,6 @@ export interface RoutesOf {
 /** The statuses alxia answers an error with. */
 export type ErrorStatus = Parameters<typeof problem>[0]['status'];
 
-/** Why a request was refused: a limix refusal, or one the claims function threw (a `TenancyError`). */
-export interface Refusal {
-	readonly code: string;
-	readonly status: number;
-	readonly params: Readonly<Record<string, unknown>>;
-}
-
 /** What `mapRefusal` may change on the answer; `detail` is the problem's, or the JSON `message`. */
 export interface RefusalAnswer {
 	code?: string;
@@ -35,7 +29,8 @@ export interface RefusalAnswer {
 	detail?: string;
 }
 
-export type MapRefusal<Ctx> = (
+/** Rewords a refusal (a limix one, or one the claims function threw, a `TenancyError`). */
+export type MapRefusal<Ctx extends object = Empty> = (
 	refusal: Refusal,
 	ctx: Ctx,
 ) => RefusalAnswer | Response | undefined;

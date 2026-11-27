@@ -5,8 +5,8 @@ import {
 	problemOf,
 	Reply,
 } from '@softistx/alxia';
-import type { LimixRefusal } from '@softistx/limix';
-import type { ErrorStatus, MapRefusal, Refusal } from './options';
+import type { LimixRefusal, Refusal } from '@softistx/limix';
+import type { ErrorStatus, MapRefusal } from './options';
 
 const PREFIXES = ['auth.errors.', 'tenancy.errors.'];
 

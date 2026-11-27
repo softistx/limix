@@ -22,7 +22,7 @@ import { rungCodeProblems } from '../setup-check';
 type AnyPlugins = readonly GraxiaPlugin<any, any>[];
 
 /** What `limixGraphql` adds to graphql()'s options. */
-export interface LimixGraphqlExtras<Ctx extends object> {
+export interface LimixGraphqlExtras<Ctx extends object = Empty> {
 	/**
 	 * What the field guard reads: `limix` gives it its policy, claims, relations
 	 * and outage state. Every `limixGuard` of the app leaves the endpoint to it,
@@ -35,7 +35,7 @@ export interface LimixGraphqlExtras<Ctx extends object> {
 	nonNull?: 'refuse' | 'allow';
 }
 
-export type LimixGraphqlOptions<
+type LimixGraphqlOptions<
 	Ctx extends object,
 	Path extends RoutePath,
 	SchemaCtx,
