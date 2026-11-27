@@ -107,7 +107,11 @@ request path through stand-in paths (each parameter a sentinel segment, each
 optional group with and without): an earlier rule takes it only if its matcher
 takes every alternative. Limit: a route that opens (a wildcard, or an optional
 group holding a parameter) is matched by its own spelling only, so it can
-disagree with a `path` caller when an earlier wildcard takes it.
+disagree with a `path` caller when an earlier wildcard takes it. Only coverage,
+and only when no rule is found otherwise, reads a whole-segment brace
+(`/docs/{id}`) as a parameter. `evaluateRest` reads a `route` in the
+rules-file spelling, so `{ route: '/docs/{id}' }` falls to `global.unmatched`:
+convert OpenAPI paths with `rulesPathOf` first.
 A `HEAD` operation is `public` only
 when every rule it faces is, and it is `uncovered` when no `GET` rule names it,
 even beside a `HEAD` rule (the guard refuses it under `deny`).
