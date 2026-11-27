@@ -28,7 +28,7 @@ declarations import without extensions, so `nodenext` is not supported.
 | --- | --- |
 | `guardSchema(schema, options)` | A copy of the schema whose fields answer to the rules; the original is never touched |
 | `limixGraxia(options)` | The graxia plugin: reads the claims once per operation, refuses an unguarded schema, remaps refusals in every result |
-| `refusalError(refusal, mapRefusal?, at?)` | A refusal as the `GraphQLError` a guarded field throws |
+| `refusalError(refusal, options?)` | A refusal as the `GraphQLError` a guarded field throws |
 | `graphqlOperations(schemaOrSdl, { fields? })` | The operations of a schema, for `coverage()` |
 | `checkNeeds(policy, schema)` | Where a field's `@needs` and the rule that guards it disagree |
 | `canOf(claims)` | The `can` predicate of `@softistx/graxia/agent` and `@softistx/graxia-mcp` |

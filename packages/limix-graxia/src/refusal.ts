@@ -1,6 +1,16 @@
-import type { LimixRefusal } from '@softistx/limix';
+import type { Refusal } from '@softistx/limix';
 import { GraphQLError } from 'graphql';
 import type { MapRefusal, RefusalAt } from './options';
+
+/** What `refusalError` takes beside the refusal. */
+export interface RefusalErrorOptions {
+	/** Rewords the refusal's code, message or status. */
+	mapRefusal?: MapRefusal | undefined;
+	/** Where the refusal happened. */
+	at?: RefusalAt | undefined;
+	/** Whether the field is a top-level field of the operation (its HTTP status applies); defaults to `at.root`. */
+	topLevel?: boolean;
+}
 
 /**
  * A refusal as a GraphQL error: the message is the code, `extensions.code` and
@@ -11,11 +21,11 @@ import type { MapRefusal, RefusalAt } from './options';
  * one this is; it defaults to `at.root` for a caller with no resolve info.
  */
 export function refusalError(
-	refusal: LimixRefusal,
-	mapRefusal?: MapRefusal,
-	at?: RefusalAt,
-	topLevel: boolean = at?.root === true,
+	refusal: Refusal,
+	options: RefusalErrorOptions = {},
 ): GraphQLError {
+	const { mapRefusal, at } = options;
+	const topLevel = options.topLevel ?? at?.root === true;
 	const mapped = mapRefusal?.(refusal, {
 		type: at?.type ?? '',
 		field: at?.field ?? '',

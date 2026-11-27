@@ -1,4 +1,5 @@
 import {
+	CODE_UNAVAILABLE,
 	type CompiledPolicy,
 	evaluateField,
 	isLimixRefusal,
@@ -21,7 +22,7 @@ type Resolver = GraphQLFieldResolver<unknown, unknown>;
 
 /** What every guarded field of one schema shares. */
 export interface Guard {
-	readonly options: LimixGraxiaOptions<unknown>;
+	readonly options: LimixGraxiaOptions<object>;
 	/**
 	 * The policy held now (one read per call): `null` for a source holding none,
 	 * or a refusal (503, `policy-mismatch`) for a held policy that does not fit
@@ -43,7 +44,7 @@ export function makeGuard(
 	options: LimixGraxiaOptions<never>,
 	schema: GraphQLSchema,
 ): Guard {
-	const wide = options as LimixGraxiaOptions<unknown>;
+	const wide = options as LimixGraxiaOptions<object>;
 	const { policy } = wide;
 	if (!isPolicySource(policy)) return { options: wide, snapshot: () => policy };
 	const report = outageReporter(wide.onUnavailable ?? (() => {}));
@@ -64,7 +65,7 @@ export function makeGuard(
 			report(ok ? held : null);
 			return ok
 				? held
-				: new LimixRefusal('limix.errors.unavailable', 503, {
+				: new LimixRefusal(CODE_UNAVAILABLE, 503, {
 						reason: 'policy-mismatch',
 					});
 		},
@@ -83,10 +84,13 @@ async function enforce(
 	// Decided on this snapshot alone: a policy that lands while the claims are
 	// read was never checked against the schema, so it must not judge this call.
 	const policy =
-		held ??
-		new LimixRefusal('limix.errors.unavailable', 503, { reason: 'no-policy' });
+		held ?? new LimixRefusal(CODE_UNAVAILABLE, 503, { reason: 'no-policy' });
 	if (isLimixRefusal(policy))
-		throw refusalError(policy, options.mapRefusal, at, top);
+		throw refusalError(policy, {
+			mapRefusal: options.mapRefusal,
+			at,
+			topLevel: top,
+		});
 	const claims = await claimsOf(ctx, options.claims);
 	const decision = await evaluateField(policy, {
 		type: at.type,
@@ -99,7 +103,11 @@ async function enforce(
 		relations: relationsOf(ctx, options.relations),
 	});
 	if (!decision.allow)
-		throw refusalError(decision.refusal, options.mapRefusal, at, top);
+		throw refusalError(decision.refusal, {
+			mapRefusal: options.mapRefusal,
+			at,
+			topLevel: top,
+		});
 }
 
 /**
