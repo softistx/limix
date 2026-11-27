@@ -146,11 +146,12 @@ A request is judged by the full declared path, prefix included (`/admin/stats`).
 ### Several rules files on one app
 
 The innermost guard that owns a route judges it alone. An outer guard leaves a
-route to a later guard of its chain only when the route was declared behind that
-guard: the app the later guard was given declares the same route and its chain
-holds the guard. Otherwise the outer guard judges it, so a missing, misplaced or
-misconfigured inner guard never opens a route. A `limixGraphql` endpoint is left
-by every guard to its own field rules.
+route to another guard only when the guard right after it in the route's chain
+(no hook of any kind between them) is a `limixGuard` that the app it was given
+declares this route behind: the same route at the same exact path. Otherwise the
+outer guard judges it as well, and both guards must allow it (closed). So a
+missing, misplaced or misconfigured inner guard never opens a route. A
+`limixGraphql` endpoint is left by every guard to its own field rules.
 
 ```ts
 const app = alxia()
@@ -160,10 +161,10 @@ app.get('/health', ({ reply }) => reply(200, { ok: true }))
 limixGraphql(app, { schema, limix: outer })
 
 app.group('/console', (group) => {
-  const console = { policy: consoleRules, claims, app: group }
-  group.use(limixGuard(console)) // first in the group
+  const consoleGuard = { policy: consoleRules, claims, app: group }
+  group.use(limixGuard(consoleGuard)) // first in the group
   group.get('/users', ({ reply }) => reply(200, []))
-  return limixGraphql(group, { schema: consoleSchema, limix: console, path: '/graphql' })
+  return limixGraphql(group, { schema: consoleSchema, limix: consoleGuard, path: '/graphql' })
 })
 ```
 
@@ -174,16 +175,28 @@ against the console rules. An outer rule left for such a route is not taken:
 `checkRoutes` throws and the guard answers 503 `policy-mismatch`; move the rule
 to the group's file.
 
-- Put the group's guard first in the group: a middleware placed before it
-  answers without being judged.
+- Order matters: `limixGuard` goes last among the app's own middlewares and the
+  group's guard first in the group. A middleware between the two guards (a
+  cache that answers from a store, say) answers before the group's guard, so the
+  outer guard does not leave the route: both judge it (closed), and
+  `checkGuard(guard, app)` reports it (`a hook stands between this guard and the
+  group's guard`).
 - A group without its own guard is judged by the outer rules.
-- A plugin that carries a guard takes a prefix of its own: one without a prefix
-  gives its chain to the host routes declared after it, so its guard judges them
-  too.
-- Under a host prefix, a plugin's routes are declared unprefixed while requests
-  carry the prefix: write its rules with `global.basePath`. Its own
-  `limixGraphql` endpoint is then refused (403), because its guard cannot find
-  the prefixed definition; use a group there.
+- A guard used with a path (`group.use('/users', guard)`): alxia keeps the hook
+  on the routes the path reaches, with no `when`, so the group's guard takes those
+  routes (and answers 503 if it does not fit the group's other routes); the other
+  routes never run it and the outer rules judge them.
+- A guarded plugin is placed by its exact path. Mounted under a prefix it does
+  not know (inside a prefixed group, under a host prefix, or twice), the path of
+  the route differs from the plugin's own, so both guards judge it. Mount a
+  guarded plugin at the top level of the app, with a prefix of its own
+  (`alxia({ prefix: '/console' })`), or use a group.
+- A plugin without a prefix gives its chain, its guard included, to the host
+  routes declared after it, so that guard judges them too. They are never left
+  to it: the outer guard judges them, whatever handler they use.
+- Under a host prefix, rules for a plugin's own guard use `global.basePath`.
+  Its `limixGraphql` endpoint is then refused (403), because the guard cannot
+  find the prefixed definition; use a group there.
 
 ### Forks
 

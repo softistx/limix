@@ -1,5 +1,5 @@
 import type { CompiledPolicy } from '@softistx/limix';
-import { unguardedRoutes } from './endpoints';
+import { separatedGuards, unguardedRoutes } from './endpoints';
 import { alxiaOperations } from './operations';
 import type { RoutesOf } from './options';
 
@@ -158,6 +158,12 @@ export function checkGuard(guard: unknown, app: RoutesOf): void {
 	if (loose.length > 0) {
 		throw new TypeError(
 			`checkGuard(): routes that never run the guard and stay open: ${loose.join(', ')}. Put \`app.use(limixGuard({ ..., app }))\` before them, and give each guard the app it is used on`,
+		);
+	}
+	const apart = separatedGuards(app, guard);
+	if (apart.length > 0) {
+		throw new TypeError(
+			`checkGuard(): ${apart.map((route) => `${route}: a hook stands between this guard and the group's guard, so both judge it; put the group's guard first in the group and limixGuard last among the app's own middlewares`).join('\n- ')}`,
 		);
 	}
 }

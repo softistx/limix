@@ -14,6 +14,7 @@ const guardOfApp = new WeakMap<object, unknown>();
 const appOfGuard = new WeakMap<object, RoutesOf>();
 
 type Definition = RouteDefinition | SocketDefinition;
+type ChainHook = Definition['derive'][number];
 
 const handlerOf = (definition: Definition): object =>
 	'handler' in definition ? definition.handler : definition.handlers;
@@ -82,42 +83,75 @@ export function registerGuard(app: RoutesOf, middleware: object): void {
 const sameKind = (a: Definition, b: Definition): boolean =>
 	'handler' in a ? 'handler' in b && a.method === b.method : !('handler' in b);
 
+const isMiddleware = (hook: ChainHook, run: unknown): boolean =>
+	hook.kind === 'middleware' && (hook.run as unknown) === run;
+
+/**
+ * Whether `definition` was declared behind the registered guard `later`: the
+ * app `later` was given holds the definition itself, or the one a mount copied
+ * (same handler, kind, method, schema and exact path), and that definition's
+ * chain holds `later`. A route a prefixless plugin's guard merely leaked onto
+ * owns nothing of that guard.
+ */
+function ownedBy(definition: Definition, later: unknown): boolean {
+	if (typeof later !== 'function') return false;
+	const app = appOfGuard.get(later);
+	if (app === undefined) return false;
+	return [...app.routes, ...(app.sockets ?? [])].some(
+		(d) =>
+			(d === definition ||
+				(handlerOf(d) === handlerOf(definition) &&
+					sameKind(d, definition) &&
+					d.schema === definition.schema)) &&
+			definition.path === d.path &&
+			d.derive.some((hook) => isMiddleware(hook, later)),
+	);
+}
+
 /**
  * Whether the matched definition `definition`, reached through the guard `self`,
- * is left to a guard that runs after it, which alone judges it. All of this
- * holds, each checked on the definition itself: (1) its chain holds `self`, then
- * a middleware with no `when` that is another registered limix guard `later`, so
- * `later` runs for this request; (2) the app `later` was given declares a
- * definition with the same handler, kind and method, at the same path or the
- * path without a host prefix, so the route really was declared behind `later`
- * (an unprefixed plugin's guard that merely leaked onto a host route owns
- * nothing); (3) that definition's chain holds `later`. Otherwise `self` judges:
- * fail closed.
+ * is left to a guard that runs right after it, which alone judges it. All of
+ * this holds, each checked on the definition itself: (1) the very next hook of
+ * its chain after `self` is a middleware with no `when` that is another
+ * registered limix guard `later` (a hook of any kind between them, a cache that
+ * answers for one, and both guards judge); (2) the app `later` was given
+ * declares this route (`ownedBy`); (3) that definition's chain holds `later`.
+ * Otherwise `self` judges: fail closed.
  */
 export function judgedLater(definition: Definition, self: unknown): boolean {
 	const chain = definition.derive;
-	const at = chain.findIndex(
-		(hook) => hook.kind === 'middleware' && (hook.run as unknown) === self,
-	);
-	if (at < 0) return false;
-	for (const hook of chain.slice(at + 1)) {
-		if (hook.kind !== 'middleware' || hook.when !== undefined) continue;
-		const later: unknown = hook.run;
-		if (later === self || typeof later !== 'function') continue;
-		const app = appOfGuard.get(later);
-		if (app === undefined) continue;
-		const owns = [...app.routes, ...(app.sockets ?? [])].some(
-			(d) =>
-				handlerOf(d) === handlerOf(definition) &&
-				sameKind(d, definition) &&
-				(definition.path === d.path || definition.path.endsWith(d.path)) &&
-				d.derive.some(
-					(h) => h.kind === 'middleware' && (h.run as unknown) === later,
-				),
-		);
-		if (owns) return true;
-	}
-	return false;
+	const at = chain.findIndex((hook) => isMiddleware(hook, self));
+	const next = at < 0 ? undefined : chain[at + 1];
+	if (next === undefined || next.kind !== 'middleware') return false;
+	if (next.when !== undefined || (next.run as unknown) === self) return false;
+	return ownedBy(definition, next.run);
+}
+
+/**
+ * The routes and sockets of `app` that a registered guard of the chain owns
+ * after `self` but not right after it: a hook stands between, so both guards
+ * judge the route.
+ */
+export function separatedGuards(app: RoutesOf, self: unknown): string[] {
+	return [...app.routes, ...(app.sockets ?? [])]
+		.filter((definition) => {
+			const chain = definition.derive;
+			const at = chain.findIndex((hook) => isMiddleware(hook, self));
+			return (
+				at >= 0 &&
+				!judgedLater(definition, self) &&
+				chain
+					.slice(at + 1)
+					.some(
+						(hook) =>
+							hook.kind === 'middleware' &&
+							hook.when === undefined &&
+							(hook.run as unknown) !== self &&
+							ownedBy(definition, hook.run),
+					)
+			);
+		})
+		.map(label);
 }
 
 /** Whether a guard of a group or plugin judges `definition` of `app` instead of the guard of `app`. */
