@@ -1,18 +1,18 @@
 import { ALGORITHMS } from '@softistx/limix/remote';
 import { PublishError } from '../errors';
 
-/** The signature algorithms a rules token may use: asymmetric only. */
-export const ALGS = ALGORITHMS;
+/** The signature algorithms a rules token may use: asymmetric only (core's list). */
+export { ALGORITHMS };
 
 /** One of the four asymmetric algorithms `@softistx/limix/remote` accepts. */
 export type Alg = (typeof ALGORITHMS)[number];
 
 /** Refuses an algorithm that is not one of the four, with the allowed list. */
 export function assertAlg(alg: unknown): asserts alg is Alg {
-	if (!ALGS.includes(alg as Alg)) {
+	if (!ALGORITHMS.includes(alg as Alg)) {
 		throw new PublishError(
 			'OPTIONS',
-			`alg ${JSON.stringify(alg)} is not allowed: use ${ALGS.join(', ')} (asymmetric only; a shared secret cannot tell a publisher from a reader)`,
+			`alg ${JSON.stringify(alg)} is not allowed: use ${ALGORITHMS.join(', ')} (asymmetric only; a shared secret cannot tell a publisher from a reader)`,
 		);
 	}
 }

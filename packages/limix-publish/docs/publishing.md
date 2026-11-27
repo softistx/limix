@@ -55,7 +55,9 @@ export const token = await signRules(rules, {
 - `kid` names the key in the key set; it is required.
 - `audience` must contain the reader's `audience`; `issuer` must equal the
   reader's `issuer` when the reader sets one.
-- `conditions` lists the predicates the rules' `when` may name. Without it only
+- `conditions` lists the predicates the rules' `when` may name, as an array of
+  names or as the predicate map a reader registers (its keys are used), so one
+  object can feed both. Without it only
   the structure is checked; give it so a typo fails at signing and not on every
   reader. Give `limix-publish check` the same list (`--conditions`), or it
   refuses any rule that names a condition, as a reader with none registered
@@ -150,7 +152,7 @@ Keep the `kid` unique: `jwksOf` refuses a duplicate.
 
 ## `exp` and the reader's `maxStaleMs`
 
-`expiresIn` (default one day) sets `exp`. A reader keeps serving its last good
+`expiresIn` (default one day, `86400` seconds) sets `exp`. A reader keeps serving its last good
 copy through an outage until `exp + maxStaleMs` (default 24 hours), then fails
 closed: every request is refused with `limix.errors.unavailable`. So the time a
 reader survives a dead publisher is `expiresIn + maxStaleMs`.
