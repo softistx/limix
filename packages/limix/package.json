@@ -1,6 +1,6 @@
 {
 	"name": "@softistx/limix",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"description": "A policy engine for REST and GraphQL: rules, relations through a port, coverage, signed remote rules",
 	"license": "MIT",
 	"type": "module",
