@@ -1,6 +1,7 @@
 export {
-	type CheckIssue,
-	checkRulesAgainstModel,
+	checkModel,
+	type ModelIssue,
+	type ModelIssueKind,
 	type ModelLike,
 } from './check';
 export {

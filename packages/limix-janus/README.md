@@ -26,8 +26,8 @@ declarations import without extensions, so `nodenext` is not supported.
 | Export | What it is |
 | --- | --- |
 | `janusRelations({ access, subjectOf?, ctxOf? })` | A `RelationChecker` over `access.can`: one `can(subject, relation, { type, id })` per query, answers in order |
-| `checkRulesAgainstModel(policy, model)` | Lists every relation term of a compiled policy whose `type` or `relation` the janus model does not declare; empty means consistent |
-| types `JanusRelationsOptions`, `CheckIssue`, `ModelLike` | The shapes the functions take and return |
+| `checkModel(policy, model)` | Lists every relation term of a compiled policy whose `type` or `relation` the janus model does not declare; empty means consistent |
+| types `JanusRelationsOptions`, `ModelIssue`, `ModelIssueKind`, `ModelLike` | The shapes the functions take and return |
 | `@softistx/limix-janus/package.json` | The package manifest |
 
 Wire it into `evaluateRest` (copy-paste, with a janus model and the in-memory
@@ -40,7 +40,7 @@ import {
   permissions,
 } from '@softistx/janus/permissions'
 import { compilePolicy, definePolicy, evaluateRest } from '@softistx/limix'
-import { checkRulesAgainstModel, janusRelations } from '@softistx/limix-janus'
+import { checkModel, janusRelations } from '@softistx/limix-janus'
 
 const model = defineModel({
   subjects: ['user'],
@@ -65,7 +65,7 @@ const policy = compilePolicy(definePolicy({
 }))
 
 // At startup: a typo in the rules fails here, not as a janus error per request.
-const issues = checkRulesAgainstModel(policy, model)
+const issues = checkModel(policy, model)
 if (issues.length) throw new Error(issues.map((i) => `${i.path}: ${i.message}`).join('\n'))
 
 const decision = await evaluateRest(policy, {
