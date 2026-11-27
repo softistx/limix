@@ -87,6 +87,16 @@ describe('staleRules, REST', () => {
 		).toEqual([]);
 	});
 
+	it('does not report a HEAD rule the GET operation serves', () => {
+		expect(
+			messages({ rest: { 'HEAD /notes': rule, 'HEAD /nope': rule } }, [
+				rest('GET', '/notes'),
+			]),
+		).toEqual([
+			"rules.yaml: rest['HEAD /nope'] applies to no operation of openapi.yaml (no HEAD route matches /nope)",
+		]);
+	});
+
 	it('judges nothing without an OpenAPI input', () => {
 		const issues = staleRules(rules({ rest: { 'GET /nope': rule } }), {
 			sources: SOURCES,
@@ -165,17 +175,20 @@ describe('staleRules, the two transports and conditions', () => {
 		).toEqual([]);
 	});
 
-	it('returns nothing when the rules do not compile', () => {
+	it('reports a file that does not compile as its own issue', () => {
 		const broken = parseRules({
 			limix: 1,
 			global: { unmatched: 'deny' },
 			rest: { 'GET /nope': { public: true, roles: [['admin']] } },
 		});
-		expect(
-			staleRules(broken, {
-				rest: NOTES.filter((o) => o.kind === 'rest'),
-				sources: SOURCES,
-			}),
-		).toEqual([]);
+		const issues = staleRules(broken, {
+			rest: NOTES.filter((o) => o.kind === 'rest'),
+			sources: SOURCES,
+		});
+		expect(issues).toHaveLength(1);
+		expect(issues[0]?.kind).toBe('compile');
+		expect(issues[0]?.message).toStartWith(
+			'rules.yaml does not compile, its rules were not judged: ',
+		);
 	});
 });

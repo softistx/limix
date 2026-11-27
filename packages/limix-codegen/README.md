@@ -63,9 +63,10 @@ version), so `--check` is a plain comparison. Exit codes: 0 done, 1 refused (or
 
 With `--rules` and an input to judge them against, `generate` also reports the
 rules that reach no operation (a typo, a removed route, a rule shadowed by an
-earlier one): a warning on stderr, and a failure under `--check`. From 0.3 an
-exact key that names nothing fails `--check` too: fix the key, remove it, or add
-the operation to the spec.
+earlier one, an unknown type or field): a warning on stderr, and a failure under
+`--check`, which on 0.2 judged no rules. Fix the rule, remove it, or add the
+operation to the spec. A rules file that does not compile is reported and fails
+`--check` too.
 
 ## Writing rules
 

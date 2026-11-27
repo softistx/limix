@@ -234,7 +234,7 @@ graphql:
 		expect(starterRules(operations, 'yaml')).toContain('  "/notes":\n    GET:');
 	});
 
-	it('orders a static path before a capture before a wildcard, as nested does', () => {
+	it('orders paths segment by segment, a static one before a capture, as nested does', () => {
 		const paths = ['/f/*rest', '/notes/:id', '/notes/new', '/notes'].map(
 			(path): Operation => ({ kind: 'rest', method: 'GET', path }),
 		);

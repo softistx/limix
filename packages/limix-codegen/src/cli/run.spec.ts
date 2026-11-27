@@ -216,6 +216,32 @@ describe('generate, stale rules', () => {
 		});
 	});
 
+	it('reports a file that does not compile, exit 0 plain and 1 under --check', async () => {
+		const broken = `limix: 1
+global:
+  unmatched: deny
+rest:
+  "GET /notes":
+    public: true
+    roles: [[admin]]
+`;
+		await withRules(broken, async (rules) => {
+			const t = fakeIo(INPUTS);
+			expect(await run(['generate', ...FLAGS, '--rules', rules], t.io)).toBe(0);
+			expect(t.files.has('gen.ts')).toBe(true);
+			expect(t.err).toHaveLength(1);
+			expect(t.err[0]).toContain(
+				`${rules} does not compile, its rules were not judged: `,
+			);
+			t.err.length = 0;
+			expect(
+				await run(['generate', ...FLAGS, '--rules', rules, '--check'], t.io),
+			).toBe(1);
+			expect(t.err).toHaveLength(1);
+			expect(t.err[0]).not.toContain('stale rule(s)');
+		});
+	});
+
 	it('judges nothing when only the rules are given', async () => {
 		await withRules(STALE_RULES, async (rules) => {
 			const t = fakeIo();

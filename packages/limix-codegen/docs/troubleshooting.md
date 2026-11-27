@@ -38,17 +38,19 @@ not checked.
 
 ## The CLI
 
-### `<rules>: rest['<key>'] applies to no operation of <openapi> (no <METHOD> route matches <path>)`
+### `<rules>: <where> applies to no operation of <openapi> (no <METHOD> route matches <path>)`
 
 **When:** `generate` prints it (a warning) or `generate --check` exits 1 with
-`<n> stale rule(s)`.
+`<n> stale rule(s)`. `<where>` is how the rule is written: `rest['GET /x']` (flat)
+or `rest['/x'].GET` (nested). A method `*` rule prints `(no route matches <path>)`
+without a method.
 **Why:** no operation of the OpenAPI spec reaches that rule: a typo, a route that
 was removed or renamed, a `global.basePath` written into the key, or a wildcard
-pattern no operation falls under.
+pattern no operation falls under. A `HEAD` rule is reached by a `GET` operation.
 **Fix:** correct the key, remove the rule, or add the operation to the spec. A
-route the spec deliberately leaves out (undocumented, or served by another
-spec): add it to the spec, or pass every spec with a repeated `--openapi`; the
-rule is judged against the operations you give.
+route the server serves but the spec leaves out: add it to the spec, or pass
+every spec with a repeated `--openapi`; the rule is judged against the
+operations you give.
 
 ```yaml
 rest:
@@ -56,9 +58,10 @@ rest:
     authenticated: true
 ```
 
-### `<rules>: rest['<path>'].<METHOD> is shadowed by <METHOD> <path> above it: it never applies`
+### `<rules>: <where> is shadowed by <METHOD> <path> above it: it never applies`
 
 **When:** the same run, for a rule an earlier rule always takes first.
+`<where>` is `rest['GET /x']` or `rest['/x'].GET`.
 **Why:** rules are first-match in document order, and the earlier pattern
 (`/notes/:id`) matches every path of the later one (`/notes/new`).
 **Fix:** move the specific rule above the general one.
@@ -71,23 +74,34 @@ rest:
     authenticated: true
 ```
 
-### `<rules>: graphql['<Type.field>'] names no type of <schema>`
+### `<rules>: <where> names no type of <schema>`
 
 **When:** the same run, for a GraphQL rule whose type is not in the SDL.
+`<where>` is `graphql['Nope.*']` (a flat key) or `graphql.Nope.field` (nested).
 **Why:** a typo (`Nope.*`), a type that was renamed or removed, or an SDL file
 missing from the `--graphql` flags (give every file).
 **Fix:** correct the type, remove the rule, or pass the file that declares it.
 
-### `<rules>: graphql['<Type.field>'] names no field of <Type> in <schema>`
+### `<rules>: <where> names no field of <Type> in <schema>`
 
 **When:** the same run, for a rule whose type exists but has no such field.
+`<where>` is `graphql['Query.you']` (flat) or `graphql.Query.you` (nested).
 **Fix:** correct the field or remove the rule. A `Type.*` rule on a type of the
 schema is never reported.
 
+### `<rules> does not compile, its rules were not judged: <why>`
+
+**When:** `generate` prints it in both modes; with `--check` it exits 1.
+**Why:** the rules file fails `compilePolicy` (a contradictory rule, a rule
+named twice), so nothing could be judged against the operations. Without
+`--check` the types file is still written.
+**Fix:** fix what `<why>` says; the [core troubleshooting](../../limix/docs/troubleshooting.md)
+has each message.
+
 ### `<n> stale rule(s): fix or remove them, or add the operation to the spec`
 
-**When:** the last line of `generate --check` when any of the four messages
-above was printed (exit 1).
+**When:** the last line of `generate --check` when any of the four stale
+messages above was printed (exit 1).
 **Fix:** act on each line above it. Without `--check` the same lines are
 warnings and the exit code stays 0. REST rules are judged only with `--openapi`
 and GraphQL rules only with `--graphql`: leave an input out to leave its rules

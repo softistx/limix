@@ -1,6 +1,8 @@
 import {
 	type CompiledPolicy,
+	type ConditionMap,
 	compilePolicy,
+	type Register,
 	type Rules,
 	RulesError,
 } from '@softistx/limix';
@@ -24,7 +26,8 @@ export interface StaleInput {
 
 /** A rule that reaches nothing, as one line for the reader. */
 export interface StaleIssue {
-	kind: 'rest' | 'graphql';
+	/** `compile`: the file does not compile, so nothing was judged. */
+	kind: 'rest' | 'graphql' | 'compile';
 	/** Where the rule is written: `rest['GET /notes']`, `rest['/notes'].GET`, `graphql['Query.me']`. */
 	where: string;
 	message: string;
@@ -48,29 +51,40 @@ const restWhere = (policy: CompiledPolicy, stale: StaleRule): string => {
  *
  * Judged per input: REST rules only when OpenAPI operations are given, GraphQL
  * rules only when GraphQL ones are. A condition name is stubbed so a file that
- * names conditions compiles; a file that does not compile at all is left to
- * `compilePolicy` and judged by nothing here.
+ * names conditions compiles; a file that does not compile at all is reported as
+ * one `compile` issue and judged by nothing else. A `HEAD` rule is reached by a
+ * `GET` operation, which a server answers `HEAD` for.
  */
 export function staleRules(rules: Rules, input: StaleInput): StaleIssue[] {
 	const rest = input.rest ?? [];
 	const graphql = input.graphql ?? [];
 	if (rest.length === 0 && graphql.length === 0) return [];
-	const conditions = Object.fromEntries(
+	// The program's `Register` may narrow the names; these come from this file.
+	const conditions: ConditionMap<Register> = Object.fromEntries(
 		rulesNames(rules).conditions.map((name) => [name, () => true]),
-	);
+	) as ConditionMap<Register>;
 	let policy: CompiledPolicy;
 	try {
-		// The generated `Register` of the program may narrow `conditions`: the
-		// names come from this very file.
-		policy = compilePolicy(rules, { conditions } as never);
+		policy = compilePolicy(rules, { conditions });
 	} catch (error) {
-		if (error instanceof RulesError) return [];
-		throw error;
+		if (!(error instanceof RulesError)) throw error;
+		return [
+			{
+				kind: 'compile',
+				where: input.sources.rules,
+				message: `${input.sources.rules} does not compile, its rules were not judged: ${error.message}`,
+			},
+		];
 	}
 	const issues: StaleIssue[] = [];
 	const at = `${input.sources.rules}:`;
 	const types = new Set(graphql.map((operation) => operation.type));
-	for (const stale of coverage(policy, [...rest, ...graphql]).stale) {
+	// A server answers `HEAD` from the `GET` route, so each `GET` also stands
+	// for its `HEAD`: a `HEAD` rule is reached when a `GET` operation matches.
+	const heads = rest
+		.filter((operation) => operation.method.toUpperCase() === 'GET')
+		.map((operation) => ({ ...operation, method: 'HEAD' }));
+	for (const stale of coverage(policy, [...rest, ...heads, ...graphql]).stale) {
 		if (stale.kind === 'rest') {
 			const where = restWhere(policy, stale);
 			const message = stale.shadowedBy

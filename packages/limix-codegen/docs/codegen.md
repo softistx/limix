@@ -95,7 +95,12 @@ reported (it only says every field has a rule of its own).
 
 An exact key that names nothing (`"GET /notez"`) is reported too, which the
 types catch only in an inline `definePolicy` literal: a rules file loaded from
-YAML is checked here.
+YAML is checked here. A `HEAD` rule is reached by a `GET` operation, since a
+server answers `HEAD` from the `GET` route.
+
+A rules file that fails `compilePolicy` cannot be judged. It is reported as
+`rules.yaml does not compile, its rules were not judged: <why>` in both modes:
+a warning without `--check` (the file is still written), exit 1 with it.
 
 ## OpenAPI conversion
 
@@ -142,6 +147,10 @@ graphql:
   "Query.me":
     authenticated: true
 ```
+
+From code, `starterRules(operations, 'yaml', { flat: true })` returns the same
+text (`'json'` for JSON); the third argument is optional and the two-argument
+call writes the nested form.
 
 The two forms compile to the same policy; flat reads better once a file grows
 and diffs by operation. The file is validated and

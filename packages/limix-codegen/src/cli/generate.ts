@@ -62,9 +62,10 @@ export async function generateCommand(
 			);
 		}
 		report();
-		if (stale.length > 0) {
+		const rules = stale.filter((issue) => issue.kind !== 'compile').length;
+		if (rules > 0) {
 			io.stderr(
-				`${stale.length} stale rule(s): fix or remove them, or add the operation to the spec\n`,
+				`${rules} stale rule(s): fix or remove them, or add the operation to the spec\n`,
 			);
 		}
 		if (same && stale.length === 0) io.stdout(`${out} is up to date\n`);
