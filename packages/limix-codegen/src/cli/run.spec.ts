@@ -118,6 +118,135 @@ describe('generate', () => {
 	});
 });
 
+const STALE_RULES = `limix: 1
+global:
+  unmatched: deny
+rest:
+  "GET /notes":
+    authenticated: true
+  "DELETE /files/*":
+    authenticated: true
+graphql:
+  Query.me:
+    authenticated: true
+  Query.you:
+    authenticated: true
+  "Nope.*":
+    authenticated: true
+`;
+const STALE_LINES = [
+	"rules.yaml: rest['DELETE /files/*'] applies to no operation of openapi.yaml (no DELETE route matches /files/*)\n",
+	"rules.yaml: graphql['Query.you'] names no field of Query in schema.graphql\n",
+	"rules.yaml: graphql['Nope.*'] names no type of schema.graphql\n",
+];
+
+describe('generate, stale rules', () => {
+	// The rules file is read from disk, as before: write it to a real file.
+	async function withRules<T>(
+		text: string,
+		body: (rules: string) => Promise<T>,
+	): Promise<T> {
+		const dir = await mkdtemp(join(tmpdir(), 'limix-codegen-'));
+		try {
+			const path = join(dir, 'rules.yaml');
+			await Bun.write(path, text);
+			return await body(path);
+		} finally {
+			await rm(dir, { recursive: true });
+		}
+	}
+	const named = (lines: string[], rules: string) =>
+		lines.map((line) => line.replace('rules.yaml:', `${rules}:`));
+
+	it('warns on stderr, writes the file and exits 0 without --check', async () => {
+		await withRules(STALE_RULES, async (rules) => {
+			const t = fakeIo(INPUTS);
+			const args = ['generate', ...FLAGS, '--rules', rules];
+			expect(await run(args, t.io)).toBe(0);
+			expect(t.files.has('gen.ts')).toBe(true);
+			expect(t.err).toEqual(named(STALE_LINES, rules));
+			expect(t.out).toEqual(['wrote gen.ts\n']);
+		});
+	});
+
+	it('--check exits 1 with the messages and a count, writing nothing', async () => {
+		await withRules(STALE_RULES, async (rules) => {
+			const t = fakeIo(INPUTS);
+			await run(['generate', ...FLAGS, '--rules', rules], t.io);
+			t.err.length = 0;
+			t.out.length = 0;
+			const code = await run(
+				['generate', ...FLAGS, '--rules', rules, '--check'],
+				t.io,
+			);
+			expect(code).toBe(1);
+			expect(t.err).toEqual([
+				...named(STALE_LINES, rules),
+				'3 stale rule(s): fix or remove them, or add the operation to the spec\n',
+			]);
+			expect(t.out).toEqual([]);
+		});
+	});
+
+	it('--check reports an out-of-date file and the stale rules together', async () => {
+		await withRules(STALE_RULES, async (rules) => {
+			const t = fakeIo({ ...INPUTS, 'gen.ts': 'old\n' });
+			const code = await run(
+				['generate', ...FLAGS, '--rules', rules, '--check'],
+				t.io,
+			);
+			expect(code).toBe(1);
+			expect(t.err[0]).toBe(
+				'gen.ts is out of date: run limix-codegen generate with the same flags and commit it\n',
+			);
+			expect(t.err).toHaveLength(5);
+			expect(t.writes).toEqual([]);
+		});
+	});
+
+	it('--check passes on rules that all reach an operation', async () => {
+		await withRules(FIXTURE_RULES_YAML, async (rules) => {
+			const t = fakeIo(INPUTS);
+			await run(['generate', ...FLAGS, '--rules', rules], t.io);
+			expect(t.err).toEqual([]);
+			expect(
+				await run(['generate', ...FLAGS, '--rules', rules, '--check'], t.io),
+			).toBe(0);
+			expect(t.out.at(-1)).toBe('gen.ts is up to date\n');
+		});
+	});
+
+	it('judges nothing when only the rules are given', async () => {
+		await withRules(STALE_RULES, async (rules) => {
+			const t = fakeIo();
+			expect(await run(['generate', '--rules', rules, '--check'], t.io)).toBe(
+				1,
+			);
+			expect(t.err.join('')).not.toContain('stale');
+			expect(t.err.join('')).not.toContain('applies to no operation');
+		});
+	});
+
+	it('judges only the transport whose input is given', async () => {
+		await withRules(STALE_RULES, async (rules) => {
+			const t = fakeIo(INPUTS);
+			await run(
+				[
+					'generate',
+					'--openapi',
+					'openapi.yaml',
+					'--out',
+					'g.ts',
+					'--rules',
+					rules,
+				],
+				t.io,
+			);
+			expect(t.err).toEqual(named(STALE_LINES.slice(0, 1), rules));
+		});
+	});
+});
+
 describe('generate, refusals', () => {
 	it('refuses an --out that is an input, exit 2', async () => {
 		const t = fakeIo(INPUTS);
@@ -206,6 +335,27 @@ describe('init', () => {
 		expect(t.files.get('r.json')?.startsWith('{')).toBe(true);
 		await run(['init', '--openapi', 'openapi.yaml'], t.io);
 		expect(t.files.has('rules.yaml')).toBe(true);
+	});
+
+	it('writes flat keys with --flat, in YAML and JSON', async () => {
+		const t = fakeIo(INPUTS);
+		const base = [
+			'init',
+			'--graphql',
+			'schema.graphql',
+			'--openapi',
+			'openapi.yaml',
+		];
+		expect(await run([...base, '--flat', '--rules', 'f.yaml'], t.io)).toBe(0);
+		const yaml = t.files.get('f.yaml') ?? '';
+		expect(yaml).toContain('  "GET /notes":\n    authenticated: true');
+		expect(yaml).toContain('  "Query.me":\n    authenticated: true');
+		expect(await run([...base, '--flat', '--rules', 'f.json'], t.io)).toBe(0);
+		expect(Object.keys(JSON.parse(t.files.get('f.json') ?? '').rest)).toContain(
+			'DELETE /notes/:id',
+		);
+		expect(await run([...base, '--rules', 'n.yaml'], t.io)).toBe(0);
+		expect(t.files.get('n.yaml')).toContain('  "/notes":\n    GET:');
 	});
 
 	it('refuses no input and an unknown extension with exit 2', async () => {

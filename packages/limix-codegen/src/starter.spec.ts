@@ -154,3 +154,92 @@ describe('starterRules, read-back', () => {
 		).toThrow(CodegenError);
 	});
 });
+
+describe('starterRules, flat', () => {
+	const flat = { flat: true };
+
+	it('writes one key per operation, paths then methods in schema order', () => {
+		expect(starterRules(operations, 'yaml', flat)).toBe(
+			`# yaml-language-server: $schema=node_modules/@softistx/limix/schema/rules.schema.json
+# Written once by limix-codegen init: every operation needs a signed-in caller until you write its rule.
+limix: 1
+global:
+  unmatched: deny
+rest:
+  "GET /notes":
+    authenticated: true
+  "POST /notes":
+    authenticated: true
+  "DELETE /notes/:id":
+    authenticated: true
+graphql:
+  "Query.all":
+    authenticated: true
+  "Query.me":
+    authenticated: true
+  "Mutation.createNote":
+    authenticated: true
+`,
+		);
+	});
+
+	it('writes the same document in JSON', () => {
+		expect(JSON.parse(starterRules(operations, 'json', flat))).toEqual({
+			limix: 1,
+			global: { unmatched: 'deny' },
+			rest: {
+				'GET /notes': rule,
+				'POST /notes': rule,
+				'DELETE /notes/:id': rule,
+			},
+			graphql: {
+				'Query.all': rule,
+				'Query.me': rule,
+				'Mutation.createNote': rule,
+			},
+		});
+	});
+
+	it('reads back and compiles to the policy of the nested file', async () => {
+		const flatPolicy = compilePolicy(
+			await loaded(starterRules(operations, 'yaml', flat), 'f.yaml'),
+		);
+		const nestedPolicy = compilePolicy(
+			await loaded(starterRules(operations, 'yaml'), 'n.yaml'),
+		);
+		const shape = (p: typeof flatPolicy) =>
+			p.restRoutes.map((r) => [r.method, r.pattern, r.rule]);
+		expect(shape(flatPolicy)).toEqual(shape(nestedPolicy));
+		const gql = (p: typeof flatPolicy) =>
+			Object.entries(p.graphql ?? {}).map(([type, fields]) => [
+				type,
+				Object.entries(fields).map(([f, e]) => [f, e.rule]),
+			]);
+		expect(gql(flatPolicy).sort()).toEqual(gql(nestedPolicy).sort());
+	});
+
+	it('keeps a path with a quote and a backslash as a flat key', async () => {
+		const path = '/a\\"b';
+		const rules = await loaded(
+			starterRules([{ kind: 'rest', method: 'GET', path }], 'yaml', flat),
+			'q.yaml',
+		);
+		expect(Object.keys(rules.rest ?? {})).toEqual([`GET ${path}`]);
+	});
+
+	it('leaves the two-argument call as it was', () => {
+		expect(starterRules(operations, 'yaml')).toBe(
+			starterRules(operations, 'yaml', { flat: false }),
+		);
+		expect(starterRules(operations, 'yaml')).toContain('  "/notes":\n    GET:');
+	});
+
+	it('orders a static path before a capture before a wildcard, as nested does', () => {
+		const paths = ['/f/*rest', '/notes/:id', '/notes/new', '/notes'].map(
+			(path): Operation => ({ kind: 'rest', method: 'GET', path }),
+		);
+		const text = starterRules(paths, 'yaml', flat);
+		const order = [...text.matchAll(/^ {2}"GET ([^"]+)":$/gm)].map((m) => m[1]);
+		expect(order).toEqual(['/f/*rest', '/notes', '/notes/new', '/notes/:id']);
+	});
+});

@@ -9,11 +9,13 @@ const NOTE =
 	'# Written once by limix-codegen init: every operation needs a signed-in caller until you write its rule.';
 
 type Rule = { authenticated: true };
+/** A section: a key and a rule per method or field (nested), or a rule per flat key. */
+type Section = Record<string, Rule | Record<string, Rule>>;
 type Document = {
 	limix: 1;
 	global: { unmatched: 'deny' };
-	rest?: Record<string, Record<string, Rule>>;
-	graphql?: Record<string, Record<string, Rule>>;
+	rest?: Section;
+	graphql?: Section;
 };
 
 const RULE: Rule = { authenticated: true };
@@ -87,18 +89,34 @@ function graphqlDocument(
 	return out;
 }
 
+/** One key per operation, in the order the nested form lists them: `GET /notes`, `Query.me`. */
+function flatten(
+	nested: Record<string, Record<string, Rule>>,
+	join: (key: string, member: string) => string,
+): Section {
+	const out: Section = {};
+	for (const [key, members] of Object.entries(nested)) {
+		for (const member of Object.keys(members)) out[join(key, member)] = RULE;
+	}
+	return out;
+}
+
 function yamlOf(document: Document): string {
 	const lines = [YAML_HINT, NOTE, 'limix: 1', 'global:', '  unmatched: deny'];
 	const section = (
 		name: string,
-		entries: Record<string, Record<string, Rule>>,
+		entries: Section,
 		memberOf: (key: string) => string,
 	) => {
 		lines.push(`${name}:`);
-		for (const [key, members] of Object.entries(entries)) {
+		for (const [key, value] of Object.entries(entries)) {
 			lines.push(`  ${JSON.stringify(key)}:`);
-			for (const member of Object.keys(members)) {
-				lines.push(`    ${memberOf(member)}:`, '      authenticated: true');
+			// A flat key holds the rule itself, a nested one a rule per member.
+			if (value === RULE) lines.push('    authenticated: true');
+			else {
+				for (const member of Object.keys(value)) {
+					lines.push(`    ${memberOf(member)}:`, '      authenticated: true');
+				}
 			}
 		}
 	};
@@ -112,13 +130,23 @@ function yamlOf(document: Document): string {
  * A rules file to start from: every REST operation and every GraphQL root
  * field gets `authenticated: true` under `unmatched: deny`. It is validated
  * and compiled before it is returned, so a broken conversion fails here.
+ *
+ * `flat` writes one key per operation (`"GET /notes"`, `"Query.me"`) instead of
+ * a path or a type holding its methods or fields; the rules are the same.
  */
 export function starterRules(
 	operations: readonly Operation[],
 	format: 'yaml' | 'json',
+	options: { flat?: boolean } = {},
 ): string {
-	const rest = restDocument(operations);
-	const graphql = graphqlDocument(operations);
+	const nestedRest = restDocument(operations);
+	const nestedGraphql = graphqlDocument(operations);
+	const rest: Section = options.flat
+		? flatten(nestedRest, (path, method) => `${method} ${path}`)
+		: nestedRest;
+	const graphql: Section = options.flat
+		? flatten(nestedGraphql, (type, field) => `${type}.${field}`)
+		: nestedGraphql;
 	const document: Document = {
 		limix: 1,
 		global: { unmatched: 'deny' },
