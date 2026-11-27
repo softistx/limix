@@ -57,6 +57,29 @@
         "graphql",
       ],
     },
+    "packages/limix-codegen": {
+      "name": "@softistx/limix-codegen",
+      "version": "0.0.0",
+      "bin": {
+        "limix-codegen": "./dist/cli/main.js",
+      },
+      "devDependencies": {
+        "@softistx/limix": "workspace:^",
+        "@softistx/limix-graxia": "workspace:^",
+        "@types/bun": "^1.4.5",
+        "graphql": "^17.1.0",
+      },
+      "peerDependencies": {
+        "@softistx/limix": "workspace:^",
+        "@softistx/limix-graxia": "workspace:^",
+        "graphql": "^17.1.0",
+        "typescript": "^6.0.3 || ^7.0.0",
+      },
+      "optionalPeers": [
+        "@softistx/limix-graxia",
+        "graphql",
+      ],
+    },
     "packages/limix-graxia": {
       "name": "@softistx/limix-graxia",
       "version": "0.0.0",
@@ -191,6 +214,8 @@
     "@softistx/limix": ["@softistx/limix@workspace:packages/limix"],
 
     "@softistx/limix-alxia": ["@softistx/limix-alxia@workspace:packages/limix-alxia"],
+
+    "@softistx/limix-codegen": ["@softistx/limix-codegen@workspace:packages/limix-codegen"],
 
     "@softistx/limix-graxia": ["@softistx/limix-graxia@workspace:packages/limix-graxia"],
 

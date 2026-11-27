@@ -264,6 +264,55 @@ admits every caller, so it cannot be combined with `roles`, `permissions`,
 `when` or `relations` either, which would narrow who may reach the rule:
 `compilePolicy` throws, on REST and GraphQL alike.
 
+## Typed operations and names
+
+`definePolicy` and `compilePolicy` read a `Register` interface that a generated
+file fills, so a typo in a path, a method, a GraphQL type or field in a
+`definePolicy` literal, or a name in the `conditions` map, fails to compile. [`@softistx/limix-codegen`](../../limix-codegen/docs/codegen.md)
+writes that file from the API's OpenAPI document and GraphQL schema and from the
+rules file:
+
+```ts
+// src/generated/limix.ts (generated)
+declare module '@softistx/limix' {
+  interface Register {
+    rest: 'GET /notes' | 'GET /notes/:id'
+    graphql: 'Query.me'
+    permission: 'notes:read'
+    role: 'admin'
+    condition: 'workingHours'
+  }
+}
+```
+
+```ts
+definePolicy({
+  limix: 1,
+  global: { unmatched: 'deny' },
+  // error: `/notez` is not an operation of the API
+  rest: { '/notez': { GET: { authenticated: true } } },
+})
+```
+
+`Permission`, `Role`, `ConditionName`, `RestOperationName` and
+`GraphqlOperationName` give the registered unions to your own code, and
+`TypedRules` and `ConditionMap` are what `definePolicy` and the `conditions`
+option of `compilePolicy` take. Nothing is registered by default: until a
+generated file is in your program, every type is what it was (`string`, `Rules`).
+
+What is checked, and what is not:
+
+- A refusal holds only in an inline object literal given to `definePolicy`. A
+  variable, a spread, an escaped `\*` key or a `{` key is accepted unchecked, and
+  so is a key with a wildcard or a `{...}` group, which names several routes.
+- Only the keys of the `conditions` map given to `compilePolicy` are checked,
+  not the `when` names inside the rules. A missing condition is still a
+  `RulesError` at run time.
+- The rule bodies (`permissions`, `roles`, `when`) are not narrowed.
+- A value already typed `Rules`, such as the output of `parseRules`, is passed to
+  `compilePolicy` directly. It does not go through `definePolicy` once graphql
+  is registered.
+
 ## What was removed from `@softistx/security` 5
 
 | Was | Now |

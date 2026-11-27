@@ -15,6 +15,7 @@ fixes only on 5.x) until nothing imports it, then `npm deprecate`d.
 | `@softistx/limix-janus` | The `RelationChecker` adapter over janus `can`. |
 | `@softistx/limix-graxia` | The graxia and graphql-js integration: a field guard (`guardSchema`) and graxia plugin (`limixGraxia`), `checkNeeds` and `canOf` for `@needs`, `graphqlOperations` for coverage. |
 | `@softistx/limix-alxia` | The alxia integration: `limixGuard` (a middleware judging every request that reaches a route, refusals in the app's error format), `alxiaOperations` for coverage, `checkRoutes`, and `limixGraphql` (`./graphql`, the endpoint behind `limix-graxia`). |
+| `@softistx/limix-codegen` | Build-time types for the rules: a CLI and a graphql-codegen plugin that register the API's operations (GraphQL SDL through `limix-graxia/operations`, OpenAPI) and the rules file's permission, role and condition names in core's `Register`, `--check` for CI, and `init` for a starter rules file. |
 | `@softistx/limix-publish` | The emitter: signs a rules file as a JWS and serves the JWKS (API and CLI). |
 
 ## Decisions (owner, 2026-11-26)
@@ -78,7 +79,9 @@ Declared divergences from janus:
 - `@softistx/limix-graxia` accepts any `@softistx/graxia` `>=0.18.0 <1.0.0`
   (declared: it reads `definePlugin` and, through `./agent`, `needsOf`, so any
   0.x minor from 0.18 is accepted). With no peer-floor tooling, a new graxia
-  minor is untested until a limix-graxia release.
+  minor is untested until a limix-graxia release. It also has a `./operations`
+  subpath (`graphqlOperations` alone, importing only `graphql`, never graxia) for
+  build-time tools such as `@softistx/limix-codegen`.
 - `@softistx/limix-alxia` accepts any `@softistx/alxia` `>=0.28.0 <1.0.0` and
   `@softistx/alxia-graphql` `>=0.20.2 <1.0.0` (declared: it reads `ctx.route`,
   `app.routes` and `app.sockets`, `ctx.pathParams`, `RouteDefinition.handler`
@@ -99,7 +102,7 @@ Declared divergences from janus:
   `noPropertyAccessFromIndexSignature`; janus's naming-convention rule is its
   own.
 - No `typecheck:tsc` script: limix typechecks with `bun check` alone.
-- No "generated code is committed" CI step: no package generates code.
+- No "generated code is committed" CI step: no package commits generated code of its own (limix-codegen's golden `generated.fixtures.ts` is held by its spec).
 - No `format` or `lint` root scripts: `fix` covers both.
 - `.gitignore` re-includes `packages/*/src/coverage/` (the `./coverage` subpath's
   source), which janus's `coverage` line, a test-report folder, would ignore, until
@@ -140,6 +143,9 @@ Deliberate duplication:
 | What | Where | Why |
 | --- | --- | --- |
 | `held.ts` and `options.ts` checks of `limix-alxia` | `packages/limix-alxia/src/` and `packages/limix-graxia/src/{wrap,options}.ts` | The same shape (a policy held once per source, a fit check cached per policy, an outage reporter, the options checks), but the fit checks differ: graxia judges a policy against a schema, alxia against the routes. graxia checks a static policy at setup; alxia checks its routes on the first request, because routes are declared after the guard, and that difference stays. Extract a shared snapshot helper into `@softistx/limix` when a third integration needs it. |
+| `cli/run.ts`, `cli/io.ts` of `limix-codegen` | `packages/limix-publish/src/cli/{run,io}.ts` | The same shape (`run(argv, io)` returning an exit code, a fake-able `Io`, `UsageError`), but each package owns its commands and its error classes. Extract a shared CLI helper into `@softistx/limix` when a third CLI needs it. |
+| The identifier regexes (`IDENTIFIER`, `ID_CONTINUE`) of `limix-codegen/src/openapi.ts` | `packages/limix/src/rules/compile/pattern.ts` | `openapiPath` must quote a name exactly when the pattern parser would not read it bare; core exports no such predicate. Export one from core when the pattern grammar changes next (a drift fails `openapi.spec.ts`, which compiles every converted path). |
+| `METHODS` of `limix-codegen/src/order.ts` | `zMethods` in `packages/limix/src/rules/rest.ts` | The order a generated union and a starter file list methods in; core exports no list of its own. Export it from core when a second package needs it. |
 | `close-released-issues.ts`, `-lib.ts`, `-git.ts` and their spec | `scripts/close-released-issues*.ts` | Byte copies of softistx/plugins `plugins/nxgt-base/scripts/issues/release/`: re-copy, never edit. The 1,165-line spec is not split for that reason. |
 
 Imports carry no extension; consumers resolve as a bundler does

@@ -111,7 +111,8 @@ named by the list or is `Query`, `Mutation` or `Subscription`; a rule on a type
 the list never mentions is left alone.
 
 A rule on a deleted non-root type is never judged stale: the list never names
-the type. The codegen types catch it.
+the type. The codegen types catch it
+([`@softistx/limix-codegen`](../../limix-codegen/docs/codegen.md)).
 
 An `operations` that is not an array, or an entry that is not an `Operation`,
 throws a `TypeError` (see [troubleshooting](troubleshooting.md)).

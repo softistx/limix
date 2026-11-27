@@ -5,8 +5,8 @@ import {
 	isObjectType,
 	isSchema,
 } from 'graphql';
-import { rootNames } from './governs';
-import { operationsFromSdl } from './operations-sdl';
+import { rootNames } from '../governs';
+import { operationsFromSdl } from './sdl';
 
 export interface GraphqlOperationsOptions {
 	/**

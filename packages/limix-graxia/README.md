@@ -7,8 +7,7 @@ and lists the operations a coverage test reads.
 
 ## Install
 
-The package is published with restricted access: installing it needs an npm
-token that can read the `@softistx` scope.
+Not published yet: the package is private until the first release.
 
 ```sh
 bun add @softistx/limix-graxia @softistx/limix @softistx/graxia graphql
@@ -34,6 +33,7 @@ declarations import without extensions, so `nodenext` is not supported.
 | `canOf(claims)` | The `can` predicate of `@softistx/graxia/agent` and `@softistx/graxia-mcp` |
 | `isGuarded(schema)` | Whether `guardSchema` made this schema |
 | types `LimixGraxiaOptions`, `LimixContext`, `MapRefusal`, `RefusalAnswer`, `RefusalAt`, `NeedsIssue`, `NeedsIssueKind`, `GraphqlOperationsOptions` | The shapes the functions take and return |
+| `@softistx/limix-graxia/operations` | `graphqlOperations` alone, importing only `graphql` (no graxia): for build-time tools |
 | `@softistx/limix-graxia/package.json` | The package manifest |
 
 ### Guard a graxia API

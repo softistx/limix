@@ -20,6 +20,11 @@
 			"import": "./dist/index.js",
 			"default": "./dist/index.js"
 		},
+		"./operations": {
+			"types": "./dist/operations/index.d.ts",
+			"import": "./dist/operations/index.js",
+			"default": "./dist/operations/index.js"
+		},
 		"./package.json": "./package.json"
 	},
 	"keywords": [
@@ -45,7 +50,8 @@
 	},
 	"nxgt": {
 		"entrypoints": [
-			"src/index.ts"
+			"src/index.ts",
+			"src/operations/index.ts"
 		]
 	},
 	"devDependencies": {
