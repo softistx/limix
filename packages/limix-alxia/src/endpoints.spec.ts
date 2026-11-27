@@ -1,11 +1,19 @@
 import { describe, expect, test } from 'bun:test';
-import { alxia, type FreeReplyFunction } from '@softistx/alxia';
+import {
+	alxia,
+	defineMiddleware,
+	type FreeReplyFunction,
+} from '@softistx/alxia';
+import { compilePolicy, definePolicy } from '@softistx/limix';
+import { whoOf } from './app.fixtures';
 import {
 	claimApp,
 	definitionOf,
 	isEndpoint,
+	judgedLater,
 	registerEndpoints,
 } from './endpoints';
+import { limixGuard } from './guard';
 
 /** A handler of its own: the registry knows handlers by identity. */
 const own =
@@ -56,5 +64,70 @@ describe('endpoints registry', () => {
 		const app = alxia();
 		claimApp(app);
 		expect(() => claimApp(app)).toThrow(/already has a limix guard/);
+	});
+});
+
+describe('judgedLater', () => {
+	const rules = compilePolicy(
+		definePolicy({ limix: 1, global: { unmatched: 'allow' } }),
+	);
+	const guardOn = (app: ReturnType<typeof alxia>) =>
+		limixGuard({ policy: rules, claims: whoOf, app });
+
+	function nested() {
+		const outer = alxia();
+		const outerGuard = guardOn(outer);
+		outer.use(outerGuard);
+		let inner: ReturnType<typeof alxia> | undefined;
+		let innerGuard: unknown;
+		outer.group('/g', (group) => {
+			inner = group;
+			innerGuard = guardOn(group);
+			return group.use(innerGuard as never).get('/a', own());
+		});
+		const definition = outer.routes[0] as never;
+		return { outer, outerGuard, inner, innerGuard, definition };
+	}
+
+	test('a later guard that owns the route judges it, the outer guard leaves it', () => {
+		const { outerGuard, innerGuard, definition } = nested();
+		expect(judgedLater(definition, outerGuard)).toBe(true);
+		expect(judgedLater(definition, innerGuard)).toBe(false);
+	});
+
+	test('a later guard that does not own the route: the outer guard judges', () => {
+		const outer = alxia();
+		const outerGuard = guardOn(outer);
+		outer.use(outerGuard);
+		const stray = alxia();
+		const strayGuard = guardOn(stray);
+		outer.group('/g', (group) => group.use(strayGuard).get('/a', own()));
+		expect(judgedLater(outer.routes[0] as never, outerGuard)).toBe(false);
+	});
+
+	test('a hook with a `when` is not a guard that runs for the request', () => {
+		const { outerGuard, definition } = nested();
+		const hook = (definition as { derive: object[] }).derive[1] as object;
+		expect(judgedLater(definition, outerGuard)).toBe(true);
+		Object.assign(hook, { when: '/g' });
+		try {
+			expect(judgedLater(definition, outerGuard)).toBe(false);
+		} finally {
+			Reflect.deleteProperty(hook, 'when');
+		}
+	});
+
+	test('a chain without the asking guard is judged', () => {
+		const { definition } = nested();
+		expect(judgedLater(definition, () => undefined)).toBe(false);
+	});
+
+	test('a later middleware that is no registered guard is not a guard', () => {
+		const outer = alxia();
+		const outerGuard = guardOn(outer);
+		outer.use(outerGuard);
+		const plain = defineMiddleware(async (_ctx, next) => next());
+		outer.group('/g', (group) => group.use(plain).get('/a', own()));
+		expect(judgedLater(outer.routes[0] as never, outerGuard)).toBe(false);
 	});
 });

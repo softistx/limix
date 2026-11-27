@@ -104,7 +104,9 @@ limixGuard({ policy, claims, app, relations: janusRelations(/* ... */) })
 
 **When:** a second `limixGuard` is given the same `app`.
 **Why:** one app has one rule set. Two guards would judge every request twice.
-**Fix:** give the second guard a group, and the group as its `app`:
+**Fix:** give the second guard a group, and the group as its `app` (the group's
+guard then judges its routes alone: see
+[several rules files on one app](alxia.md#several-rules-files-on-one-app)):
 
 ```ts
 app.group('/admin', (admin) => {
@@ -112,6 +114,32 @@ app.group('/admin', (admin) => {
   return admin.get('/stats', handler)
 })
 ```
+
+### A group's routes are refused by the outer rules
+
+**When:** a route of a group answers 403 (or 401) from the outer file's rules
+though the group's own rules allow it.
+**Why:** the outer guard leaves a route to the group's guard only when that guard
+comes right after it in the route's chain and the group declared the route. It
+judges as well when the group has no guard of its own, the guard was given another
+`app`, a hook stands between the guards, the guard comes from a plugin mounted
+under a prefix it does not know or from a plugin without a prefix, or the guard
+was used with a path: `use('/users', guard)` keeps the hook on the routes the path
+reaches, which the group's guard then takes, and the other routes stay with the
+outer rules.
+**Fix:** `group.use(limixGuard({ ..., app: group }))` first in the group, with the
+group as `app`; give a plugin that carries a guard a prefix of its own. See
+[several rules files on one app](alxia.md#several-rules-files-on-one-app).
+
+### `checkGuard(): <METHOD path>: a hook stands between this guard and the group's guard, so both judge it; put the group's guard first in the group and limixGuard last among the app's own middlewares`
+
+**When:** `checkGuard(guard, app)` (also at start) finds a route a group's or
+plugin's guard owns, behind a hook that is not that guard.
+**Why:** a middleware between the two guards, such as a cache that answers from a
+store, answers before the inner guard. The outer guard then keeps judging the
+route (closed), so the inner rules never apply alone.
+**Fix:** move the middleware after the group's guard, or `app.use(limixGuard(...))`
+after the app's other middlewares.
 
 ### `limixGuard(): routes declared before the guard never run it and stay open: <METHOD path, ...>`
 
@@ -155,7 +183,9 @@ the `policy-mismatch` entry under Refusals.
 
 **Why:** the rule judges nothing, or a refusal would not be read.
 **Fix:** correct the pattern (`/files/*path`, `/notes/:id`) or the route, then
-run the check again. Call it after the routes are declared.
+run the check again. Call it after the routes are declared. A rule of the outer
+file for a route a group's guard judges is not taken either: move it to that
+group's file.
 
 ```ts
 checkRoutes(policy, app)

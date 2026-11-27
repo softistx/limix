@@ -9,9 +9,12 @@ import type { RoutesOf } from './options';
  * known, and a REST route that merely shares the path is not.
  */
 const handlers = new WeakSet<object>();
-const guarded = new WeakSet<object>();
+/** The guard (its middleware) each app took, and the app each guard was given. */
+const guardOfApp = new WeakMap<object, unknown>();
+const appOfGuard = new WeakMap<object, RoutesOf>();
 
 type Definition = RouteDefinition | SocketDefinition;
+type ChainHook = Definition['derive'][number];
 
 const handlerOf = (definition: Definition): object =>
 	'handler' in definition ? definition.handler : definition.handlers;
@@ -71,14 +74,109 @@ const KNOWN = new Set([
 	'QUERY',
 ]);
 
+/** Records that `middleware` is the guard of `app`, so an outer guard can tell it from any other middleware. */
+export function registerGuard(app: RoutesOf, middleware: object): void {
+	guardOfApp.set(app, middleware);
+	appOfGuard.set(middleware, app);
+}
+
+const sameKind = (a: Definition, b: Definition): boolean =>
+	'handler' in a ? 'handler' in b && a.method === b.method : !('handler' in b);
+
+const isMiddleware = (hook: ChainHook, run: unknown): boolean =>
+	hook.kind === 'middleware' && (hook.run as unknown) === run;
+
 /**
- * Whether a request is left to a field guard, `isEndpoint` of the definition
- * that answers it (one `definitionOf` cannot find is judged: fail closed). The
- * answer is kept per method, route and upgrade for the standard methods only,
- * so a client inventing methods cannot grow it.
+ * Whether `definition` was declared behind the registered guard `later`: the
+ * app `later` was given holds the definition itself, or the one a mount copied
+ * (same handler, kind, method, schema and exact path), and that definition's
+ * chain holds this very hook `step` (the object that follows the asking guard in
+ * `definition`'s chain, not merely the same guard). A route a prefixless
+ * plugin's guard merely leaked onto owns nothing of that guard.
  */
-export function endpointTest(
+function ownedBy(definition: Definition, step: ChainHook): boolean {
+	if (step.kind !== 'middleware') return false;
+	const later: unknown = step.run;
+	if (typeof later !== 'function') return false;
+	const app = appOfGuard.get(later);
+	if (app === undefined) return false;
+	return [...app.routes, ...(app.sockets ?? [])].some(
+		(d) =>
+			(d === definition ||
+				(handlerOf(d) === handlerOf(definition) &&
+					sameKind(d, definition) &&
+					d.schema === definition.schema)) &&
+			definition.path === d.path &&
+			d.derive.includes(step),
+	);
+}
+
+/**
+ * Whether the matched definition `definition`, reached through the guard `self`,
+ * is left to a guard that runs right after it, which alone judges it. All of
+ * this holds, each checked on the definition itself: (1) the very next hook of
+ * its chain after `self` is a middleware with no `when` that is another
+ * registered limix guard `later` (a hook of any kind between them, a cache that
+ * answers for one, and both guards judge); (2) the app `later` was given
+ * declares this route (`ownedBy`); (3) that definition's chain holds `later`.
+ * Otherwise `self` judges: fail closed.
+ */
+export function judgedLater(definition: Definition, self: unknown): boolean {
+	const chain = definition.derive;
+	const at = chain.findIndex((hook) => isMiddleware(hook, self));
+	const next = at < 0 ? undefined : chain[at + 1];
+	if (next === undefined || next.kind !== 'middleware') return false;
+	if (next.when !== undefined || (next.run as unknown) === self) return false;
+	return ownedBy(definition, next);
+}
+
+/**
+ * The routes and sockets of `app` that a registered guard of the chain owns
+ * after `self` but not right after it: a hook stands between, so both guards
+ * judge the route.
+ */
+export function separatedGuards(app: RoutesOf, self: unknown): string[] {
+	return [...app.routes, ...(app.sockets ?? [])]
+		.filter((definition) => {
+			const chain = definition.derive;
+			const at = chain.findIndex((hook) => isMiddleware(hook, self));
+			return (
+				at >= 0 &&
+				!judgedLater(definition, self) &&
+				chain
+					.slice(at + 1)
+					.some(
+						(hook) =>
+							hook.kind === 'middleware' &&
+							hook.when === undefined &&
+							(hook.run as unknown) !== self &&
+							ownedBy(definition, hook),
+					)
+			);
+		})
+		.map(label);
+}
+
+/** Whether a guard of a group or plugin judges `definition` of `app` instead of the guard of `app`. */
+export function judgedElsewhere(
 	app: RoutesOf,
+	definition: Definition,
+): boolean {
+	const self = guardOfApp.get(app);
+	return self !== undefined && judgedLater(definition, self);
+}
+
+/**
+ * Whether a request is not judged by this guard: left to a field guard
+ * (`isEndpoint` of the definition that answers it) or to the guard of a group
+ * or plugin that owns the route (`judgedLater`). A definition `definitionOf`
+ * cannot find is judged: fail closed. The answer is kept per method, route and
+ * upgrade for the standard methods only, so a client inventing methods cannot
+ * grow it.
+ */
+export function skipTest(
+	app: RoutesOf,
+	self: () => unknown,
 ): (method: string, route: string, upgrade: boolean) => boolean {
 	const kept = new Map<string, boolean>();
 	return (method, route, upgrade) => {
@@ -86,7 +184,9 @@ export function endpointTest(
 		const known = kept.get(key);
 		if (known !== undefined) return known;
 		const definition = definitionOf(app, method, route, upgrade);
-		const found = definition !== undefined && isEndpoint(definition);
+		const found =
+			definition !== undefined &&
+			(isEndpoint(definition) || judgedLater(definition, self()));
 		if (KNOWN.has(method)) kept.set(key, found);
 		return found;
 	};
@@ -118,10 +218,10 @@ export function unguardedRoutes(app: RoutesOf, middleware: unknown): string[] {
 
 /** One rule set per service: a second guard on the same app is a mistake. */
 export function claimApp(app: object): void {
-	if (guarded.has(app)) {
+	if (guardOfApp.has(app)) {
 		throw new TypeError(
 			'limixGuard(): this app already has a limix guard; one rule set guards one service. Put the guard on a group to keep it to part of the routes',
 		);
 	}
-	guarded.add(app);
+	guardOfApp.set(app, undefined);
 }

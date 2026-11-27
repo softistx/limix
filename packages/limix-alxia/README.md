@@ -156,6 +156,11 @@ limixGraphql(app, { schema, limix }) // the SAME object
 - Give `limixGraphql` the guarded app (or a group or plugin mounted on it): the
   endpoint is known by its handler there and left to the field rules. A REST
   route of your own at `POST /graphql` is judged by the REST rules.
+- Several rules files on one app: a group or prefixed plugin with its own
+  `limixGuard` (and `limixGraphql`) is judged by that guard alone, the innermost
+  one that owns the route. The outer file names none of its routes; an outer
+  rule for one makes `checkRoutes` throw and the guard answer 503
+  `policy-mismatch`. See `docs/alxia.md`.
 - Requests are judged by the decoded path as the handler sees it, so a literal
   `/users/me` rule written before `/users/:id` applies, and `/users/%6De` is
   `/users/me`.

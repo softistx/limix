@@ -6,7 +6,7 @@ import {
 	isPolicySource,
 	type RelationChecker,
 } from '@softistx/limix';
-import { claimApp, declaredRoutes, endpointTest } from './endpoints';
+import { claimApp, declaredRoutes, registerGuard, skipTest } from './endpoints';
 import { makeHeld } from './held';
 import { checkOptions, type LimixAlxiaOptions } from './options';
 import { answer, refusalOfError } from './refusal';
@@ -32,7 +32,10 @@ async function who<Ctx extends object>(
  * aside): a route declared before the guard never runs it. A refusal is answered in the app's error format (401, 403, 404 by the rule;
  * 503 when no fitting policy is held), a request that reached no route is left
  * to alxia's 404, 405 or 426, and the endpoints `limixGraphql` declared are
- * left to their field guard.
+ * left to their field guard. A route whose chain holds, after this guard,
+ * another `limixGuard` given the app that declared the route is left to that
+ * guard (the innermost guard that owns a route judges it alone); a route this
+ * guard cannot place is judged.
  */
 export function limixGuard<Ctx extends object = Empty>(
 	options: LimixAlxiaOptions<Ctx>,
@@ -54,14 +57,14 @@ export function limixGuard<Ctx extends object = Empty>(
 		);
 	}
 	claimApp(app);
-	const isExempt = endpointTest(app);
+	const leaves = skipTest(app, () => middleware);
 	const held = makeHeld(options as LimixAlxiaOptions<never>, () => middleware);
 	const middleware = defineMiddleware<Ctx>()(async (ctx, next) => {
 		const { route } = ctx;
 		if (route === undefined) return next();
 		const upgrade =
 			ctx.request.headers.get('upgrade')?.toLowerCase() === 'websocket';
-		if (isExempt(ctx.request.method, route, upgrade)) return next();
+		if (leaves(ctx.request.method, route, upgrade)) return next();
 		const rules = held.snapshot();
 		if (isLimixRefusal(rules)) return answer(ctx, rules, mapRefusal);
 		try {
@@ -85,6 +88,7 @@ export function limixGuard<Ctx extends object = Empty>(
 		}
 		return next();
 	});
+	registerGuard(app, middleware);
 	// An app started through `listen` stops at once, and says why, when a route
 	// never runs the guard (alxia only logs what an `onStart` hook throws, so
 	// the hook stops the server itself); an app that is not gets the 503.
