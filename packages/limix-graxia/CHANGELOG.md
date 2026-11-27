@@ -1,5 +1,18 @@
 # @softistx/limix-graxia
 
+## 0.2.0
+
+### Minor Changes
+
+- [#48](https://github.com/softistx/limix/pull/48) [`91b1b87`](https://github.com/softistx/limix/commit/91b1b87a2280287a1c426d5223f6f93debccd644) Thanks [@SteveGT96](https://github.com/SteveGT96)! - The 1.0 surface of limix-graxia. Breaking: `refusalError(refusal, mapRefusal?, at?, topLevel?)` is now `refusalError(refusal, { mapRefusal?, at?, topLevel? })`; the first parameter of `MapRefusal` is core's structural `Refusal` instead of `LimixRefusal` (an unannotated mapper keeps compiling; one that annotates its parameter `LimixRefusal` changes it to `Refusal`, or narrows with `isLimixRefusal`); `LimixGraxiaOptions` and `guardSchema` take `<Ctx extends object = Empty>`, so a bare `LimixGraxiaOptions` means an empty context instead of any context. Added: the `RefusalErrorOptions` type.
+
+- [#53](https://github.com/softistx/limix/pull/53) [`d30f58c`](https://github.com/softistx/limix/commit/d30f58cdfc19c2604fd246e17fc35df5d5673fec) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `checkNeeds` and `checkModel` return a `readonly` issue array, like `checkRoutes` and `checkGuard`.
+
+### Patch Changes
+
+- Updated dependencies [[`b4a98ba`](https://github.com/softistx/limix/commit/b4a98ba7ce681cee5c4c10467f041681cc92f87e)]:
+  - @softistx/limix@0.5.0
+
 ## 0.1.1
 
 ### Patch Changes

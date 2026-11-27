@@ -1,5 +1,16 @@
 # @softistx/limix-publish
 
+## 0.2.0
+
+### Minor Changes
+
+- [#52](https://github.com/softistx/limix/pull/52) [`72d809d`](https://github.com/softistx/limix/commit/72d809d94589559314b14df58baafcf5b00e5b40) Thanks [@SteveGT96](https://github.com/SteveGT96)! - The 1.0 surface of limix-publish. Breaking: `ALGS` is now `ALGORITHMS` (core's list, re-exported), and `DEFAULT_EXPIRES_IN` is no longer exported (the default stays 86400 seconds, documented). Added: `signRules({ conditions })` also accepts the predicate map a reader registers (`Readonly<Record<string, Condition>>`), and uses its keys; a `string[]` still works.
+
+### Patch Changes
+
+- Updated dependencies [[`b4a98ba`](https://github.com/softistx/limix/commit/b4a98ba7ce681cee5c4c10467f041681cc92f87e)]:
+  - @softistx/limix@0.5.0
+
 ## 0.1.3
 
 ### Patch Changes

@@ -1,5 +1,18 @@
 # @softistx/limix-janus
 
+## 0.2.0
+
+### Minor Changes
+
+- [#51](https://github.com/softistx/limix/pull/51) [`341a973`](https://github.com/softistx/limix/commit/341a9731c8e7a94b691622c7cf6be94e6783f9bb) Thanks [@SteveGT96](https://github.com/SteveGT96)! - The 1.0 surface of limix-janus. Breaking: `checkRulesAgainstModel` is now `checkModel` and `CheckIssue` is now `ModelIssue`, with no aliases. Added: `ModelIssue.kind` (`'unknown-type' | 'unknown-relation' | 'from-field'`) and the exported `ModelIssueKind` union; a new kind is a minor release.
+
+- [#53](https://github.com/softistx/limix/pull/53) [`d30f58c`](https://github.com/softistx/limix/commit/d30f58cdfc19c2604fd246e17fc35df5d5673fec) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `checkNeeds` and `checkModel` return a `readonly` issue array, like `checkRoutes` and `checkGuard`.
+
+### Patch Changes
+
+- Updated dependencies [[`b4a98ba`](https://github.com/softistx/limix/commit/b4a98ba7ce681cee5c4c10467f041681cc92f87e)]:
+  - @softistx/limix@0.5.0
+
 ## 0.1.3
 
 ### Patch Changes
