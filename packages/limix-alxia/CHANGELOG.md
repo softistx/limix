@@ -1,5 +1,14 @@
 # @softistx/limix-alxia
 
+## 0.3.1
+
+### Patch Changes
+
+- [#56](https://github.com/softistx/limix/pull/56) [`eb52f89`](https://github.com/softistx/limix/commit/eb52f898f37a011c39bc955203969ff39b80873d) Thanks [@SteveGT96](https://github.com/SteveGT96)! - Reads the rules per rule: a rule for method `*` is taken by a route of any method (not reported `unmatched-rule`) and is named `* /admin/*` in issues, and a bare `*` tail is judged by its rule like a named one.
+- Updated dependencies [[`5ebdc55`](https://github.com/softistx/limix/commit/5ebdc5564ebcc7ece1c7033649857271eefd6155), [`eb52f89`](https://github.com/softistx/limix/commit/eb52f898f37a011c39bc955203969ff39b80873d), [`eb52f89`](https://github.com/softistx/limix/commit/eb52f898f37a011c39bc955203969ff39b80873d)]:
+  - @softistx/limix@0.6.0
+  - @softistx/limix-graxia@0.3.0
+
 ## 0.3.0
 
 ### Minor Changes

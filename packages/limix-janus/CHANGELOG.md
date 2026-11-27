@@ -1,5 +1,15 @@
 # @softistx/limix-janus
 
+## 0.2.1
+
+### Patch Changes
+
+- [#56](https://github.com/softistx/limix/pull/56) [`eb52f89`](https://github.com/softistx/limix/commit/eb52f898f37a011c39bc955203969ff39b80873d) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `checkModel` names a rule by its key as the rules file spells it, flat (`rest['GET /files/:id']`, `graphql['Note.*']`) or nested.
+  
+  Issues now come in document order, flat and nested keys interleaved, instead of grouped by method.
+- Updated dependencies [[`5ebdc55`](https://github.com/softistx/limix/commit/5ebdc5564ebcc7ece1c7033649857271eefd6155), [`eb52f89`](https://github.com/softistx/limix/commit/eb52f898f37a011c39bc955203969ff39b80873d)]:
+  - @softistx/limix@0.6.0
+
 ## 0.2.0
 
 ### Minor Changes

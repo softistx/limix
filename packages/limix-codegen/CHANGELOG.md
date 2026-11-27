@@ -1,5 +1,22 @@
 # @softistx/limix-codegen
 
+## 0.3.0
+
+### Minor Changes
+
+- [#58](https://github.com/softistx/limix/pull/58) [`2e3ccfc`](https://github.com/softistx/limix/commit/2e3ccfc97878927553ef7e9080ddea7bd85efa44) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `generate` reads the rules file against the operations it was given (`--rules` with `--openapi` or `--graphql`) and reports each rule that reaches none: a key that names no route, a rule shadowed by an earlier one, a type or a field the schema does not have. Without `--check` these are warnings on stderr and the exit code stays 0; with `--check` they fail the run (exit 1) together with an out-of-date file.
+  
+  Upgrade note: on 0.2 `generate --check` judged no rules. From 0.3 it fails (exit 1) on every rule that reaches no operation of the spec: a rule shadowed by an earlier one, a wildcard that reaches nothing, a type or field the schema does not have, and an exact key missing from the spec (`"GET /notez"`). A route the server serves but the spec omits needs adding to the spec. A rules file that does not compile is reported as `<rules> does not compile, its rules were not judged` and fails `--check` too. Without `--check` all of these are warnings. REST rules are judged only with `--openapi` and GraphQL rules only with `--graphql`; the troubleshooting page gives each message and its fix.
+  
+  `init --flat` writes one key per operation (`"GET /notes"`, `"Query.me"`); `starterRules` takes an optional third argument `{ flat }` and its two-argument call is unchanged. A guide to writing rules, `docs/writing-rules.md`, covers generating, typed `definePolicy` with flat and nested keys, the patterns, what the types and `--check` catch, and CI.
+
+### Patch Changes
+
+- [#56](https://github.com/softistx/limix/pull/56) [`eb52f89`](https://github.com/softistx/limix/commit/eb52f898f37a011c39bc955203969ff39b80873d) Thanks [@SteveGT96](https://github.com/SteveGT96)! - The names of permissions, roles and conditions are read from flat keys and `Type.*` rules as well as from nested ones.
+- Updated dependencies [[`5ebdc55`](https://github.com/softistx/limix/commit/5ebdc5564ebcc7ece1c7033649857271eefd6155), [`eb52f89`](https://github.com/softistx/limix/commit/eb52f898f37a011c39bc955203969ff39b80873d), [`eb52f89`](https://github.com/softistx/limix/commit/eb52f898f37a011c39bc955203969ff39b80873d)]:
+  - @softistx/limix@0.6.0
+  - @softistx/limix-graxia@0.3.0
+
 ## 0.2.0
 
 ### Minor Changes
