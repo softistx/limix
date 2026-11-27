@@ -167,7 +167,7 @@ evaluateField(policy, {
 ```
 
 Call it from a resolver or a schema wrapper; wrapping a schema is the job of
-`@softistx/limix-graxia` (still planned, see the roadmap). Only a root field that no
+[`@softistx/limix-graxia`](https://github.com/softistx/limix/blob/develop/packages/limix-graxia/docs/graphql.md). Only a root field that no
 rule names falls under `global.unmatched`: a field of another type with no rule
 is let through, since every field of every returned type would otherwise need
 a rule. `root` says whether the type is an operation root; it defaults to the

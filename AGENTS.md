@@ -13,7 +13,7 @@ fixes only on 5.x) until nothing imports it, then `npm deprecate`d.
 | --- | --- |
 | `@softistx/limix` | The core, framework-agnostic: rules in YAML/JSON (JSON schema) or through a typed `definePolicy` builder producing the same structure; REST and GraphQL evaluation; the `RelationChecker` port; coverage over a neutral list of operations; the remote client (signed JWS, JWKS, hot swap, last good copy kept through an outage). |
 | `@softistx/limix-janus` | The `RelationChecker` adapter over janus `can`. |
-| `@softistx/limix-graxia` | Rules on GraphQL fields, the link to `@needs`, the operations coverage reads. |
+| `@softistx/limix-graxia` | The graxia and graphql-js integration: a field guard (`guardSchema`) and graxia plugin (`limixGraxia`), `checkNeeds` and `canOf` for `@needs`, `graphqlOperations` for coverage. |
 | `@softistx/limix-alxia` | alxia's HTTP routes, tenant and refusals; reuses `limix-graxia` for GraphQL. |
 | `@softistx/limix-publish` | The emitter: signs a rules file as a JWS and serves the JWKS (API and CLI). |
 
@@ -73,6 +73,10 @@ Declared divergences from janus:
   (declared: the adapter reads only `can` and `model.definition.types[*].related|permits`,
   so any 0.x minor from 0.84 is accepted). With no peer-floor tooling, a new
   janus minor is untested until a limix-janus release.
+- `@softistx/limix-graxia` accepts any `@softistx/graxia` `>=0.18.0 <1.0.0`
+  (declared: it reads `definePlugin` and, through `./agent`, `needsOf`, so any
+  0.x minor from 0.18 is accepted). With no peer-floor tooling, a new graxia
+  minor is untested until a limix-graxia release.
 - No `nxgt-versions.yml` or `check-nxgt-versions.ts`: limix depends on no
   `@nxgt` package.
 - `biome.json` turns off `useLiteralKeys` only, which the scripts need under
