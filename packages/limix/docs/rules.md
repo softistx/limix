@@ -223,7 +223,7 @@ stale.
 | `/users/:id` | one segment, captured as `id` and percent-decoded |
 | `/users/:"user-id"` | the same, for a name that is not an identifier |
 | `/files/*path` | the rest of the path, slashes included, captured as the list `path` |
-| `/files/*` | the same with no name: nothing is captured, so no `param.` term can read it |
+| `/files/*` | the same with no name: nothing is captured, so no `param.` term can read it. A `*` takes one or more characters: `/files/*` does not take `/files`; write `/files{/*}` for both |
 | `/things{/:id}` | an optional part: `/things` and `/things/7` |
 | `/a\:b` | a backslash makes the next character literal: the path `/a:b` |
 
@@ -234,14 +234,16 @@ A `*` in the middle of a segment (`/a*`) takes the rest of the path from there.
 #### Any method: `*`
 
 The method `*` stands for every method. Write it flat (`* /admin/*`) or under a
-path (`/admin/*: { "*": ... }`).
+path (`/admin/*: { "*": ... }`). The `*` of the path takes one or more
+characters, so `/admin/*` does not take `/admin` itself: write `/admin{/*}` to
+cover both.
 
 ```yaml
 rest:
+  GET /admin/health:     # another key: the first match in document order wins,
+    public: true         # so it goes before the wildcard that would take it
   "* /admin/*":
     roles: [[admin]]
-  GET /admin/health:     # a rule of another key written first still wins
-    public: true
 ```
 
 - A method has its own rules, and the `*` rules are among them, each in its own
@@ -505,6 +507,28 @@ What is checked, and what is not:
 - A value already typed `Rules`, such as the output of `parseRules`, is passed to
   `compilePolicy` directly. It does not go through `definePolicy` once graphql
   is registered.
+
+## What `compilePolicy` returns
+
+A `CompiledPolicy` is for the limix integrations; of it only `global` and
+`usesRelations` are for hosts, and the rest may change in a minor release.
+Flat and nested keys compile to the same thing:
+
+| Member | Holds |
+| --- | --- |
+| `restRoutes` | Every REST rule once, in document order. Iterate this to report per rule |
+| `restRoutesByMethod` | The routes each method faces, in document order. A rule for method `*` is in every method's list (an exact rule of the same pattern takes its place) and, alone, under the key `*`, which a method outside the usual ten faces |
+| `graphql` | Rules by type, then field; a `Type.*` rule is under the field `*` |
+
+Each `CompiledRestRoute` has `pattern` (with the `basePath`), `method` (`*` for
+any) and `where`, the rule's place as an issue path (`rest['POST /a']` or
+`rest['/a'].POST`). Each `CompiledGraphqlEntry` has `where`
+(`graphql['Query.me']`) and `wildcard`, true for a `Type.*` rule.
+
+```ts
+const policy = compilePolicy(rules)
+for (const route of policy.restRoutes) console.log(route.method, route.pattern, route.where)
+```
 
 ## What was removed from `@softistx/security` 5
 

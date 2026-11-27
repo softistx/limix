@@ -139,7 +139,7 @@ A path pattern is:
 | `:id` | one segment, captured as `id` |
 | `:"a-b"` | one segment, for a name that is not an identifier |
 | `*files` | the rest of the path, slashes included, captured as a list |
-| `*` | the rest of the path, captured by nothing |
+| `*` | the rest of the path (one or more characters, so `/a/*` does not take `/a`; `/a{/*}` takes both), captured by nothing |
 | `{/:id}` | an optional part |
 | `\` | the next character, literally |
 

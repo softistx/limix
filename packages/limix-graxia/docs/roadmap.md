@@ -22,6 +22,8 @@ Nothing yet.
 
 ## Shipped
 
+- **0.3.0** — `Type.*` rules: a wildcard guards every field of the type that has
+  no rule of its own, and the setup check names each non-null field it covers.
 - **0.1.0** — a field guard (`guardSchema`), a graxia plugin
   (`limixGraxia`), `checkNeeds` and `canOf` for `@needs`, and `graphqlOperations`
   for coverage.
