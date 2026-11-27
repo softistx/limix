@@ -104,7 +104,9 @@ limixGuard({ policy, claims, app, relations: janusRelations(/* ... */) })
 
 **When:** a second `limixGuard` is given the same `app`.
 **Why:** one app has one rule set. Two guards would judge every request twice.
-**Fix:** give the second guard a group, and the group as its `app`:
+**Fix:** give the second guard a group, and the group as its `app` (the group's
+guard then judges its routes alone: see
+[several rules files on one app](alxia.md#several-rules-files-on-one-app)):
 
 ```ts
 app.group('/admin', (admin) => {
@@ -112,6 +114,18 @@ app.group('/admin', (admin) => {
   return admin.get('/stats', handler)
 })
 ```
+
+### A group's routes are refused by the outer rules
+
+**When:** a route of a group answers 403 (or 401) from the outer file's rules
+though the group's own rules allow it.
+**Why:** the outer guard leaves a route to the group's guard only when the route
+was declared behind it. It judges instead when the group has no guard of its own,
+the guard was given another `app`, it was used with a path (`use('/users', guard)`),
+or the guard comes from a plugin without a prefix.
+**Fix:** `group.use(limixGuard({ ..., app: group }))` first in the group, with the
+group as `app`; give a plugin that carries a guard a prefix. See
+[several rules files on one app](alxia.md#several-rules-files-on-one-app).
 
 ### `limixGuard(): routes declared before the guard never run it and stay open: <METHOD path, ...>`
 
@@ -155,7 +169,9 @@ the `policy-mismatch` entry under Refusals.
 
 **Why:** the rule judges nothing, or a refusal would not be read.
 **Fix:** correct the pattern (`/files/*path`, `/notes/:id`) or the route, then
-run the check again. Call it after the routes are declared.
+run the check again. Call it after the routes are declared. A rule of the outer
+file for a route a group's guard judges is not taken either: move it to that
+group's file.
 
 ```ts
 checkRoutes(policy, app)

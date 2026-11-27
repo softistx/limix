@@ -24,9 +24,9 @@ type AnyPlugins = readonly GraxiaPlugin<any, any>[];
 /** What `limixGraphql` adds to graphql()'s options. */
 export interface LimixGraphqlExtras<Ctx extends object> {
 	/**
-	 * The same options object the app's `limixGuard` was given: the endpoint it
-	 * declares is then left to the field guard, not judged by the REST rules.
-	 * A copy of the object is a different guard's.
+	 * What the field guard reads: `limix` gives it its policy, claims, relations
+	 * and outage state. Every `limixGuard` of the app leaves the endpoint to it,
+	 * whichever options that guard got.
 	 */
 	limix: LimixAlxiaOptions<ServerContext<Ctx>>;
 	/** Rewords a refused field's GraphQL error (limix-graxia's `mapRefusal`; the REST `mapRefusal` is not used here). */

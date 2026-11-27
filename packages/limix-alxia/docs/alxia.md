@@ -143,6 +143,48 @@ app.group('/admin', (admin) => {
 
 A request is judged by the full declared path, prefix included (`/admin/stats`).
 
+### Several rules files on one app
+
+The innermost guard that owns a route judges it alone. An outer guard leaves a
+route to a later guard of its chain only when the route was declared behind that
+guard: the app the later guard was given declares the same route and its chain
+holds the guard. Otherwise the outer guard judges it, so a missing, misplaced or
+misconfigured inner guard never opens a route. A `limixGraphql` endpoint is left
+by every guard to its own field rules.
+
+```ts
+const app = alxia()
+const outer = { policy: outerRules, claims, app }
+app.use(limixGuard(outer))
+app.get('/health', ({ reply }) => reply(200, { ok: true }))
+limixGraphql(app, { schema, limix: outer })
+
+app.group('/console', (group) => {
+  const console = { policy: consoleRules, claims, app: group }
+  group.use(limixGuard(console)) // first in the group
+  group.get('/users', ({ reply }) => reply(200, []))
+  return limixGraphql(group, { schema: consoleSchema, limix: console, path: '/graphql' })
+})
+```
+
+The outer file names no console route; the console file names the full paths
+(`/console/users`) and the fields of its own schema. `alxiaOperations(app)` leaves
+out the routes the group's guard judges: cover them with `alxiaOperations(group)`
+against the console rules. An outer rule left for such a route is not taken:
+`checkRoutes` throws and the guard answers 503 `policy-mismatch`; move the rule
+to the group's file.
+
+- Put the group's guard first in the group: a middleware placed before it
+  answers without being judged.
+- A group without its own guard is judged by the outer rules.
+- A plugin that carries a guard takes a prefix of its own: one without a prefix
+  gives its chain to the host routes declared after it, so its guard judges them
+  too.
+- Under a host prefix, a plugin's routes are declared unprefixed while requests
+  carry the prefix: write its rules with `global.basePath`. Its own
+  `limixGraphql` endpoint is then refused (403), because its guard cannot find
+  the prefixed definition; use a group there.
+
 ### Forks
 
 `app.fork()` makes a new app with its own routes. A guard belongs to the app it
@@ -151,7 +193,7 @@ was given: each fork carries its own,
 for the routes declared on a fork, but those routes are not in `base.routes`:
 they are judged by rules never checked against them. The guard answers 503
 `policy-mismatch` only when a rule names a route that no route of `base` takes
-(a rule written for a fork-only route). See
+(a rule written for a fork-only route). The base guard still judges the routes of a fork. See
 [troubleshooting](troubleshooting.md#a-fork-answers-503-policy-mismatch).
 
 ## Claims and tenants
@@ -460,7 +502,7 @@ app.get('/health', ({ reply }) => reply(200, { ok: true }))
 limixGraphql(app, { schema: buildSchema('type Query { me: String }'), limix })
 ```
 
-The guard leaves the endpoint to the field rules: `Query.me` judges the request,
+Every guard of the app leaves the endpoint to the field rules: `Query.me` judges the request,
 not a REST rule for `POST /graphql`. `limixGraphql` takes everything
 `graphql()` takes, plus:
 
@@ -491,7 +533,9 @@ See [GraphQL answered by the REST guard](troubleshooting.md#graphql-answered-by-
 route in the rules file's pattern spelling (`/files/*` becomes `/files/*path`),
 `all` expanded to the methods it takes, each socket as the `GET` that upgrades
 it, and the `HEAD` every `GET` answers. The endpoints `limixGraphql` declared
-are left out; `graphqlOperations` lists their fields. Combine both to cover the
+are left out, and so are the routes a group's or plugin's own guard judges
+(list them with `alxiaOperations(group)`); `graphqlOperations` lists the
+endpoint fields. Combine both to cover the
 whole service:
 
 ```ts
