@@ -45,20 +45,19 @@ declarations import without extensions, so `nodenext` is not supported.
 | `evaluateRest(policy, input)` | Decides a REST request, the first rule in document order whose pattern is the `route` or whose matcher takes the `path` (or the `route`) (`method`, `route` or `path`, `claims`, `request`, `relations`, `info`): `{ allow: true }` or `{ allow: false, refusal }` |
 | `evaluateField(policy, input)` | The same for one GraphQL field (`type`, `field`, `claims`, `args`, `source`, `relations`, `info`, `root`) |
 | `explain(policy, input)` | The same evaluation, with every step, for a simulator |
-| `staticSource(policy)`, `mutableSource(initial?)`, `policySource(impl)`, `isPolicySource`, `POLICY_SOURCE` | Where an evaluator gets its policy; an empty source refuses with `limix.errors.unavailable`. `mutableSource` adds `swap(policy \| null)`; `policySource` brands your own `{ current, subscribe }` |
-| `outageReporter(report)`, `OUTAGE_MESSAGE` | Logs "the source holds no policy" once per withdrawal, not once per request |
-| `LimixRefusal`, `isLimixRefusal`, `LIMIX_REFUSAL` | The neutral refusal `{ code, status, params }`, its guard and the symbol it carries |
+| `staticSource(policy)`, `mutableSource(initial?)`, `policySource(impl)`, `isPolicySource` | Where an evaluator gets its policy; an empty source refuses with `limix.errors.unavailable`. `mutableSource` adds `swap(policy \| null)`; `policySource` brands your own `{ current, subscribe }` |
+| `outageReporter(report)` | Logs "the source holds no policy" once per withdrawal, not once per request |
+| `LimixRefusal`, `isLimixRefusal` | The neutral refusal `{ code, status, params }` and its guard. Copies of this package recognise each other's refusals and sources through the registry keys `Symbol.for('limix.refusal')` and `Symbol.for('limix.policy-source')`; the symbols themselves are not exported |
 | `CODE_UNAUTHENTICATED`, `CODE_FORBIDDEN`, `CODE_NOT_FOUND`, `CODE_UNAVAILABLE` | The refusal codes: `auth.errors.unauthenticated`, `auth.errors.forbidden`, `auth.errors.not-found`, `limix.errors.unavailable` |
 | `RulesError` | Thrown for invalid rules; `error.issues` lists every issue |
 | `LIMIX_FORMAT_VERSION` | The format version, `1` |
-| `DEFAULT_FROM`, `DEFAULT_ON_DENY` | What a relation term reads when it names no `from` (`param.id` on REST, `args.id` on GraphQL) and how a rung answers when it names no `onDeny` (`NOT_FOUND`) |
-| types `Claims`, `Subject`, `Decision`, `RelationChecker`, `RelationQuery`, `PolicyInput`, `PolicySource`, `MutableSource`, `Explanation`, `Step`, `StepKind`, `TermStep`, `RestInput`, `RestRequest`, `FieldInput`, `Rules`, `RulesIssue`, `CompileOptions`, `Condition`, `ConditionContext`, `CompiledPolicy`, `CompiledRestRoute`, `CompiledGraphqlEntry` | The shapes the functions take and return |
-| `remotePolicy(options)` from `@softistx/limix/remote` | A `PolicySource` that pulls rules signed as a JWS, verifies them against the publisher's JWKS (`jwksUri`, or the issuer's discovery), hot-swaps them and keeps the last good copy through an outage (`ready`, `refresh()`, `stop()`, `age()`, `version()`) |
+| types `Claims`, `Subject`, `Decision`, `Refusal`, `RelationChecker`, `RelationQuery`, `PolicyInput`, `PolicySource`, `MutableSource`, `Explanation`, `Step`, `StepKind`, `TermStep`, `RestInput`, `RestRequest`, `FieldInput`, `Rules`, `RulesIssue`, `CompileOptions`, `Condition`, `ConditionContext`, `CompiledPolicy`, `CompiledRestRoute`, `CompiledGraphqlEntry` | The shapes the functions take and return |
+| `remotePolicy(options)` from `@softistx/limix/remote` | A `PolicySource` that pulls rules signed as a JWS, verifies them against the publisher's JWKS (`jwksUri`, or the issuer's discovery), hot-swaps them and keeps the last good copy through an outage (`ready`, `refresh()`, which answers `{ changed, error? }`, `stop()`, `age()`, `version()`) |
 | `verifyRules(jws, jwks, options)` from `@softistx/limix/remote` | Verifies a token you hold against a key set with the checks a pull makes (what `limix-publish check` runs); `audience` is required; returns `VerifiedRules` (`{ ver, iat, exp, expired, schema, policy }`), throws `RemotePolicyError` |
 | `RemotePolicyError`, `RemotePolicyConfigError`, `DEFAULT_TYP`, `ALGORITHMS` from `@softistx/limix/remote` | The failure of a pull (`code`: `FETCH_FAILED`, `HTTP_STATUS`, `SIGNATURE`, `CLAIMS`, `STALE_VERSION`, `RULES_REFUSED`, `STORE`, `EXPIRED`, `TOO_LARGE`), a refused option, the default `typ` `limix-rules+jwt` and the four accepted algorithms |
 | `filePolicyStore(path)` from `@softistx/limix/bun` | A `PolicyStore` over one JSON file, so a restart serves the last good copy before the first pull |
-| types `RemotePolicy`, `RemotePolicyOptions`, `RemotePolicyLogger`, `PolicyStore`, `StoredPolicy`, `RemotePolicyErrorCode`, `VerifiedRules`, `VerifyRulesOptions` from `@softistx/limix/remote` | The shapes the remote client takes and returns |
-| `rulesPathOf(openApiPath)` from `@softistx/limix/coverage` | `/things/{id}` to `/things/:id`, to build an operation list |
+| types `JSONWebKeySet`, `RemotePolicy`, `RemotePolicyOptions`, `RemotePolicyLogger`, `PolicyStore`, `StoredPolicy`, `RemotePolicyErrorCode`, `VerifiedRules`, `VerifyRulesOptions` from `@softistx/limix/remote` | The shapes the remote client takes and returns |
+| `rulesPathOf(openApiPath)` from `@softistx/limix/coverage` | An OpenAPI path in the rules-file spelling: `/things/{id}` to `/things/:id`, `{id}.json` to `:id.json`, a name that is no identifier quoted, the pattern syntax escaped. It takes OpenAPI input only: a literal `:` or `*` is escaped, so `/things/:id` becomes `/things/\:id`. Throws a `TypeError` for an unbalanced brace, an empty `{}` or two adjacent parameters |
 | `coverage(policy, operations)` from `@softistx/limix/coverage` | Which operations the rules cover, leave public or leave to `global.unmatched`, and which rules are stale; runs in a browser or an edge runtime |
 | types `Operation`, `RestOperation`, `GraphqlOperation`, `CoverageReport`, `OperationCoverage`, `CoverageStatus`, `CoverageSummary`, `StaleRule` (a stale REST rule carries `shadowedBy` when an earlier rule takes it) from `@softistx/limix/coverage` | The shapes coverage takes and returns |
 | `@softistx/limix/rules.schema.json` | The JSON schema of a rules document, for editor completion |
@@ -339,6 +338,22 @@ const decision = await evaluateRest(policy, { method: 'GET', path: '/invoices', 
 `trustedKeys` only pins the keys a stored copy may carry; live pulls are always
 verified against the publisher's key set. Pulls refuse redirects, so the bearer
 token never follows one. See [remote](docs/remote.md).
+
+## Stability
+
+- **Hosts.** Of a `CompiledPolicy`, only `global` and `usesRelations` are for
+  hosts to read. Its other fields (the route and field tables, the matchers)
+  are read by the limix integrations and may change in a minor release. The
+  whole structure is `readonly`: integrations cache their checks by the
+  policy's identity, so compile a new policy rather than editing one.
+- **Unions that grow.** A union this package outputs (`RemotePolicyErrorCode`,
+  `StepKind`, `CoverageStatus`, the `kind` of a stale rule) may gain a member in
+  a minor release after 1.0. Handle an unknown member (a `default` branch)
+  instead of closing the switch.
+- **Wire values.** The package exports the values that cross a boundary: the
+  refusal codes, `LIMIX_FORMAT_VERSION`, `ALGORITHMS` and `DEFAULT_TYP`, the
+  `typ` a publisher writes and a reader requires. It exports no log sentence
+  and none of the rules format's own defaults (`param.id`, `NOT_FOUND`).
 
 ## Documentation
 

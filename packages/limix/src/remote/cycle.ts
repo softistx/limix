@@ -6,7 +6,7 @@ import type { Holder } from './holder';
 import type { Keys } from './keys';
 import { pullSigned } from './pull';
 import { saveStored, warnUntrustedKeys } from './stored';
-import type { PolicyStore, RemotePolicyLogger } from './types';
+import type { PolicyStore, RefreshResult, RemotePolicyLogger } from './types';
 import { type Verified, verifyPolicyToken } from './verify';
 
 /** Everything one pull needs; no behaviour of its own. */
@@ -145,20 +145,23 @@ async function persist(
 	);
 }
 
-/** One pull, verify, hold and store cycle. Never throws; true when the rules changed. */
-export async function pullOnce(ctx: CycleContext): Promise<boolean> {
+/** A fresh result each time, so a caller that edits one cannot change another's. */
+const unchanged = (): RefreshResult => ({ changed: false });
+
+/** One pull, verify, hold and store cycle. Never throws; `changed` is true when the rules changed. */
+export async function pullOnce(ctx: CycleContext): Promise<RefreshResult> {
 	try {
 		// The deadline starts once the store is read, not while it is waited for.
 		await ctx.restored;
-		if (ctx.signal.aborted) return false;
+		if (ctx.signal.aborted) return unchanged();
 		const signal = AbortSignal.any([
 			ctx.signal,
 			AbortSignal.timeout(ctx.timeoutMs),
 		]);
 		const getKey = await ctx.keys.resolver(signal);
-		if (ctx.signal.aborted) return false;
+		if (ctx.signal.aborted) return unchanged();
 		await settleProvisional(ctx, getKey, ctx.signal);
-		if (ctx.signal.aborted) return false;
+		if (ctx.signal.aborted) return unchanged();
 		const held = ctx.holder.get();
 		const etag = held && !held.provisional ? held.etag : undefined;
 		const pulled = await pullSigned({
@@ -170,7 +173,7 @@ export async function pullOnce(ctx: CycleContext): Promise<boolean> {
 			// A provisional copy is never confirmed by a 304: it must be re-verified live.
 			...(etag ? { etag } : {}),
 		});
-		if (ctx.signal.aborted) return false;
+		if (ctx.signal.aborted) return unchanged();
 		if (pulled.notModified) {
 			if (!etag) {
 				throw new RemotePolicyError(
@@ -179,10 +182,10 @@ export async function pullOnce(ctx: CycleContext): Promise<boolean> {
 				);
 			}
 			ctx.holder.confirm();
-			return false;
+			return unchanged();
 		}
 		const verified = await verifyPulled(ctx, pulled.jws, getKey, signal);
-		if (ctx.signal.aborted) return false;
+		if (ctx.signal.aborted) return unchanged();
 		const floor = ctx.holder.floor();
 		if (verified.ver < floor) {
 			throw new RemotePolicyError(
@@ -195,10 +198,12 @@ export async function pullOnce(ctx: CycleContext): Promise<boolean> {
 			...(pulled.etag ? { etag: pulled.etag } : {}),
 		});
 		if (result.store) await persist(ctx, pulled);
-		return result.changed;
+		return { changed: result.changed };
 	} catch (error) {
-		if (!ctx.signal.aborted) ctx.fail(wrap(error));
-		return false;
+		if (ctx.signal.aborted) return unchanged();
+		const failure = wrap(error);
+		ctx.fail(failure);
+		return { changed: false, error: failure };
 	} finally {
 		// Whatever the outcome, a copy past `maxStaleMs` stops serving.
 		if (!ctx.signal.aborted) ctx.holder.expire();

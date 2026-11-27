@@ -37,7 +37,9 @@ function needsOfField(
 type Rule = CompiledGraphqlEntry['rule'];
 
 /** The permissions a rule enforces: none for no rule, a public one or one that names none. */
-function enforced(rule: Rule | undefined): string[][] | undefined {
+function enforced(
+	rule: Rule | undefined,
+): readonly (readonly string[])[] | undefined {
 	return rule === undefined || rule.public === true
 		? undefined
 		: (rule.permissions ?? undefined);
@@ -76,7 +78,7 @@ function coverageIssue(
 /** `@needs` against the permissions the rule enforces: missing, too complex, looser, stricter. */
 function implicationIssues(
 	facts: FieldFacts,
-	permissions: string[][],
+	permissions: readonly (readonly string[])[],
 ): NeedsIssue[] {
 	const { needs, coordinate: at } = facts;
 	const withRule = { ...facts, permissions };

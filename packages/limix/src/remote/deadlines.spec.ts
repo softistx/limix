@@ -34,7 +34,7 @@ describe('a call that never settles does not block the next cycle', () => {
 		await policy.refresh();
 		expect(seen()).toContain('STORE');
 		await publisher.publish(2, '/b');
-		expect(await policy.refresh()).toBe(true);
+		expect((await policy.refresh()).changed).toBe(true);
 		expect(policy.version()).toBe(2);
 	});
 
@@ -50,10 +50,10 @@ describe('a call that never settles does not block the next cycle', () => {
 						? hang()
 						: inner(url, init)) as typeof fetch,
 		});
-		expect(await policy.refresh()).toBe(false);
+		expect((await policy.refresh()).changed).toBe(false);
 		expect(codes(errors)).toContain('FETCH_FAILED');
 		stuck = false;
-		expect(await policy.refresh()).toBe(true);
+		expect((await policy.refresh()).changed).toBe(true);
 		expect(policy.version()).toBe(1);
 	});
 
@@ -67,10 +67,10 @@ describe('a call that never settles does not block the next cycle', () => {
 						? hang()
 						: inner(url, init)) as typeof fetch,
 		});
-		expect(await policy.refresh()).toBe(false);
+		expect((await policy.refresh()).changed).toBe(false);
 		expect(errors.length).toBeGreaterThan(0);
 		stuck = false;
-		expect(await policy.refresh()).toBe(true);
+		expect((await policy.refresh()).changed).toBe(true);
 		expect(policy.version()).toBe(1);
 	});
 });
@@ -92,10 +92,10 @@ describe('the key set body', () => {
 						? Promise.resolve(new Response(new ReadableStream({ start() {} })))
 						: inner(url, init)) as typeof fetch,
 		});
-		expect(await policy.refresh()).toBe(false);
+		expect((await policy.refresh()).changed).toBe(false);
 		expect(errors.length).toBeGreaterThan(0);
 		stuck = false;
-		expect(await policy.refresh()).toBe(true);
+		expect((await policy.refresh()).changed).toBe(true);
 		expect(policy.version()).toBe(1);
 	});
 
@@ -119,7 +119,7 @@ describe('the deadline starts after the store read', () => {
 			write: async () => {},
 		};
 		const { policy } = boot(publisher, { store, timeoutMs: 60 });
-		expect(await policy.refresh()).toBe(true);
+		expect((await policy.refresh()).changed).toBe(true);
 		expect(policy.version()).toBe(1);
 	});
 });

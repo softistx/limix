@@ -21,4 +21,3 @@ export type {
 	TypedRules,
 } from './register';
 export { LIMIX_FORMAT_VERSION, type Rules } from './schema';
-export { DEFAULT_FROM, DEFAULT_ON_DENY } from './terms';

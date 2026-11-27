@@ -1,7 +1,6 @@
 import type { Condition } from './compile/types';
-import type { GraphqlRule } from './graphql';
-import type { RestRule } from './rest';
 import type { Rules } from './schema';
+import type { GraphqlRule, RestRule } from './types';
 
 /**
  * The hook a generated file fills by module augmentation

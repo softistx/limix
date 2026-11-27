@@ -105,7 +105,7 @@ describe('signRules and the endpoints, pulled by remotePolicy', () => {
 			...RULES,
 			rest: { '/billing': { GET: { authenticated: true } } },
 		});
-		expect(await policy.refresh()).toBe(true);
+		expect((await policy.refresh()).changed).toBe(true);
 		expect(policy.version()).toBe(2);
 		expect((await ask(policy, '/billing')).allow).toBe(true);
 		expect((await ask(policy, '/open')).allow).toBe(false);
@@ -118,7 +118,7 @@ describe('signRules and the endpoints, pulled by remotePolicy', () => {
 		await policy.ready;
 		await policy.refresh(); // settles the first pull, like the core's specs
 		pub.state.statuses.length = 0;
-		expect(await policy.refresh()).toBe(false);
+		expect((await policy.refresh()).changed).toBe(false);
 		expect(pub.state.statuses).toEqual([304]);
 		expect(policy.version()).toBe(1);
 	});

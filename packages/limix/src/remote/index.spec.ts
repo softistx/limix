@@ -1,6 +1,8 @@
 import { expect, test } from 'bun:test';
 import type {
+	JSONWebKeySet,
 	PolicyStore,
+	RefreshResult,
 	RemotePolicy,
 	RemotePolicyErrorCode,
 	RemotePolicyLogger,
@@ -24,7 +26,9 @@ test('the public surface', () => {
 
 // A removed or renamed type fails `bun check`, which also covers the specs.
 export type _Types = [
+	JSONWebKeySet,
 	PolicyStore,
+	RefreshResult,
 	RemotePolicy,
 	RemotePolicyErrorCode,
 	RemotePolicyLogger,

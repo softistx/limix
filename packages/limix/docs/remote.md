@@ -268,8 +268,9 @@ const policy = remotePolicy({
 | `logger`, `onChange`, `onError` | no log | See above |
 | `fetch`, `now` | global `fetch`, `Date.now` | Replaced in tests |
 
-The returned source adds `ready`, `refresh()` (true when the rules changed;
-never throws), `stop()`, `age()` and `version()`. Every `RemotePolicyError` has
+The returned source adds `ready`, `refresh()` (answers `{ changed, error? }`:
+`changed` is true when the rules changed, `error` is the `RemotePolicyError` of a
+failed pull; never throws), `stop()`, `age()` and `version()`. Every `RemotePolicyError` has
 a `code`: `FETCH_FAILED`, `HTTP_STATUS`, `SIGNATURE`, `CLAIMS`, `STALE_VERSION`,
 `RULES_REFUSED`, `STORE`, `EXPIRED` or `TOO_LARGE`; see
 [troubleshooting](troubleshooting.md).
@@ -301,8 +302,8 @@ try {
       }
     },
   })
-  const changed = await policy.refresh() // never throws
-  console.log(changed)
+  const { changed, error } = await policy.refresh() // never throws
+  console.log(changed, error?.code)
 } catch (error) {
   if (error instanceof RemotePolicyConfigError) console.error(error.message)
   else throw error

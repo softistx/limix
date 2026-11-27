@@ -90,11 +90,20 @@ export interface RemotePolicyOptions {
 	now?: () => number;
 }
 
+/** What `refresh()` answers: whether the held rules changed, and why a failed pull failed. */
+export type RefreshResult = {
+	readonly changed: boolean;
+	readonly error?: RemotePolicyError;
+};
+
 export interface RemotePolicy extends PolicySource {
 	/** Resolves once a policy is held (store or network); never rejects. */
 	readonly ready: Promise<void>;
-	/** Forces a pull. True when the held rules changed. Never throws. */
-	refresh(): Promise<boolean>;
+	/**
+	 * Forces a pull. `changed` is true when the held rules changed; `error` is
+	 * set when the pull failed (the last good copy keeps serving). Never throws.
+	 */
+	refresh(): Promise<RefreshResult>;
 	/** Clears the timer. */
 	stop(): void;
 	/** Milliseconds since the held copy was verified or confirmed by a 304. */

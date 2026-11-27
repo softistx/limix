@@ -5,7 +5,7 @@ dates here, and the version something shipped in is the only number.
 
 ## Now
 
-Nothing in progress: the next items are below.
+- **1.0 API freeze** — the breaks found by the API review.
 
 ## Next
 

@@ -115,6 +115,10 @@ Invalid rules in rules.yaml: 2 issues
 
 ## The document
 
+`Rules` is an explicit, hand-written type. A test holds it mutually assignable
+with the schema's inference, so the type you import does not move with a release
+of the validation library.
+
 | Key | Meaning |
 | --- | --- |
 | `limix` | The format version. Always `1`. Required |
@@ -198,15 +202,12 @@ of rungs, checked in order; the first that fails denies. Each rung has:
 
 `from` is `param.<name>`, `query.<name>` or `json.<path>` on REST, and
 `args.<path>` or `source.<path>` on GraphQL. The other transport's spelling is
-refused. When absent it is `DEFAULT_FROM.rest` (`param.id`) on REST and
-`DEFAULT_FROM.graphql` (`args.id`) on GraphQL. A REST `param.<name>` must be a
+refused. When absent it is `param.id` on REST and
+`args.id` on GraphQL. A REST `param.<name>` must be a
 parameter the route's pattern captures, default included: `compilePolicy`
 refuses the rest. An absent `onDeny` is
-`DEFAULT_ON_DENY` (`NOT_FOUND`). Both constants are exported:
-
-```ts
-import { DEFAULT_FROM, DEFAULT_ON_DENY } from '@softistx/limix'
-```
+`NOT_FOUND`. These defaults belong to the rules format (`limix: 1`), so the
+package exports no constant for them.
 
 The caller is the subject of every check, as `{ type, id }` like in janus; it
 comes from the request when rules are evaluated, so a rule names the object

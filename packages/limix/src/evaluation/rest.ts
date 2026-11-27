@@ -1,4 +1,5 @@
-import { type CompiledPolicy, DEFAULT_FROM } from '../rules';
+import type { CompiledPolicy } from '../rules';
+import { DEFAULT_FROM } from '../rules/terms';
 import { type Claims, isAuthenticated } from './claims';
 import { heldPolicy, noPolicy, type PolicyInput } from './held';
 import { ALLOW, type Decision, forbidden, unauthenticated } from './refusal';

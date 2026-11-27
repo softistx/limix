@@ -55,11 +55,18 @@ exactly (a rule `GET /files/:name` does not cover `GET /files/*path`; the rule i
 stale when no other operation uses it). Single-segment parameters
 (`/things/:thingId`) stay allowed as pattern hits.
 
-`rulesPathOf` converts only whole `{name}` segments. An operation from
-`rulesPathOf('/things/{id}.json')` stays `/things/{id}.json`, so a rule written
-with the in-segment suffix (`/things/:id.json`) beside `/things/:id` can be
-reported stale: the operation is reached by the `/things/:id` rule's matcher,
-not by the suffixed one. Spell that operation as the rule does.
+`rulesPathOf` writes the spelling `limix-codegen` writes into a generated rules
+file, so a path converted by either matches the rule written for it:
+`/things/{id}.json` becomes `/things/:id.json`, a name that is no identifier or
+that runs into the text after it is quoted (`/files/{id}x` becomes
+`/files/:"id"x`), and characters the pattern syntax owns are escaped (`/a:b*`
+becomes `/a\:b\*`). A path with no limix spelling throws a `TypeError`: an
+unbalanced brace, an empty `{}`, or two adjacent parameters (`/{a}{b}`, which
+limix cannot tell apart).
+
+`rulesPathOf` takes an OpenAPI path only, never a path already in the rules-file
+spelling: it escapes `:` and `*`, so `/things/:id` becomes `/things/\:id`. OpenAPI
+paths do contain a literal `:` (`/v1/{name}:cancel` becomes `/v1/:name\:cancel`).
 
 ```ts
 import { rulesPathOf } from '@softistx/limix/coverage'
@@ -67,8 +74,8 @@ import { rulesPathOf } from '@softistx/limix/coverage'
 rulesPathOf('/documents/{id}') // '/documents/:id'
 ```
 
-A bare `{name}` segment becomes `:name`; any other segment (`{name}.json`
-included) is left as it is.
+Each `{name}` becomes `:name`, or `:"name"` when the pattern parser would not
+read the name bare.
 
 `root` says whether `type` is an operation root, so `global.unmatched` governs
 its fields, as `root` of `evaluateField`. Read it from the schema: a schema that

@@ -12,6 +12,7 @@ import { createKeys } from './keys';
 import { createReporter } from './reporter';
 import { restoreFromStore } from './restore';
 import type {
+	RefreshResult,
 	RemotePolicy,
 	RemotePolicyLogger,
 	RemotePolicyOptions,
@@ -105,8 +106,8 @@ export function remotePolicy(options: RemotePolicyOptions): RemotePolicy {
 		restored,
 	});
 
-	let inFlight: Promise<boolean> | undefined;
-	const refresh = (): Promise<boolean> => {
+	let inFlight: Promise<RefreshResult> | undefined;
+	const refresh = (): Promise<RefreshResult> => {
 		inFlight ??= pullOnce(context).finally(() => {
 			inFlight = undefined;
 		});

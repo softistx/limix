@@ -93,10 +93,19 @@ is not, and `@softistx/limix-alxia` ([guide](../../limix-alxia/docs/alxia.md#ref
 `LimixRefusal` extends `Error` and carries the registered symbol
 `Symbol.for('limix.refusal')`. An integration that must not import the class
 checks it with the guard, which also recognises a refusal from another copy of
-the package:
+the package. That registry key is the contract between copies: the package
+exports no symbol, so do not brand an object by hand. A policy source carries
+`Symbol.for('limix.policy-source')` the same way; build one with `policySource`,
+which checks `current` and `subscribe`, and test one with `isPolicySource`.
+
+`Refusal` is the structural shape `LimixRefusal` has (`code`, `status`,
+`params`, all read-only), for a function that maps any refusal with those
+fields:
 
 ```ts
-import { isLimixRefusal } from '@softistx/limix'
+import { isLimixRefusal, type Refusal } from '@softistx/limix'
+
+const body = (refusal: Refusal) => ({ code: refusal.code, ...refusal.params })
 
 function onError(error: unknown) {
   if (isLimixRefusal(error)) return { status: error.status, body: { code: error.code, ...error.params } }
@@ -196,12 +205,14 @@ A source that holds no policy answers every call with `limix.errors.unavailable`
 (503): it fails closed. `isPolicySource` tells a source from a policy.
 `outageReporter(report)` calls `report` once per withdrawal rather than once per
 request, for a log line: call the function it returns with `source.current()`
-before each evaluation. `OUTAGE_MESSAGE` is the line it is meant to log.
+before each evaluation. Write the log line yourself.
 
 ```ts
-import { OUTAGE_MESSAGE, outageReporter } from '@softistx/limix'
+import { outageReporter } from '@softistx/limix'
 
-const watch = outageReporter(() => logger.error(OUTAGE_MESSAGE))
+const watch = outageReporter(() =>
+  logger.error('policy source unavailable: every request is refused'),
+)
 // per request: watch(live.current())
 ```
 

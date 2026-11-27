@@ -108,7 +108,10 @@ function compileGraphql(
 	issues: RulesIssue[],
 ): CompiledPolicy['graphql'] {
 	if (!rules.graphql) return undefined;
-	const graphql: NonNullable<CompiledPolicy['graphql']> = {};
+	const graphql: Record<
+		string,
+		Readonly<Record<string, CompiledGraphqlEntry>>
+	> = {};
 	for (const [type, fields] of Object.entries(rules.graphql)) {
 		const compiled: Record<string, CompiledGraphqlEntry> = {};
 		for (const [field, rule] of Object.entries(fields ?? {})) {

@@ -1,7 +1,6 @@
 import type { RulesIssue } from '../error';
-import type { GraphqlRule } from '../graphql';
-import type { RestRule } from '../rest';
 import { DEFAULT_FROM } from '../terms';
+import type { GraphqlRule, RestRule } from '../types';
 import type { Condition } from './types';
 
 type Rule = RestRule | GraphqlRule;
@@ -63,7 +62,9 @@ export function checkContradictions(
 }
 
 /** True when the rule declares at least one relation rung. */
-export function usesRelations(rule: Rule): boolean {
+export function usesRelations(rule: {
+	readonly relations?: readonly unknown[] | undefined;
+}): boolean {
 	return Boolean(rule.relations?.length);
 }
 

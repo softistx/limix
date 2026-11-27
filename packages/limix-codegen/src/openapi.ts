@@ -1,5 +1,5 @@
 import { compilePolicy, parseRules } from '@softistx/limix';
-import type { RestOperation } from '@softistx/limix/coverage';
+import { type RestOperation, rulesPathOf } from '@softistx/limix/coverage';
 import { CodegenError } from './errors';
 
 const OPENAPI_METHODS: Readonly<Record<string, string>> = {
@@ -14,48 +14,13 @@ const OPENAPI_METHODS: Readonly<Record<string, string>> = {
 	query: 'QUERY',
 };
 
-const IDENTIFIER = /^[$_\p{ID_Start}][$\p{ID_Continue}\u200c\u200d]*$/u;
-const ID_CONTINUE = /^(?:[$\p{ID_Continue}]|\u200c|\u200d)$/u;
-const SYNTAX = new Set(['\\', '(', ')', '[', ']', '+', '?', '!', ':', '*']);
-
-/**
- * An OpenAPI path in the spelling of a rules file: `/notes/{id}` becomes
- * `/notes/:id`. A name that is no identifier, or that runs into the text after
- * it (`{id}x`), is quoted (`:"id"x`); characters the pattern syntax owns are
- * escaped.
- */
-export function openapiPath(path: string): string {
-	const chars = Array.from(path);
-	let out = '';
-	for (let i = 0; i < chars.length; i++) {
-		const char = chars[i] as string;
-		if (char === '}') throw new CodegenError(`unbalanced } in path ${path}`);
-		if (char === '{') {
-			const end = chars.indexOf('}', i);
-			if (end === -1) throw new CodegenError(`unbalanced { in path ${path}`);
-			const name = chars.slice(i + 1, end).join('');
-			if (name === '') throw new CodegenError(`empty {} in path ${path}`);
-			const next = chars[end + 1];
-			const bare = IDENTIFIER.test(name) && !(next && ID_CONTINUE.test(next));
-			out += bare ? `:${name}` : `:"${name.replace(/[\\"]/g, '\\$&')}"`;
-			if (chars[end + 1] === '{') {
-				throw new CodegenError(
-					`adjacent parameters in ${path}: limix needs literal text between two captures`,
-				);
-			}
-			i = end;
-		} else out += SYNTAX.has(char) ? `\\${char}` : char;
-	}
-	return out;
-}
-
 /** The limix spelling of a path, proved by compiling it as a one-route policy. */
 function converted(path: string, source: string): string {
 	let pattern: string;
 	try {
-		pattern = openapiPath(path);
+		pattern = rulesPathOf(path);
 	} catch (error) {
-		if (error instanceof CodegenError) {
+		if (error instanceof TypeError) {
 			throw new CodegenError(`${source}: ${error.message}`);
 		}
 		throw error;

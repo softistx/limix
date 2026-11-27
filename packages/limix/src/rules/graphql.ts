@@ -36,5 +36,3 @@ export const zGraphqlRules = z
 			'Subscription cover root fields; any other type name targets fields on ' +
 			'that type wherever it appears.',
 	);
-
-export type GraphqlRule = z.infer<typeof zGraphqlRule>;

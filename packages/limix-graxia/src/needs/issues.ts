@@ -21,7 +21,7 @@ export interface NeedsIssue {
 	/** What `@needs` asks (type, field and returned type), in conjunctive normal form. */
 	needs: string[][];
 	/** The rule's permissions (alternatives of all-of lists), when it has some. */
-	permissions?: string[][];
+	permissions?: readonly (readonly string[])[];
 	/** For `rule-without-needs`: the `@needs` text that would say the rule. Never written anywhere. */
 	suggestion?: string;
 }
