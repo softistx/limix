@@ -381,8 +381,8 @@ Three limits:
 - A wildcard route with an empty tail (`/files`, `/files/`, `/users/me` on
   `/users/:id/*`, `/api` on a prefixed `/*`) has no segment to rebuild. The guard
   walks the rules in document order and takes the first that matches the path
-  without the tail, else the first ending in a wildcard (`*path`, or inside
-  `{...}`) that matches it with a segment added: alxia's optional tail meets a
+  without the tail, else the first ending in a wildcard (`*path`, a bare `*`, or
+  inside `{...}`) that matches it with a segment added: alxia's optional tail meets a
   `*path` rule. That rule applies; with none, the request falls to `unmatched`.
 - Literal segments of the route are judged in the form a URL carries them
   (`/users/%C3%A9t%C3%A9`), while parameters are judged decoded (`été`): a rule
@@ -512,7 +512,7 @@ interface RouteIssue {
 | `kind` | From | Meaning |
 | --- | --- | --- |
 | `rung-code` | `checkRoutes` | A relation rung's `code` is outside `auth.errors.` |
-| `unmatched-rule` | `checkRoutes` | A REST rule no route of the app takes |
+| `unmatched-rule` | `checkRoutes` | A REST rule no route of the app takes (a rule for method `*`, `* /admin/*`, is taken when a route of any method does) |
 | `open-route` | `checkGuard` | A route or socket that never runs the guard |
 | `separated-guards` | `checkGuard` | A hook stands between a group's guard and the app's |
 

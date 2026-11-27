@@ -6,6 +6,9 @@ dates here, and the version something shipped in is the only number.
 ## Now
 
 - **1.0 API freeze** — the breaks found by the API review.
+- **Flat keys and wildcards** — `"POST /users/:id"` and `"Query.me"` as rule
+  keys beside the nested form, a bare `*` in a path, the method `*` and
+  `Type.*`. Typed registration and codegen for the flat form follow.
 
 ## Next
 

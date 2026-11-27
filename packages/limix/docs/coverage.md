@@ -89,10 +89,10 @@ renames `Query` to `RootQuery` still has a root, and any other type is not one.
 | `status: 'covered'` | A rule names the operation and asks something of the caller |
 | `status: 'public'` | A rule names it and says `public: true` |
 | `status: 'uncovered'` | No rule names it, so it falls to `global.unmatched` |
-| `match` | On `covered` and `public` REST entries: `'exact'` when the rule's own pattern names the path, `'pattern'` when another spelling, or an earlier rule's matcher, took it |
+| `match` | On `covered` and `public` REST entries: `'exact'` when the rule's own pattern names the path, `'pattern'` when another spelling, or an earlier rule's matcher, took it, `'wildcard'` when the rule is for method `*`. On a GraphQL entry only `'wildcard'`, when a `Type.*` rule took the field. `'wildcard'` wins over the other two |
 | `unmatched` | On `uncovered` only: `'allow'` or `'deny'`, what `global.unmatched` does to it. A GraphQL field that is not a root is never governed by it, so it is always `allow` |
 | `stale[]` | Rules that reach no operation: `{ kind: 'rest', method, path, label, shadowedBy? }` (`shadowedBy: { path, label }` names the earlier rule whose matcher takes this one's pattern, so it never applies) or `{ kind: 'graphql', type, field, label }`, `path` as the rules file spells it |
-| `summary` | Counts: `total`, `covered`, `public`, `uncovered`, `refused` (uncovered with `unmatched: 'deny'`), `open` (uncovered with `unmatched: 'allow'`), `byPattern` (REST entries with `match: 'pattern'`), `stale` |
+| `summary` | Counts: `total`, `covered`, `public`, `uncovered`, `refused` (uncovered with `unmatched: 'deny'`), `open` (uncovered with `unmatched: 'allow'`), `byPattern` (REST entries with `match: 'pattern'`), `byWildcard` (entries with `match: 'wildcard'`), `stale` |
 
 `label` is `GET /documents/:id` or `Query.me`, ready to print.
 
@@ -122,6 +122,13 @@ convert OpenAPI paths with `rulesPathOf` first.
 A `HEAD` operation is `public` only
 when every rule it faces is, and it is `uncovered` when no `GET` rule names it,
 even beside a `HEAD` rule (the guard refuses it under `deny`).
+
+A wildcard hit is not a spelling to fix, so the CI check below fails on
+`pattern` only. A stale method `*` rule is labelled with its method
+(`* /admin/*`), a flat key as `POST /gone`; an exact rule written after a
+`*` rule on another key is reported with `shadowedBy: { path: '/admin/*', label: '* /admin/*' }`.
+A `Type.*` rule is stale when every operation of its type, in the list, has a
+rule of its own.
 
 Stale rules are judged per transport, and only when the list holds an operation
 of it: a GraphQL-only list does not make every REST rule stale, nor the reverse,
