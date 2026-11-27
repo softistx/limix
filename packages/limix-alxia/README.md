@@ -201,3 +201,4 @@ See [docs/](docs/README.md):
 - [alxia guide](docs/alxia.md): the guard, tenants, relations, refusals, outages, GraphQL, coverage.
 - [Troubleshooting](docs/troubleshooting.md): the errors and refusals this package gives.
 - [Roadmap](docs/roadmap.md): what is coming.
+- [Example](https://github.com/softistx/limix/blob/develop/examples/books/README.md): a books and authors API served over REST and GraphQL behind one guard.
