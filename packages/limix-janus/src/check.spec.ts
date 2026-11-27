@@ -106,3 +106,30 @@ describe('checkModel', () => {
 		expect(issues[0]?.message).toContain('`load` option on the roadmap');
 	});
 });
+
+describe('checkModel, the path of a flat or wildcard key', () => {
+	test('is the key as the rules file spells it', () => {
+		const bad = compilePolicy(
+			definePolicy({
+				limix: 1,
+				global: { unmatched: 'deny', basePath: '/api' },
+				rest: {
+					'GET /files/:id': { relations: [term('view', 'file')] },
+					'* /docs/:id': { relations: [term('view', 'file')] },
+					'/notes/:id': { '*': { relations: [term('view', 'file')] } },
+				},
+				graphql: {
+					'Query.file': { relations: [term('view', 'file')] },
+					'Note.*': { relations: [term('view', 'file')] },
+				},
+			}),
+		);
+		expect(checkModel(bad, model).map((issue) => issue.path)).toEqual([
+			"rest['GET /files/:id'].relations[0].require[0][0]",
+			"rest['* /docs/:id'].relations[0].require[0][0]",
+			"rest['/notes/:id']['*'].relations[0].require[0][0]",
+			"graphql['Query.file'].relations[0].require[0][0]",
+			"graphql['Note.*'].relations[0].require[0][0]",
+		]);
+	});
+});

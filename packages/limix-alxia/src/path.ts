@@ -1,7 +1,7 @@
 /**
  * An alxia path as a limix route pattern. alxia ends a path with a bare `*`
- * for the rest of it, limix names that wildcard (`*path`) and reads a bare one
- * as a mistake; alxia has no optional groups or regexes, so a character limix
+ * for the rest of it; limix names that wildcard (`*path`) so the rest is a
+ * parameter the rules can read; alxia has no optional groups or regexes, so a character limix
  * would read as syntax is a literal one here and gets escaped.
  */
 export function limixPath(path: string): string {

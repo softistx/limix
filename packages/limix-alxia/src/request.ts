@@ -21,12 +21,21 @@ function queryOf(url: URL): Record<string, string | string[]> {
 	return query;
 }
 
+/**
+ * The routes a method faces, as core dispatches them: its own list (the `*`
+ * rules are in it), else the `*` list for a method outside the usual ten; a
+ * HEAD's GET rules too.
+ */
+function routesOf(policy: CompiledPolicy, method: string) {
+	const table = policy.restRoutesByMethod;
+	return (method === 'HEAD' ? ['HEAD', 'GET'] : [method]).flatMap(
+		(name) => table.get(name) ?? table.get('*') ?? [],
+	);
+}
+
 /** Whether a rule for this method (a HEAD's GET rule too) reads `json.` in a relation term. */
 export function readsBody(policy: CompiledPolicy, method: string): boolean {
-	const methods = method === 'HEAD' ? ['HEAD', 'GET'] : [method];
-	return methods.some((name) =>
-		policy.restRoutesByMethod.get(name)?.some((route) => route.readsBody),
-	);
+	return routesOf(policy, method).some((route) => route.readsBody);
 }
 
 /**
@@ -47,8 +56,9 @@ async function jsonOf(request: Request): Promise<unknown> {
 	}
 }
 
-/** A pattern ending in a wildcard, alone or inside an optional group. */
-const endsWild = (pattern: string) => /\*[A-Za-z_$][\w$]*\}*$/.test(pattern);
+/** A pattern ending in a wildcard, named or not, alone or inside an optional group. */
+const endsWild = (pattern: string) =>
+	/(?<!\\)\*(?:[A-Za-z_$][\w$]*)?\}*$/.test(pattern);
 
 /**
  * The rule an empty wildcard tail (`/users/me` on `/users/:id/*`) stands for,
@@ -63,9 +73,7 @@ function emptyTailRule(
 	method: string,
 	base: string,
 ): string | undefined {
-	const routes = (method === 'HEAD' ? ['HEAD', 'GET'] : [method]).flatMap(
-		(name) => policy.restRoutesByMethod.get(name) ?? [],
-	);
+	const routes = routesOf(policy, method);
 	const exact = routes.find((route) => route.matcher(base) !== false);
 	if (exact) return exact.pattern;
 	return routes.find(
