@@ -1,0 +1,14 @@
+import { expect, test } from 'bun:test';
+import * as api from './index';
+
+test('the public surface', () => {
+	expect(Object.keys(api).sort()).toEqual([
+		'canOf',
+		'checkNeeds',
+		'graphqlOperations',
+		'guardSchema',
+		'isGuarded',
+		'limixGraxia',
+		'refusalError',
+	]);
+});

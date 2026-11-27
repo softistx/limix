@@ -2,6 +2,7 @@ export type { Claims, Subject } from './claims';
 export { explain } from './explain';
 export { evaluateField, type FieldInput } from './field';
 export type { PolicyInput } from './held';
+export { holdsPermission } from './permit';
 export {
 	CODE_FORBIDDEN,
 	CODE_NOT_FOUND,

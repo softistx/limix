@@ -228,6 +228,18 @@ function onError(error: unknown) {
 }
 ```
 
+To ask "may this caller use this permission?" outside an evaluation (to hide
+what an agent cannot call, for example), `holdsPermission` is the same
+synchronous test the `permissions` terms use: a token of `scope`, and also in
+`permissions` when that claim is present. It does not read `authenticated`:
+
+```ts
+import { holdsPermission } from '@softistx/limix'
+
+const can = claims.authenticated ? holdsPermission(claims) : () => false
+can('documents:write')
+```
+
 A refusal's `code` is under `auth.errors.` (and `limix.errors.unavailable` for
 a 503), the prefix `@softistx/alxia-access` reads. See
 [evaluation](docs/evaluation.md) and [relations](docs/relations.md).

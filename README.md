@@ -7,6 +7,7 @@ relations through a port (janus first), coverage, and signed remote rules.
 
 | Package | What it is |
 | --- | --- |
+| [`@softistx/limix-graxia`](packages/limix-graxia/README.md) | The graxia and graphql-js integration: field guard, plugin, `@needs` checks, coverage operations |
 | [`@softistx/limix-janus`](packages/limix-janus/README.md) | The `RelationChecker` adapter over janus permissions |
 | [`@softistx/limix-publish`](packages/limix-publish/README.md) | The emitter: signs rules as a JWS, serves them and their JWKS (API and CLI) |
 | [`@softistx/limix`](packages/limix/README.md) | The core: rules format, evaluation, relations port, coverage, remote client |
