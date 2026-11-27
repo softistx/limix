@@ -9,9 +9,7 @@ Nothing in progress: the next items are below.
 
 ## Next
 
-- **Migration guide on npm** — the [migration guide from
-  `@softistx/security`](migrating-from-security.md) is in the repository's docs;
-  it reaches the npm page with the next `@softistx/limix` release.
+Nothing yet.
 
 ## Later
 
@@ -31,6 +29,10 @@ Nothing in progress: the next items are below.
 
 ## Shipped
 
+- **0.4.0** — one walk in document order for `evaluateRest` and coverage when
+  REST patterns overlap; a stale rule an earlier pattern always takes carries
+  `shadowedBy`. The [migration guide from `@softistx/security`](migrating-from-security.md)
+  ships in the package.
 - **0.3.0** — `Register`, the hook a generated file fills to type `definePolicy`
   and the `conditions` of `compilePolicy`.
 - **0.2.0** — `holdsPermission(claims)`.
