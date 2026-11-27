@@ -46,6 +46,27 @@ fixes only on 5.x) until nothing imports it, then `npm deprecate`d.
   compiles against it and `migration-guide.spec.ts` runs it. It is never imported
   by `src` nor a dependency of a package.
 
+## API rules
+
+Decided by the 1.0 API review (owner, 2026-11-27). A change that breaks one of
+them needs the owner's word.
+
+- Export wire values only (codes, format version, `typ`, algorithms), never an
+  option default or a log sentence.
+- A new member of a union the library outputs (an issue `kind`, an error code,
+  a status) is a minor release after 1.0. Say so in each README.
+- Of a `CompiledPolicy`, only `global` and `usesRelations` are for hosts; the
+  rest is read by the integrations and may change in a minor.
+- A `check*` function returns an array of `<Thing>Issue`, each with a `kind`,
+  and never throws.
+- Option objects, not long positional optionals.
+- The context generic is `Ctx extends object = Empty` everywhere.
+- No compatibility aliases before 1.0: a rename removes the old name.
+- Every entry point has an export snapshot spec (`index.spec.ts`), so a change
+  of surface shows in review.
+- Brands are `Symbol.for` keys read by guards (`isLimixRefusal`,
+  `isPolicySource`), never exported symbols.
+
 ## Layout
 
 A library monorepo (the `lay-out-a-library-monorepo` skill of the `package`

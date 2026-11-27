@@ -82,6 +82,14 @@ users differently; `ctxOf` supplies the `ctx` janus requires when a permission
 reaches a `when`. The [janus guide](docs/janus.md) covers both, errors and
 the limits.
 
+## Stability
+
+After 1.0, a new issue `kind` or error code is a minor release: handle an
+unknown one (a `default` branch) instead of closing the switch. The full policy
+is in the core README's
+[Stability](https://github.com/softistx/limix/blob/develop/packages/limix/README.md#stability)
+section.
+
 ## Documentation
 
 See [docs/](docs/README.md): the janus guide, troubleshooting and the roadmap.
