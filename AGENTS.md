@@ -57,7 +57,7 @@ them needs the owner's word.
   a status) is a minor release after 1.0. Say so in each README.
 - Of a `CompiledPolicy`, only `global` and `usesRelations` are for hosts; the
   rest is read by the integrations and may change in a minor.
-- A `check*` function returns an array of `<Thing>Issue`, each with a `kind`,
+- A `check*` function returns a `readonly <Thing>Issue[]`, each with a `kind`,
   and never throws.
 - Option objects, not long positional optionals.
 - The context generic is `Ctx extends object = Empty` everywhere.

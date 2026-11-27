@@ -84,7 +84,7 @@ function* rulesOf(policy: CompiledPolicy): Generator<[string, RuleLike]> {
 export function checkModel(
 	policy: CompiledPolicy,
 	model: ModelLike,
-): ModelIssue[] {
+): readonly ModelIssue[] {
 	const issues: ModelIssue[] = [];
 	const types = model.definition.types;
 	for (const [where, rule] of rulesOf(policy)) {
