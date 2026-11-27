@@ -17,7 +17,7 @@ import {
 import { RemotePolicyError } from './errors';
 
 /** Asymmetric only: a shared secret cannot tell a publisher from a reader. */
-export const ALGORITHMS = ['RS256', 'PS256', 'ES256', 'EdDSA'];
+export const ALGORITHMS = ['RS256', 'PS256', 'ES256', 'EdDSA'] as const;
 
 export interface VerifyOptions {
 	typ: string;
@@ -31,6 +31,8 @@ export interface VerifyOptions {
 	 * copy outlives its expiry. The caller reports an expired one.
 	 */
 	ignoreExpiry?: boolean;
+	/** What a rules refusal calls the document; default `the pulled rules`. */
+	source?: string;
 }
 
 export interface Verified {
@@ -38,8 +40,8 @@ export interface Verified {
 	iat: number;
 	/** The `schema` claim: the rules format version the publisher wrote. */
 	schema?: number;
-	/** `exp` in seconds, when the token has one. */
-	exp?: number;
+	/** `exp` in seconds: a required claim. */
+	exp: number;
 	expired: boolean;
 	/** The rules in canonical JSON, to tell a re-signing from other rules. */
 	fingerprint: string;
@@ -138,7 +140,7 @@ function checkSchema(schema: unknown): number | undefined {
 	return schema;
 }
 
-const SOURCE = 'the pulled rules';
+const DEFAULT_SOURCE = 'the pulled rules';
 
 /** Verifies a compact JWS and compiles its rules. */
 export async function verifyPolicyToken(
@@ -161,7 +163,7 @@ export async function verifyPolicyToken(
 	let payload: JWTPayload;
 	try {
 		({ payload } = await verifyAgainst(jws, getKey, {
-			algorithms: ALGORITHMS,
+			algorithms: [...ALGORITHMS],
 			typ: options.typ,
 			audience: options.audience,
 			...(options.issuer ? { issuer: options.issuer } : {}),
@@ -172,7 +174,12 @@ export async function verifyPolicyToken(
 		throw mapJoseError(error);
 	}
 	const { ver, iat, rules } = claims(payload);
+	const { exp } = payload;
+	if (typeof exp !== 'number') {
+		throw new RemotePolicyError('CLAIMS', '`exp` is required');
+	}
 	const schema = checkSchema(payload['schema']);
+	const SOURCE = options.source ?? DEFAULT_SOURCE;
 	let policy: CompiledPolicy;
 	try {
 		policy = compilePolicy(parseRules(rules, SOURCE), {
@@ -191,9 +198,8 @@ export async function verifyPolicyToken(
 		iat,
 		policy,
 		fingerprint: canonical(rules),
-		expired:
-			typeof payload.exp === 'number' && payload.exp * 1000 <= options.now,
-		...(typeof payload.exp === 'number' ? { exp: payload.exp } : {}),
+		exp,
+		expired: exp * 1000 <= options.now,
 		...(schema !== undefined ? { schema } : {}),
 	};
 }
