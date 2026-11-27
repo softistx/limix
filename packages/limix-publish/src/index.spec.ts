@@ -14,8 +14,7 @@ import * as api from './index';
 
 test('the public surface', () => {
 	expect(Object.keys(api).sort()).toEqual([
-		'ALGS',
-		'DEFAULT_EXPIRES_IN',
+		'ALGORITHMS',
 		'PublishError',
 		'generateSigningKeyPair',
 		'importSigningKey',

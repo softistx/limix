@@ -11,7 +11,7 @@ import { signCompact } from './jose';
 import { type Alg, assertAlg, assertKid, assertSigningKey } from './keys';
 
 /** The default lifetime of a token, in seconds: one day. */
-export const DEFAULT_EXPIRES_IN = 86_400;
+const DEFAULT_EXPIRES_IN = 86_400;
 
 /** What `signRules` signs with. */
 export interface SignRulesOptions {
@@ -33,10 +33,12 @@ export interface SignRulesOptions {
 	/** The `typ` header; default `limix-rules+jwt`, which readers require. */
 	typ?: string;
 	/**
-	 * The predicates a rule's `when` may name. When given, a rule naming
-	 * another is refused; when absent only the structure is checked.
+	 * The predicates a rule's `when` may name, as a list of names or as the
+	 * predicate map a reader registers (its keys are used, so a host can pass
+	 * one object to both). When given, a rule naming another is refused; when
+	 * absent only the structure is checked.
 	 */
-	conditions?: readonly string[];
+	conditions?: readonly string[] | Readonly<Record<string, Condition>>;
 }
 
 const accept: Condition = () => true;
@@ -66,9 +68,14 @@ function stubs(names: Iterable<string>): Record<string, Condition> {
  * and returns the parsed document with its compiled form. Throws the core's
  * `RulesError`.
  */
-function validate(rules: unknown, conditions: readonly string[] | undefined) {
+function validate(rules: unknown, conditions: SignRulesOptions['conditions']) {
 	const parsed = parseRules(rules, 'the rules to sign');
-	const names = conditions ?? conditionNames(parsed);
+	const names =
+		conditions === undefined
+			? conditionNames(parsed)
+			: Array.isArray(conditions)
+				? conditions
+				: Object.keys(conditions);
 	const policy: CompiledPolicy = compilePolicy(parsed, {
 		conditions: stubs(names),
 	});

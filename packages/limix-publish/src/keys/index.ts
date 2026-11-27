@@ -1,4 +1,10 @@
-export { ALGS, type Alg, assertAlg, assertKid, assertPkcs8 } from './assert';
+export {
+	ALGORITHMS,
+	type Alg,
+	assertAlg,
+	assertKid,
+	assertPkcs8,
+} from './assert';
 export { assertSigningKey } from './fit';
 export { generateSigningKeyPair, importSigningKey } from './import';
 export {

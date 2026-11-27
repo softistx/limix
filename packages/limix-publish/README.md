@@ -24,15 +24,14 @@ uses no `node:` or Bun API, so it runs in a browser or an edge worker; the
 
 | Export | What it is |
 | --- | --- |
-| `signRules(rules, options)` | Validates the rules as a reader will, signs them as the compact JWS `remotePolicy` pulls. Options: `key`, `alg`, `kid`, `audience`, `ver`, and optionally `issuer`, `expiresIn`, `typ`, `conditions`, `now` |
+| `signRules(rules, options)` | Validates the rules as a reader will, signs them as the compact JWS `remotePolicy` pulls. Options: `key`, `alg`, `kid`, `audience`, `ver`, and optionally `issuer`, `expiresIn` (seconds, default `86400`), `typ`, `conditions` (names or a predicate map), `now` |
 | `jwksOf(keys)` | The public key set of one or more keys; only the public members are kept |
 | `rulesEndpoint({ token, authorize? })` | A fetch-style `(Request) => Promise<Response>` serving the token with an ETag and 304 |
 | `jwksEndpoint(jwks, { maxAge? })` | A fetch-style handler serving the key set |
 | `importSigningKey(pem, alg)` | A PKCS#8 PEM as the `CryptoKey` `signRules` takes |
 | `generateSigningKeyPair(alg)` | A new key pair, for tests and first setups |
 | `PublishError`, type `PublishErrorCode` | A key or an option refused; `code` is `KEY` or `OPTIONS` |
-| `ALGS`, type `Alg` | `RS256`, `PS256`, `ES256`, `EdDSA`: asymmetric only |
-| `DEFAULT_EXPIRES_IN` | The default lifetime, `86400` seconds |
+| `ALGORITHMS`, type `Alg` | `RS256`, `PS256`, `ES256`, `EdDSA`: asymmetric only |
 | types `SignRulesOptions`, `JwksKey`, `RulesEndpointOptions`, `JwksEndpointOptions`, `JSONWebKeySet`, `JWK` | The shapes the functions take and return |
 | `limix-publish` | The command: `sign`, `jwks`, `check` |
 

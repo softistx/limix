@@ -13,11 +13,11 @@ export {
 export { PublishError, type PublishErrorCode } from './errors';
 export type { JSONWebKeySet, JWK } from './jose';
 export {
-	ALGS,
+	ALGORITHMS,
 	type Alg,
 	generateSigningKeyPair,
 	importSigningKey,
 	type JwksKey,
 	jwksOf,
 } from './keys';
-export { DEFAULT_EXPIRES_IN, type SignRulesOptions, signRules } from './sign';
+export { type SignRulesOptions, signRules } from './sign';

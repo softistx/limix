@@ -1,6 +1,6 @@
 import { PublishError } from '../errors';
 import type { JWK } from '../jose';
-import { ALGS, type Alg } from './assert';
+import { ALGORITHMS, type Alg } from './assert';
 
 export const isCryptoKey = (key: unknown): key is CryptoKey =>
 	typeof key === 'object' &&
@@ -43,7 +43,7 @@ export function checkCryptoKey(key: CryptoKey, alg: Alg): void {
 	if (key.type === 'secret') {
 		throw new PublishError(
 			'KEY',
-			`a shared secret (${describeAlgorithm(algorithm)}) cannot sign rules: use an asymmetric private key (${ALGS.join(', ')})`,
+			`a shared secret (${describeAlgorithm(algorithm)}) cannot sign rules: use an asymmetric private key (${ALGORITHMS.join(', ')})`,
 		);
 	}
 	const found = describeAlgorithm(algorithm);

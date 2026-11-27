@@ -228,6 +228,25 @@ describe('signRules', () => {
 			).toContain('.');
 		});
 
+		it('takes `conditions` as a predicate map and uses its keys', async () => {
+			const rules = {
+				...RULES,
+				rest: { '/a': { GET: { authenticated: true, when: ['nope'] } } },
+			};
+			const { options } = await base();
+			expect(
+				await signRules(rules, {
+					...options,
+					conditions: { nope: () => true },
+				}),
+			).toContain('.');
+			const error = await refused(rules, {
+				conditions: { other: () => true },
+			});
+			expect(error).toBeInstanceOf(RulesError);
+			expect(error.message).toContain('nope');
+		});
+
 		it('refuses a rule naming a condition inside a GraphQL field when conditions is given', async () => {
 			const rules = {
 				limix: 1,

@@ -1,5 +1,5 @@
 import { createPrivateKey, createPublicKey, type KeyObject } from 'node:crypto';
-import { ALGS, type Alg, importSigningKey, PublishError } from '../index';
+import { ALGORITHMS, type Alg, importSigningKey, PublishError } from '../index';
 import { assertPkcs8 } from '../keys';
 import { UsageError } from './io';
 
@@ -45,10 +45,10 @@ function readPem<T>(read: () => T, what: string): T {
 
 /** Refuses an `--alg` that is not one of the four. */
 export function checkAlg(alg: string | undefined): Alg | undefined {
-	if (alg !== undefined && !ALGS.includes(alg as Alg)) {
+	if (alg !== undefined && !ALGORITHMS.includes(alg as Alg)) {
 		throw new PublishError(
 			'OPTIONS',
-			`alg "${alg}" is not allowed: use ${ALGS.join(', ')}`,
+			`alg "${alg}" is not allowed: use ${ALGORITHMS.join(', ')}`,
 		);
 	}
 	return alg as Alg | undefined;
