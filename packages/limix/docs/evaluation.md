@@ -157,7 +157,14 @@ evaluateRest(policy, {
 - `path` is matched against the compiled table, first pattern in document
   order; what it captures is merged under `request.params` (yours win).
 - Neither given throws `evaluateRest: pass the \`route\` or the \`path\``, unless the source holds no policy: that answers 503 first.
-- `HEAD` faces its own rules and then the `GET` ones: both must allow.
+- `HEAD` faces its own rules and then the `GET` ones: both must allow. A rule
+  for method `*` that both lists reach is judged once, so a relation on it is
+  asked once.
+- A rule for method `*` (`"* /admin/*"`) is in every method's list, at its own
+  place in document order, except for a method that has a rule of its own on the
+  same pattern: that one applies instead. A method outside `GET`, `POST`, `PUT`,
+  `PATCH`, `DELETE`, `HEAD`, `OPTIONS`, `CONNECT`, `TRACE` and `QUERY` faces the
+  `*` rules alone. `explain` names the rule by its own method: `* /admin/*`.
 - A route no rule names follows `global.unmatched`: `allow` lets it through,
   `deny` answers 401 to an anonymous caller and 403 to a signed-in one.
 
@@ -177,6 +184,11 @@ evaluateField(policy, {
   root: true,                       // optional, see below
 })
 ```
+
+A field is judged by its own rule, else by its type's `Type.*` rule (`explain`
+names that match `Query.me (Query.*)`); only then does `unmatched` apply. So under
+`Query.*` no root field falls to `global.unmatched`, and a `Note.*` rule guards
+every `Note` field, once for each field a request selects.
 
 Call it from a resolver or a schema wrapper; wrapping a schema is the job of
 [`@softistx/limix-graxia`](https://github.com/softistx/limix/blob/develop/packages/limix-graxia/docs/graphql.md). Only a root field that no

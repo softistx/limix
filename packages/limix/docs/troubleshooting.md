@@ -152,6 +152,125 @@ A role name contains `$`, the placeholder `@softistx/security` 5 replaced with
 the tenant's domain. limix 1.0 has no per-tenant roles: name the role plainly
 and decide the tenant in a condition (`when: [name]`) or a relation.
 
+## `get /users` is not a rule key: a flat key is a method (GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS, CONNECT, TRACE, QUERY or *), one space, then the path pattern
+
+**When:** a key under `rest` starts with a word, then spaces, then a `/`, and is
+not a method in capitals followed by exactly one space.
+**Why:** a key written `METHOD /pattern` is a rule (a flat key). One that looks
+like one but has a lower-case or unknown method (`get /x`, `PROPFIND /x`) or two
+spaces (`GET  /x`) is refused rather than read as a path that holds a space.
+**Fix:**
+
+```yaml
+rest:
+  GET /users:          # not "get /users", not "GET  /users"
+    authenticated: true
+```
+
+A path that really holds a space starts with `/` (`/a b`) and is a nested key.
+
+## `roles` is a term of a rule, not a method: write "GET /x": {...} or nest it under a method
+
+**When:** a rule term (`roles`, `permissions`, `when`, `authenticated`, `public`,
+`relations`) sits directly under a path pattern.
+**Why:** under a path pattern the keys are methods. A rule on its own needs the
+method in the key.
+**Fix:**
+
+```yaml
+rest:
+  GET /x:              # the method in the key...
+    roles: [[admin]]
+  /y:                  # ...or nested under it
+    GET:
+      roles: [[admin]]
+```
+
+## `/x` is a path pattern, so its value is keyed by method; write "GET /x" for a single rule
+
+**When:** `compilePolicy` (and so `definePolicy` output) meets a path pattern
+whose value holds a key that is not a method. `parseRules` catches the same
+mistake earlier, with the hint above.
+**Why:** TypeScript cannot tell a path pattern from a flat key, so a rule under
+a pattern type-checks; `compilePolicy` refuses it.
+**Fix:** put the method in the key, or nest under it, as above.
+
+## duplicate rule: rest['POST /users/:id'] and rest['/users/:id'].POST both name POST /users/:id
+
+**When:** two keys give a rule to the same method and pattern, in the same
+spelling or one flat and one nested. The same for GraphQL:
+`graphql['Query.me'] and graphql.Query.me both name Query.me`.
+**Why:** which of the two applies would depend on their order, which is not
+what anyone meant. One trailing `/` does not make a pattern different. (Two
+patterns that differ only in a parameter name, `/a/:id` and `/a/:uid`, are not
+a duplicate: the first takes every path of the second, and coverage reports the
+second as stale.)
+**Fix:** keep one, or give them different patterns.
+
+```yaml
+rest:
+  POST /users/:id:
+    roles: [[admin]]
+  # /users/:id: { POST: ... }   <- remove, it names the same rule
+```
+
+## a wildcard names fields, not types: write Type.* (for example Query.*)
+
+**When:** a `graphql` key is `*` or `*.field`.
+**Why:** `Type.*` is the rule of every field of one type; there is no rule for
+every field of every type.
+**Fix:** name the type: `Query.*`, `Note.*`.
+
+## `Query.a.b` is not a field key: write Type.field (for example Query.me) or Type.*
+
+**When:** a `graphql` key holds a dot and is not `Type.field` or `Type.*`.
+**Why:** a GraphQL name never holds a dot, so a dotted key is read as a flat
+rule; `Query.a.b`, `.me` and `Query.` are not one.
+**Fix:** write the type and the field name, or nest the fields under the type:
+
+```yaml
+graphql:
+  Query.me:
+    authenticated: true
+```
+
+## `Note` is a type, so its value is keyed by field name; write "Note.field" for a single rule
+
+**When:** `compilePolicy` meets a type name under `graphql` whose value is not a
+map of field rules (a rule written straight under the type).
+**Fix:** `Note.title: { ... }`, or `Note: { title: { ... } }`.
+
+## YAML Parse error: Unexpected character, or Unresolved alias, at a key starting with `*`
+
+**When:** a rules file holds `* /admin/*:` or `*:` unquoted.
+**Why:** in YAML a `*` at the start of a value is an alias. The method `*`, and
+a flat key that starts with it, must be quoted.
+**Fix:**
+
+```yaml
+rest:
+  "* /admin/*":
+    roles: [[admin]]
+  /files/*:
+    "*":
+      authenticated: true
+```
+
+## An authenticated `*` rule answers a CORS preflight 401
+
+**When:** a rule for method `*` (`"* /api/*": { authenticated: true }`) and a
+browser calls the route from another origin.
+**Why:** `*` includes `OPTIONS`, and a preflight carries no credentials.
+**Fix:** an `OPTIONS` rule on the same pattern, which beats the `*` there:
+
+```yaml
+rest:
+  "* /api/*":
+    authenticated: true
+  OPTIONS /api/*:
+    public: true
+```
+
 ## invalid path pattern: <reason>
 
 At `rest['<pattern>']`: the path pattern does not parse. The reason names the
@@ -161,8 +280,9 @@ pattern with the other issues, so fix them together.
 
 ### Missing parameter name at index N, write :name (for example /:id) or escape the : with a backslash
 
-A bare `:` or `*` (the message reads `*name` and `/*path` for a `*`). Name it
-(`/:id`, `/*path`), or write `\:` to match a colon.
+A bare `:`. Name it (`/:id`), or write `\:` to match a colon. A bare `*` is
+fine: it takes the rest of the path and captures nothing (`/files/*`); write
+`*path` to capture it.
 
 ### Unexpected ( at index N, regular expressions are not supported, escape it with a backslash to match it literally
 
@@ -190,8 +310,9 @@ or write `\\` to match a backslash.
 
 ### Missing text before "<name>" param, put a literal character between two captures
 
-Also `wildcard`. `/:a:b` has no text to tell where `a` ends. Put a literal
-between them (`/:a-:b`, `/:a/:b`).
+Also `wildcard`, and `"*" wildcard` for a wildcard with no name. `/:a:b` has no
+text to tell where `a` ends, and `/:a*` none to tell where it stops. Put a
+literal between them (`/:a-:b`, `/:a/:b`, `/:a/*`).
 
 ### Too many path combinations, use fewer optional groups
 

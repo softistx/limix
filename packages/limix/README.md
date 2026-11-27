@@ -51,7 +51,7 @@ declarations import without extensions, so `nodenext` is not supported.
 | `CODE_UNAUTHENTICATED`, `CODE_FORBIDDEN`, `CODE_NOT_FOUND`, `CODE_UNAVAILABLE` | The refusal codes: `auth.errors.unauthenticated`, `auth.errors.forbidden`, `auth.errors.not-found`, `limix.errors.unavailable` |
 | `RulesError` | Thrown for invalid rules; `error.issues` lists every issue |
 | `LIMIX_FORMAT_VERSION` | The format version, `1` |
-| types `Claims`, `Subject`, `Decision`, `Refusal`, `RelationChecker`, `RelationQuery`, `PolicyInput`, `PolicySource`, `MutableSource`, `Explanation`, `Step`, `StepKind`, `TermStep`, `RestInput`, `RestRequest`, `FieldInput`, `Rules`, `RulesIssue`, `CompileOptions`, `Condition`, `ConditionContext`, `CompiledPolicy`, `CompiledRestRoute`, `CompiledGraphqlEntry` | The shapes the functions take and return |
+| types `RulesInput` (what `definePolicy` and `compilePolicy` take: a `Rules`, or a document with flat `graphql` keys), `Claims`, `Subject`, `Decision`, `Refusal`, `RelationChecker`, `RelationQuery`, `PolicyInput`, `PolicySource`, `MutableSource`, `Explanation`, `Step`, `StepKind`, `TermStep`, `RestInput`, `RestRequest`, `FieldInput`, `Rules`, `RulesIssue`, `CompileOptions`, `Condition`, `ConditionContext`, `CompiledPolicy`, `CompiledRestRoute`, `CompiledGraphqlEntry` | The shapes the functions take and return |
 | `remotePolicy(options)` from `@softistx/limix/remote` | A `PolicySource` that pulls rules signed as a JWS, verifies them against the publisher's JWKS (`jwksUri`, or the issuer's discovery), hot-swaps them and keeps the last good copy through an outage (`ready`, `refresh()`, which answers `{ changed, error? }`, `stop()`, `age()`, `version()`) |
 | `verifyRules(jws, jwks, options)` from `@softistx/limix/remote` | Verifies a token you hold against a key set with the checks a pull makes (what `limix-publish check` runs); `audience` is required; returns `VerifiedRules` (`{ ver, iat, exp, expired, schema, policy }`), throws `RemotePolicyError` |
 | `RemotePolicyError`, `RemotePolicyConfigError`, `DEFAULT_TYP`, `ALGORITHMS` from `@softistx/limix/remote` | The failure of a pull (`code`: `FETCH_FAILED`, `HTTP_STATUS`, `SIGNATURE`, `CLAIMS`, `STALE_VERSION`, `RULES_REFUSED`, `STORE`, `EXPIRED`, `TOO_LARGE`), a refused option, the default `typ` `limix-rules+jwt` and the four accepted algorithms |
@@ -110,6 +110,40 @@ try {
   throw error
 }
 ```
+
+A rule may also be written on one line, with its method in the key (a flat key),
+beside the nested form; both can sit in one file, and the order of the keys is
+the order the rules are tried in:
+
+```yaml
+rest:
+  GET /documents:                # flat: METHOD /pattern
+    authenticated: true
+  /documents/:id:                # nested: pattern, then method
+    DELETE:
+      roles: [[admin]]
+  "* /admin/*":                  # any method, any path below /admin (quote the *)
+    roles: [[admin]]
+graphql:
+  Query.me:                      # flat: Type.field
+    authenticated: true
+  Note.*:                        # every Note field with no rule of its own
+    authenticated: true
+```
+
+A path pattern is:
+
+| Write | It takes |
+| --- | --- |
+| `/a` | exactly that path (one trailing `/` and any case are fine) |
+| `:id` | one segment, captured as `id` |
+| `:"a-b"` | one segment, for a name that is not an identifier |
+| `*files` | the rest of the path, slashes included, captured as a list |
+| `*` | the rest of the path (one or more characters, so `/a/*` does not take `/a`; `/a{/*}` takes both), captured by nothing |
+| `{/:id}` | an optional part |
+| `\` | the next character, literally |
+
+[Rules](docs/rules.md) has the details: duplicates, the method `*`, and `Type.*`.
 
 To read the rules from a file, `loadRules` (from `@softistx/limix/bun`, Bun only, the only part that reads the disk) takes a path; `parseRules` takes a
 value, an object or the result of parsing YAML or JSON yourself, and an
@@ -277,7 +311,7 @@ const report = coverage(policy, [
 //   status: 'covered', match: 'exact' }
 // report.summary
 // { total: 2, covered: 1, public: 0, uncovered: 1, refused: 1, open: 0,
-//   byPattern: 0, stale: 0 }
+//   byPattern: 0, byWildcard: 0, stale: 0 }
 
 // The CI gate (the same as docs/coverage.md): fail on a REST operation or a
 // root GraphQL field no rule names, on a stale rule, and on a rule reached only
@@ -293,6 +327,11 @@ for (const entry of spelled) console.error(`spelled differently from its rule: $
 for (const rule of report.stale) console.error(`stale: ${rule.label}`)
 if (uncovered.length + spelled.length + report.stale.length > 0) process.exit(1)
 ```
+
+A REST operation reached through a method `*` rule, and a GraphQL field reached
+through a `Type.*` rule, are reported `match: 'wildcard'` (counted in
+`summary.byWildcard`); the gate above does not fail on them, a wildcard is a
+choice and not a spelling to fix.
 
 A REST `path` is best the pattern as the rules file spells it (`rulesPathOf`
 converts an OpenAPI `{id}` path); another spelling is reached through the rule's

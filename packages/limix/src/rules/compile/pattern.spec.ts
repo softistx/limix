@@ -58,7 +58,6 @@ describe('a pattern that does not parse', () => {
 		expect(message('/a/:')).toBe(
 			'Missing parameter name at index 4, write :name (for example /:id) or escape the : with a backslash: /a/:',
 		);
-		expect(message('/a/*')).toContain('write *name');
 	});
 
 	it('gives a stray } its own message', () => {
@@ -93,6 +92,39 @@ describe('a pattern that does not parse', () => {
 	it('refuses a pattern with too many optional combinations', () => {
 		expect(message('/a{/b}'.repeat(9))).toStartWith(
 			'Too many path combinations, use fewer optional groups',
+		);
+	});
+});
+
+describe('a bare wildcard', () => {
+	it('is anonymous: it takes the rest of the path and exposes no parameter', () => {
+		expect(parsePattern('/files/*')).toEqual([
+			{ type: 'text', value: '/files/' },
+			{ type: 'wildcard', name: '' },
+		]);
+		expect(params('/files/*', '/files/a/b')).toEqual({});
+		expect(compileMatcher('/files/*')('/files')).toBe(false);
+		expect(compileMatcher('/files/*').names.size).toBe(0);
+	});
+
+	it('takes a segment ending in a star mid-segment', () => {
+		expect(params('/a*', '/abc/d')).toEqual({});
+		expect(params('/a*-x', '/abc-x')).toEqual({});
+	});
+
+	it('keeps a name when one follows, and a backslash makes the star literal', () => {
+		expect(params('/files/*path', '/files/a')).toEqual({ path: ['a'] });
+		expect(params('/a\\*', '/a*')).toEqual({});
+		expect(compileMatcher('/a\\*')('/ab')).toBe(false);
+	});
+
+	it('still refuses a colon with no name', () => {
+		expect(() => parsePattern('/a/:')).toThrow(PatternError);
+	});
+
+	it('refuses two captures touching when the wildcard has no name', () => {
+		expect(() => compileMatcher('/:a*')).toThrow(
+			'Missing text before "*" wildcard, put a literal character between two captures: /:a*',
 		);
 	});
 });

@@ -136,3 +136,26 @@ describe('checkRoutes', () => {
 		]);
 	});
 });
+
+describe('policyProblems with a rule for any method', () => {
+	test('a `*` rule is reached when a route of any method takes it, and named by its flat key otherwise', () => {
+		const rules = compilePolicy(
+			definePolicy({
+				limix: 1,
+				global: { unmatched: 'deny' },
+				rest: {
+					'* /admin/*': { authenticated: true },
+					'* /gone/*': { authenticated: true },
+				},
+			}),
+		);
+		const problems = policyProblems(rules, alxia().post('/admin/*', ok));
+		expect(problems).toHaveLength(1);
+		expect(problems[0]).toStartWith('* /gone/*: no route of the app takes');
+	});
+
+	test('a rung code outside auth.errors. is named with the flat key of a wildcard rule', () => {
+		const rules = rest({ '/files/:id': { '*': rung('nope') } });
+		expect(rungCodeProblems(rules)[0]).toStartWith('* /files/:id:');
+	});
+});

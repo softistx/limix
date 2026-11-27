@@ -90,6 +90,7 @@ describe('coverage: both transports', () => {
 				refused: 0,
 				open: 0,
 				byPattern: 0,
+				byWildcard: 0,
 				stale: 0,
 			},
 		});

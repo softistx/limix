@@ -55,10 +55,7 @@ export async function checkCommand(
 			io.stderr(`EXPIRED: the token expired at ${when}\n`);
 			return 1;
 		}
-		const routes = [...verified.policy.restRoutesByMethod.values()].reduce(
-			(sum, list) => sum + list.length,
-			0,
-		);
+		const routes = verified.policy.restRoutes.length;
 		const fields = Object.values(verified.policy.graphql ?? {}).reduce(
 			(sum, type) => sum + Object.keys(type).length,
 			0,

@@ -178,7 +178,7 @@ the `policy-mismatch` entry under Refusals.
 
 **When:** `checkRoutes(policy, app)` returns issues (`RouteIssue`: `kind`, `path`, `message`, `fix`); the line is `path: message`. Each issue is one problem:
 
-- `unmatched-rule`: a typo in the rule, or a route that was removed (the same check the guard makes on the first request).
+- `unmatched-rule`: a typo in the rule, or a route that was removed (the same check the guard makes on the first request). A rule for method `*` is shown as `* /admin/*` and is taken by a route of any method.
 - `rung-code`, `<where>: the relation rung's code "<code>" is outside `auth.errors.` ...`: as above.
 
 **Why:** the rule judges nothing, or a refusal would not be read.

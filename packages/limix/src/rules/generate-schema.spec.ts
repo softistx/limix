@@ -23,6 +23,25 @@ describe('schema/rules.schema.json', () => {
 		expect(schema.patternProperties).toEqual({ '^x-': {} });
 	});
 
+	it('describes flat, nested and refused keys with patternProperties', () => {
+		const text = rulesJsonSchemaText();
+		const schema = rulesJsonSchema() as {
+			properties: {
+				rest: { allOf: { patternProperties?: object }[] };
+				graphql: { allOf: { patternProperties?: object }[] };
+			};
+		};
+		const patterns = (block: 'rest' | 'graphql') =>
+			schema.properties[block].allOf.flatMap((part) =>
+				Object.keys(part.patternProperties ?? {}),
+			);
+		// flat, nested and refused keys, each a pattern of its own
+		expect(patterns('rest').length).toBeGreaterThanOrEqual(2);
+		expect(patterns('rest')[0]).toContain('GET|POST');
+		expect(patterns('graphql').length).toBeGreaterThanOrEqual(3);
+		expect(text).toContain('"*"');
+	});
+
 	it('mentions no removed key', () => {
 		const text = rulesJsonSchemaText();
 		for (const removed of [

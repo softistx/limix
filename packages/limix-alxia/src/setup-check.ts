@@ -52,10 +52,8 @@ const text = (issue: RouteIssue): string => `${issue.path}: ${issue.message}`;
 
 /** The rungs of a policy, REST and GraphQL, whose refusal code an alxia host would not read. */
 export function rungCodeIssues(policy: CompiledPolicy): RouteIssue[] {
-	const rest = [...policy.restRoutesByMethod].flatMap(([method, routes]) =>
-		routes.flatMap((route) =>
-			badCodes(`${method} ${route.pattern}`, route.rule),
-		),
+	const rest = policy.restRoutes.flatMap((route) =>
+		badCodes(`${route.method} ${route.pattern}`, route.rule),
 	);
 	const graphql = Object.entries(policy.graphql ?? {}).flatMap(
 		([type, rules]) =>
@@ -82,22 +80,21 @@ export function policyIssues(
 	const issues = rungCodeIssues(policy);
 	const operations = alxiaOperations(app);
 	const basePath = policy.global.basePath ?? '';
-	for (const [method, routes] of policy.restRoutesByMethod) {
-		for (const { pattern } of routes) {
-			const reached = operations.some(
-				(operation) =>
-					operation.method === method &&
-					reaches(pattern, operation.path, basePath),
-			);
-			if (!reached) {
-				issues.push({
-					kind: 'unmatched-rule',
-					path: `${method} ${pattern}`,
-					message:
-						'no route of the app takes this rule, so the routes it was written for are left to `unmatched`',
-					fix: "correct the rule's pattern (`/files/*path`, `/notes/:id`) or the route, or remove the rule",
-				});
-			}
+	for (const { method, pattern } of policy.restRoutes) {
+		// A rule for method `*` is reached by a route of any method.
+		const reached = operations.some(
+			(operation) =>
+				(method === '*' || operation.method === method) &&
+				reaches(pattern, operation.path, basePath),
+		);
+		if (!reached) {
+			issues.push({
+				kind: 'unmatched-rule',
+				path: `${method} ${pattern}`,
+				message:
+					'no route of the app takes this rule, so the routes it was written for are left to `unmatched`',
+				fix: "correct the rule's pattern (`/files/*path`, `/notes/:id`) or the route, or remove the rule",
+			});
 		}
 	}
 	return issues;

@@ -111,6 +111,9 @@ Invalid rules in rules.yaml: 2 issues
   rest['/documents'].GET.keto: `keto` is removed: use relations
 ```
 
+The path of an issue is the key as you wrote it: `rest['GET /documents']` for a
+flat key, `rest['/documents'].GET` for a nested one.
+
 `error.issues` holds the same as `{ path, message }` pairs.
 
 ## The document
@@ -123,8 +126,8 @@ of the validation library.
 | --- | --- |
 | `limix` | The format version. Always `1`. Required |
 | `global` | Settings for the whole document. Required |
-| `rest` | Rules by path pattern, then HTTP method |
-| `graphql` | Rules by type name, then field name |
+| `rest` | Rules by `METHOD /pattern`, or by path pattern then HTTP method |
+| `graphql` | Rules by `Type.field`, or by type name then field name |
 | `x-...` | Free keys for YAML anchors; dropped when parsing |
 
 Any other top-level key throws.
@@ -139,14 +142,202 @@ Any other top-level key throws.
 
 ### REST rules
 
-Keyed by path pattern (`:name` for one segment, `*name` for the rest of the path, `{...}` for an optional part, `\` to write a special character literally), then by method (`GET`, `POST`,
-`PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`, `CONNECT`, `TRACE`, `QUERY`). The
-first pattern that matches, in document order, is used, for a `route` and a `path` alike: write static patterns before the param or wildcard ones that take them. Coverage reports a rule that never applies as stale with `shadowedBy`.
+A key under `rest` is written in one of two spellings, and a document may mix
+them freely:
+
+- **Flat**: a method, one space, the path pattern. The value is the rule.
+- **Nested**: the path pattern. The value is keyed by method.
+
+```yaml
+rest:
+  # flat: one rule per key
+  GET /documents:
+    authenticated: true
+  POST /documents/:id:
+    permissions: [[documents:write]]
+  # nested: several methods under one path
+  /documents/:id:
+    GET:
+      authenticated: true
+    DELETE:
+      roles: [[admin]]
+```
+
+```ts
+definePolicy({
+  limix: 1,
+  global: { unmatched: 'deny' },
+  rest: {
+    'GET /documents': { authenticated: true },
+    'POST /documents/:id': { permissions: [['documents:write']] },
+    '/documents/:id': {
+      GET: { authenticated: true },
+      DELETE: { roles: [['admin']] },
+    },
+  },
+})
+```
+
+The two spellings mean the same thing, so choose by what reads best: flat for a
+route with one method, nested to keep the methods of a path together.
+
+The methods are `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`,
+`CONNECT`, `TRACE` and `QUERY`, and `*` for any (below). A flat key is split at
+its first space, so `GET /a b` is the method `GET` on the pattern `/a b`. A key
+that looks flat and is not one (`get /x`, `GET  /x` with two spaces,
+`PROPFIND /x`) is refused with a message, rather than read as a path that holds
+a space.
+
+**Document order.** Every rule keeps the place of its key in the document, flat
+and nested alike, and the first rule whose pattern matches, in document order, is
+used, for a `route` and a `path` alike: write static patterns before the param or
+wildcard ones that take them. Coverage reports a rule that never applies as stale
+with `shadowedBy`.
+
+```yaml
+rest:
+  GET /notes/new:        # first: /notes/new is judged here
+    public: true
+  /notes/:id:
+    GET:
+      authenticated: true
+```
+
+**No duplicates.** Two keys that name the same rule are a compile error that
+names both, wherever they are and whichever spelling they use:
+
+```
+duplicate rule: rest['POST /users/:id'] and rest['/users/:id'].POST both name POST /users/:id
+```
+
+One trailing `/` does not make a pattern different (`/a/` is `/a`). Different
+parameter names (`/a/:id` and `/a/:uid`) are not a duplicate but shadowing:
+the first takes every path of the second, and coverage reports the second as
+stale.
+
+#### Path patterns
+
+| Write | It takes |
+| --- | --- |
+| `/users` | exactly that path; one trailing `/` is optional and case is ignored |
+| `/users/:id` | one segment, captured as `id` and percent-decoded |
+| `/users/:"user-id"` | the same, for a name that is not an identifier |
+| `/files/*path` | the rest of the path, slashes included, captured as the list `path` |
+| `/files/*` | the same with no name: nothing is captured, so no `param.` term can read it. A `*` takes one or more characters: `/files/*` does not take `/files`; write `/files{/*}` for both |
+| `/things{/:id}` | an optional part: `/things` and `/things/7` |
+| `/a\:b` | a backslash makes the next character literal: the path `/a:b` |
+
+A pattern that does not parse (`/a(`, `/a/:`) is reported with the index of the
+character; see [troubleshooting](troubleshooting.md#invalid-path-pattern-reason).
+A `*` in the middle of a segment (`/a*`) takes the rest of the path from there.
+
+#### Any method: `*`
+
+The method `*` stands for every method. Write it flat (`* /admin/*`) or under a
+path (`/admin/*: { "*": ... }`). The `*` of the path takes one or more
+characters, so `/admin/*` does not take `/admin` itself: write `/admin{/*}` to
+cover both.
+
+```yaml
+rest:
+  GET /admin/health:     # another key: the first match in document order wins,
+    public: true         # so it goes before the wildcard that would take it
+  "* /admin/*":
+    roles: [[admin]]
+```
+
+- A method has its own rules, and the `*` rules are among them, each in its own
+  place in document order: `POST /admin/x` meets the first rule, in document
+  order, that is for `POST` or for `*` and whose pattern takes the path.
+- An exact method beats `*` **on the same pattern**, wherever each is written:
+  with `GET /files/:id` and `* /files/:id`, `GET` meets the first and any other
+  method the second. On a different pattern the document order decides, as for
+  any two rules.
+- `HEAD` faces its own rules and then the `GET` ones, as always; a `*` rule that
+  both lists reach is judged once.
+- `*` includes `OPTIONS` and `HEAD`. An authenticated `*` rule therefore
+  refuses a CORS preflight, which carries no credentials. Give the same pattern
+  an `OPTIONS` rule of its own, which beats the `*` on that pattern:
+
+  ```yaml
+  rest:
+    "* /api/*":
+      authenticated: true
+    OPTIONS /api/*:
+      public: true
+  ```
+
+- A method outside the list above (WebDAV's `PROPFIND`, for example) is judged by
+  the `*` rules alone.
+
+#### Writing the keys in YAML
+
+An unquoted `*` is a YAML alias. Quote a key that starts with it, and a method
+`*` under a path:
+
+```yaml
+rest:
+  "* /admin/*":          # quoted: a key starting with *
+    roles: [[admin]]
+  /files/*:              # fine: the star is not first
+    "*":                 # quoted: the method *
+      authenticated: true
+```
+
+A flat key holds a space and a path, which YAML reads as a plain key when it
+starts with a method (`GET /a: ...`); quote it when you want to be safe.
 
 ### GraphQL rules
 
-Keyed by type name, then field name. `Query`, `Mutation` and `Subscription`
-cover root fields; any other type name guards fields of that type.
+A key under `graphql` is written in one of two spellings, which a document may
+mix:
+
+- **Flat**: `Type.field`, or `Type.*` for every field of the type. The value is
+  the rule.
+- **Nested**: the type name. The value is keyed by field name.
+
+```yaml
+graphql:
+  Query.me:
+    authenticated: true
+  Mutation:
+    publishDocument:
+      roles: [[editor], [admin]]
+    archiveDocument:
+      roles: [[admin]]
+```
+
+`Query`, `Mutation` and `Subscription` cover root fields; any other type name
+guards fields of that type. A name that holds a dot is read as flat (a GraphQL
+name never holds one): `Query.a.b` is refused, so is `*.me`, since a wildcard
+names fields and not types.
+
+A repeated `Type.field`, in either spelling, is a duplicate rule error naming
+both keys.
+
+#### Every field: `Type.*`
+
+`Type.*` is the rule of every field of the type that has no rule of its own; an
+exact field wins, wherever it is written:
+
+```yaml
+graphql:
+  Note.*:                # every field of Note...
+    authenticated: true
+  Note.id:               # ...but id, which is public
+    public: true
+  Query.*:
+    roles: [[admin]]     # every root query field
+```
+
+- Under `Query.*` every query field has a rule, so none falls to
+  `global.unmatched`; `Query.*` is how a file says "the whole root, same rule".
+- A `Note.*` on a non-root type guards every `Note` field wherever a `Note`
+  appears, a list of notes included. It is evaluated once for each field the
+  request selects, so it costs one evaluation per field and per object.
+- With `@softistx/limix-graxia`, a static policy under `nonNull: 'refuse'`
+  refuses a wildcard that covers a non-null field; see its
+  [guide](https://github.com/softistx/limix/blob/develop/packages/limix-graxia/docs/graphql.md#the-non-null-rule).
 
 ## Terms of a rule
 
@@ -301,11 +492,21 @@ definePolicy({
 option of `compilePolicy` take. Nothing is registered by default: until a
 generated file is in your program, every type is what it was (`string`, `Rules`).
 
+`definePolicy` and `compilePolicy` take a `RulesInput`: a `Rules`, or a document
+with flat `graphql` keys (`"Query.me"`); `definePolicy` returns `Rules`. `Rules`
+types every `graphql` value as a field map and every `rest` value as methods and
+rule, so a tool that reads parsed `Rules` must test the key shape: the value of
+a flat key (`"GET /x"`, `"Query.me"`, `"Note.*"`) is a rule, the value of any
+other key is a map of methods or fields.
+
 What is checked, and what is not:
 
 - A refusal holds only in an inline object literal given to `definePolicy`. A
   variable, a spread, an escaped `\*` key or a `{` key is accepted unchecked, and
   so is a key with a wildcard or a `{...}` group, which names several routes.
+- Flat keys (`"GET /notes"`, `"Query.me"`) are not checked against a registered
+  list yet: once a generated file registers the operations, write the nested form
+  for the checked keys.
 - Only the keys of the `conditions` map given to `compilePolicy` are checked,
   not the `when` names inside the rules. A missing condition is still a
   `RulesError` at run time.
@@ -313,6 +514,28 @@ What is checked, and what is not:
 - A value already typed `Rules`, such as the output of `parseRules`, is passed to
   `compilePolicy` directly. It does not go through `definePolicy` once graphql
   is registered.
+
+## What `compilePolicy` returns
+
+A `CompiledPolicy` is for the limix integrations; of it only `global` and
+`usesRelations` are for hosts, and the rest may change in a minor release.
+Flat and nested keys compile to the same thing:
+
+| Member | Holds |
+| --- | --- |
+| `restRoutes` | Every REST rule once, in document order. Iterate this to report per rule |
+| `restRoutesByMethod` | The routes each method faces, in document order. A rule for method `*` is in every method's list (an exact rule of the same pattern takes its place) and, alone, under the key `*`, which a method outside the usual ten faces |
+| `graphql` | Rules by type, then field; a `Type.*` rule is under the field `*` |
+
+Each `CompiledRestRoute` has `pattern` (with the `basePath`), `method` (`*` for
+any) and `where`, the rule's place as an issue path (`rest['POST /a']` or
+`rest['/a'].POST`). Each `CompiledGraphqlEntry` has `where`
+(`graphql['Query.me']`) and `wildcard`, true for a `Type.*` rule.
+
+```ts
+const policy = compilePolicy(rules)
+for (const route of policy.restRoutes) console.log(route.method, route.pattern, route.where)
+```
 
 ## What was removed from `@softistx/security` 5
 

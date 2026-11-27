@@ -168,3 +168,43 @@ describe('limixGuard, an empty tail under a parameter route', () => {
 		expect((await call(app, '/x')).status).toBe(200);
 	});
 });
+
+describe('limixGuard, a rule with a bare * and one for any method', () => {
+	test('a bare * rule judges an empty tail too', async () => {
+		const policy = rules({ 'GET /files/*': { roles: [['admin']] } });
+		const app = appOf(policy, (a) => a.get('/files/*', ok));
+		expect((await call(app, '/files')).status).toBe(401);
+		expect((await call(app, '/files/a/b')).status).toBe(401);
+		expect((await call(app, '/files', { who: 'admin' })).status).toBe(200);
+	});
+
+	test('a `*` method rule judges every method, and an earlier exact one of another key wins', async () => {
+		const policy = rules({
+			'GET /admin/health': { public: true },
+			'* /admin/*': { roles: [['admin']] },
+		} as never);
+		const app = appOf(policy, (a) => {
+			a.get('/admin/*', ok);
+			a.post('/admin/*', ok);
+		});
+		expect((await call(app, '/admin/x')).status).toBe(401);
+		expect((await call(app, '/admin/x', { method: 'POST' })).status).toBe(401);
+		expect((await call(app, '/admin/health')).status).toBe(200);
+		expect(
+			(await call(app, '/admin/x', { method: 'POST', who: 'admin' })).status,
+		).toBe(200);
+	});
+});
+
+describe('endsWild counts the backslashes before the star', () => {
+	test('an odd run escapes the star, an even one does not', async () => {
+		const { endsWild } = await import('./request');
+		expect(endsWild('/a/*')).toBe(true);
+		expect(endsWild('/a/*path')).toBe(true);
+		expect(endsWild('/a{/*path}')).toBe(true);
+		expect(endsWild('/a/\\*')).toBe(false);
+		expect(endsWild('/a/\\\\*')).toBe(true);
+		expect(endsWild('/a/\\\\\\*')).toBe(false);
+		expect(endsWild('/a/b')).toBe(false);
+	});
+});

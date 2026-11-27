@@ -5,6 +5,14 @@ import { refuseDuplicateKeys, scanYaml } from './duplicate-keys';
 const dups = (text: string) =>
 	scanYaml(text).duplicates.map((d) => `${d.key}@${d.line}/${d.first}`);
 
+describe('scanYaml: wildcard keys', () => {
+	it('a repeated quoted * key is reported, and a quoted flat key is a key like another', () => {
+		expect(dups('/a:\n  "*": 1\n  "*": 2\n')).toEqual(['*@3/2']);
+		expect(dups('"* /a": 1\n"* /b": 2\n"GET /a": 3\n')).toEqual([]);
+		expect(dups('"* /a": 1\n"* /a": 2\n')).toEqual(['* /a@2/1']);
+	});
+});
+
 describe('scanYaml: reported', () => {
 	it('a repeated key in a block mapping, with both lines', () => {
 		expect(dups('a: 1\nb: 2\na: 3\n')).toEqual(['a@3/1']);

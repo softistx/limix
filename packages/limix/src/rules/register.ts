@@ -1,6 +1,6 @@
 import type { Condition } from './compile/types';
 import type { Rules } from './schema';
-import type { GraphqlRule, RestRule } from './types';
+import type { GraphqlRule, RestMethods, RestRule, RulesInput } from './types';
 
 /**
  * The hook a generated file fills by module augmentation
@@ -25,16 +25,19 @@ export type RestOperationName<R = Register> = Entry<R, 'rest'>;
 /** A GraphQL field of the API as `Query.me`, else `string`. */
 export type GraphqlOperationName<R = Register> = Entry<R, 'graphql'>;
 
-type RestMethods = NonNullable<Rules['rest']>[string];
 type PathOf<O> = O extends `${string} ${infer P}` ? P : never;
 type MethodOf<O, P extends string> = O extends `${infer M} ${P}` ? M : never;
-/** A key with a wildcard or an optional group names several routes: accepted unchecked. */
+/**
+ * A key with a wildcard or an optional group names several routes: accepted
+ * unchecked. Its value is typed as both a method map and a rule, so that a
+ * flat key holding a `*` stays assignable to `Rules`.
+ */
 type OpenPattern = `${string}*${string}` | `${string}{${string}`;
 type CheckedRest<O extends string> = {
 	[P in PathOf<O>]?: {
 		[M in MethodOf<O, P> & keyof RestMethods]?: RestRule;
 	};
-} & { [P in OpenPattern]: RestMethods };
+} & { [P in OpenPattern]: RestMethods & RestRule };
 type TypeOf<O> = O extends `${infer T}.${string}` ? T : never;
 type FieldOf<O, T extends string> = O extends `${T}.${infer F}` ? F : never;
 type CheckedGraphql<O extends string> = {
@@ -43,7 +46,7 @@ type CheckedGraphql<O extends string> = {
 
 /**
  * `Rules`, narrowed where `Register` holds a `rest` or a `graphql` list: a key
- * the list does not hold is refused. Unregistered, it is `Rules`.
+ * the list does not hold is refused. Unregistered, it is `RulesInput`.
  *
  * The refusal holds only in an inline object literal: a variable, a spread, an
  * escaped `\*` key or a `{` key is accepted unchecked. A value already typed
@@ -53,7 +56,7 @@ type CheckedGraphql<O extends string> = {
 export type TypedRules<R = Register> = [
 	keyof R & ('rest' | 'graphql'),
 ] extends [never]
-	? Rules
+	? RulesInput
 	: Omit<Rules, 'rest' | 'graphql'> & {
 			rest?:
 				| (R extends Record<'rest', infer O extends string>

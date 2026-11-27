@@ -1,7 +1,11 @@
 import type { CompiledGraphqlEntry, CompiledPolicy } from '@softistx/limix';
 import type { GraphQLSchema } from 'graphql';
 
-/** The compiled rule on `type.field`: own keys only, so a field named `constructor` is not a rule. */
+/**
+ * The compiled rule on `type.field`: the field's own, else the type's `Type.*`
+ * (without that fallback a `Note.*` field would go unguarded). Own keys only,
+ * so a field named `constructor` is not a rule.
+ */
 export function entryOf(
 	policy: CompiledPolicy,
 	type: string,
@@ -10,7 +14,9 @@ export function entryOf(
 	const { graphql } = policy;
 	if (!graphql || !Object.hasOwn(graphql, type)) return undefined;
 	const fields = graphql[type];
-	return fields && Object.hasOwn(fields, field) ? fields[field] : undefined;
+	if (!fields) return undefined;
+	if (Object.hasOwn(fields, field)) return fields[field];
+	return Object.hasOwn(fields, '*') ? fields['*'] : undefined;
 }
 
 /** Whether the policy decides this field: a rule names it, or it is a root field under `unmatched: deny`. */

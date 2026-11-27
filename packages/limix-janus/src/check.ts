@@ -50,28 +50,15 @@ const isFromField = (
 	Object.hasOwn(related, name) &&
 	(related[name] as { kind?: unknown } | null)?.kind === 'fromField';
 
-const key = (name: string): string =>
-	/^[A-Za-z_$][\w$]*$/.test(name) ? `.${name}` : `['${name}']`;
-
 /**
- * Every `[where, rule]` of the policy, REST then GraphQL: REST by method, then
- * in document order. A REST path is the rules file's pattern, without
- * `global.basePath`, as core's `RulesIssue` paths are.
+ * Every `[where, rule]` of the policy, REST then GraphQL, each in document
+ * order. `where` is the path of the rule as the rules file spells it, flat key
+ * or nested, without `global.basePath`, as core's `RulesIssue` paths are.
  */
 function* rulesOf(policy: CompiledPolicy): Generator<[string, RuleLike]> {
-	const basePath = policy.global.basePath ?? '';
-	for (const [method, routes] of policy.restRoutesByMethod) {
-		for (const route of routes) {
-			const pattern = route.pattern.startsWith(basePath)
-				? route.pattern.slice(basePath.length)
-				: route.pattern;
-			yield [`rest['${pattern}']${key(method)}`, route.rule];
-		}
-	}
-	for (const [type, fields] of Object.entries(policy.graphql ?? {})) {
-		for (const [field, entry] of Object.entries(fields)) {
-			yield [`graphql${key(type)}${key(field)}`, entry.rule];
-		}
+	for (const route of policy.restRoutes) yield [route.where, route.rule];
+	for (const fields of Object.values(policy.graphql ?? {})) {
+		for (const entry of Object.values(fields)) yield [entry.where, entry.rule];
 	}
 }
 

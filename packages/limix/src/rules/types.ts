@@ -52,10 +52,12 @@ export type RestMethodName =
 	| 'TRACE'
 	| 'QUERY';
 
-/** The rules of one path pattern, by HTTP method. */
-export type RestMethods = { [M in RestMethodName]?: RestRule | undefined };
+/** The rules of one path pattern, by HTTP method (`*` for any). */
+export type RestMethods = {
+	[M in RestMethodName | '*']?: RestRule | undefined;
+};
 
-/** Rules for the fields of one GraphQL type, by field name. */
+/** Rules for the fields of one GraphQL type, by field name (`*` for every other). */
 export type GraphqlFields = Record<string, GraphqlRule>;
 
 /** Settings applied across the whole document. */
@@ -64,18 +66,51 @@ export type RulesGlobal = {
 	unmatched: 'allow' | 'deny';
 };
 
-/** A validated rules document, as `parseRules` and `definePolicy` return it. */
+/**
+ * A validated rules document, as `parseRules` and `definePolicy` return it.
+ *
+ * A key under `rest` is flat (`"POST /users/:id"`, the value a rule) or a path
+ * pattern (the value keyed by method); a key under `graphql` is flat
+ * (`"Query.me"`, `"Note.*"`, the value a rule) or a type name (the value keyed
+ * by field). The types are those of the nested spelling, which every earlier
+ * 0.x program reads and builds, so nothing that compiled stops compiling:
+ * under `rest` a value is typed as both a method map and a rule, and a rule read
+ * under a flat `graphql` key is typed as a field map. `RulesInput` is what
+ * `definePolicy` and `compilePolicy` take: it also accepts flat `graphql`
+ * keys. TypeScript cannot say "not flat" for the other case, so a rule under a
+ * path pattern or a type name type-checks and `compilePolicy` refuses it.
+ */
 export type Rules = {
 	limix: 1;
 	global: RulesGlobal;
-	/** REST rules by path pattern, then HTTP method, in document order. */
-	rest?: Record<string, RestMethods> | undefined;
-	/** GraphQL rules by type name, then field name. */
+	/** REST rules, in document order. */
+	rest?: Record<string, RestMethods & RestRule> | undefined;
+	/** GraphQL rules, in document order. */
 	graphql?:
 		| ({
 				Query?: GraphqlFields | undefined;
 				Mutation?: GraphqlFields | undefined;
 				Subscription?: GraphqlFields | undefined;
 		  } & Record<string, GraphqlFields>)
+		| undefined;
+};
+
+/** A flat GraphQL key: `Type.field`, or `Type.*` for every field of the type. */
+export type GraphqlFlatKey = `${string}.${string}`;
+
+/**
+ * What `definePolicy` and `compilePolicy` take: a `Rules`, or a document whose
+ * `graphql` block holds flat keys (alone or mixed with type names).
+ */
+export type RulesInput = Omit<Rules, 'graphql'> & {
+	graphql?:
+		| Rules['graphql']
+		| {
+				Query?: GraphqlFields | undefined;
+				Mutation?: GraphqlFields | undefined;
+				Subscription?: GraphqlFields | undefined;
+				[key: GraphqlFlatKey]: GraphqlRule;
+				[type: string]: GraphqlFields | GraphqlRule | undefined;
+		  }
 		| undefined;
 };

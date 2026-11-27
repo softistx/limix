@@ -52,4 +52,26 @@ describe('rulesNames', () => {
 		});
 		expect(rulesNames(rules).permissions).toEqual([]);
 	});
+
+	it('reads the rule of a flat key, a wildcard and a Type.* rule', () => {
+		const rules = parseRules({
+			limix: 1,
+			global: { unmatched: 'deny' },
+			rest: {
+				'POST /a': { permissions: [['a:write']], roles: [['editor']] },
+				'* /admin/*': { roles: [['admin']] },
+				'/b': { '*': { when: ['atDesk'] } },
+			},
+			graphql: {
+				'Query.me': { roles: [['reader']] },
+				'Note.*': { permissions: [['n:read']], when: ['workingHours'] },
+				Mutation: { drop: { roles: [['owner']] } },
+			},
+		});
+		expect(rulesNames(rules)).toEqual({
+			permissions: ['a:write', 'n:read'],
+			roles: ['admin', 'editor', 'owner', 'reader'],
+			conditions: ['atDesk', 'workingHours'],
+		});
+	});
 });

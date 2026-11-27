@@ -29,8 +29,13 @@ export interface OperationCoverage {
 	 * holding a wildcard (`*name`) or an optional group with a parameter is
 	 * never reported through a `pattern` hit: it is `uncovered` unless a rule
 	 * spells it exactly.
+	 *
+	 * `wildcard` takes precedence over both: the rule that applies is a method
+	 * `*` rule (REST) or a `Type.*` rule (GraphQL). It is never a spelling to
+	 * fix, so a gate on `pattern` does not fail on it. A GraphQL operation has
+	 * a `match` only when the hit is a wildcard.
 	 */
-	match?: 'exact' | 'pattern';
+	match?: 'exact' | 'pattern' | 'wildcard';
 	/**
 	 * Only on `uncovered`: what `global.unmatched` does to it. A GraphQL
 	 * operation that is not a root is never governed by it, so it is always
@@ -50,6 +55,8 @@ export interface CoverageSummary {
 	open: number;
 	/** REST operations a rule reaches by its matcher, not by its own pattern. */
 	byPattern: number;
+	/** Operations a `*` method rule or a `Type.*` rule reaches. */
+	byWildcard: number;
 	stale: number;
 }
 
@@ -73,8 +80,9 @@ export interface CoverageReport {
  * `ruleSetsForMethod`): one walk in document order, the operation read as an
  * already-matched route, with and without `global.basePath`, and HEAD faces the
  * GET rules too. A rule reached by a matcher is used and reported
- * `match: 'pattern'`. A GraphQL
- * operation is looked up as `evaluateField` does, and only a root one falls
+ * `match: 'pattern'`, a method `*` rule `match: 'wildcard'`. A GraphQL
+ * operation is looked up as `evaluateField` does (a `Type.*` rule is a
+ * `wildcard` hit), and only a root one falls
  * under `unmatched`.
  *
  * Runs in a browser or an edge runtime. Throws a `TypeError` when
@@ -118,6 +126,7 @@ export function coverage(
 			refused: entries.filter((entry) => entry.unmatched === 'deny').length,
 			open: entries.filter((entry) => entry.unmatched === 'allow').length,
 			byPattern: entries.filter((entry) => entry.match === 'pattern').length,
+			byWildcard: entries.filter((entry) => entry.match === 'wildcard').length,
 			stale: stale.length,
 		},
 	};
@@ -136,9 +145,11 @@ function restStatus(policy: CompiledPolicy, operation: RestOperation): Verdict {
 	const everyPublic = matches.every(
 		(match) => !match || match.route.rule.public,
 	);
-	const match = matches.some((hit) => hit?.match === 'pattern')
-		? 'pattern'
-		: 'exact';
+	const match = matches.some((hit) => hit?.match === 'wildcard')
+		? 'wildcard'
+		: matches.some((hit) => hit?.match === 'pattern')
+			? 'pattern'
+			: 'exact';
 	return { status: everyPublic ? 'public' : 'covered', match };
 }
 
@@ -149,7 +160,10 @@ function graphqlStatus(
 	const entry = graphqlEntry(policy, operation.type, operation.field);
 	if (!entry)
 		return uncovered(operation.root ? policy.global.unmatched : 'allow');
-	return { status: entry.rule.public ? 'public' : 'covered' };
+	return {
+		status: entry.rule.public ? 'public' : 'covered',
+		...(entry.wildcard ? { match: 'wildcard' as const } : {}),
+	};
 }
 
 const uncovered = (unmatched: 'allow' | 'deny'): Verdict => ({

@@ -13,5 +13,5 @@ import type { Rules } from './schema';
  * list does not hold is refused too.
  */
 export function definePolicy(rules: TypedRules): Rules {
-	return rules;
+	return rules as Rules;
 }

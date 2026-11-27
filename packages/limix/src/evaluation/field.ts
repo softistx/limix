@@ -57,7 +57,11 @@ export async function decideField(
 				: unauthenticated();
 		return { decision, steps };
 	}
-	steps.push({ kind: 'match', label: where, passed: true });
+	steps.push({
+		kind: 'match',
+		label: entry.wildcard ? `${where} (${call.type}.*)` : where,
+		passed: true,
+	});
 	const args = call.args ?? {};
 	const decision = await applyRule(
 		entry.rule,

@@ -283,9 +283,46 @@ parent is what you want.
 guardSchema(schema, { ...options, nonNull: 'allow' })
 ```
 
+A `Type.*` rule covers every field of the type that has no rule of its own, so
+the same rule applies to every non-null field it covers: the message names the
+wildcard and each such field.
+
+```yaml
+graphql:
+  Note.*:            # covers Note.id, which the schema declares ID!
+    authenticated: true
+```
+
+```
+Note.*: covers Note.id, which is non-null, so a refusal would null its parent; make it nullable, or pass `nonNull: 'allow'`
+```
+
+Make the field nullable, or pass `nonNull: 'allow'`. A field with a rule of its
+own is checked as a named field, not as part of the wildcard.
+
 A policy source is not checked for non-null fields (it may hold nothing yet):
 to keep the check, run `guardSchema(schema, { ...options, policy: compiledFile })`
 in a spec.
+
+## Wildcard rules
+
+A rule `Type.*` (see the [rules guide](https://github.com/softistx/limix/blob/develop/packages/limix/docs/rules.md))
+guards every field of the type that has no rule of its own, on a root type and
+on any other object type alike. `Note.*` guards each `Note` field wherever a
+`Note` appears (a list of notes included), once for each field the query
+selects. The guard wraps those fields, so a field is never left open because
+no rule names it exactly. An exact `Note.id` wins over the wildcard.
+
+```yaml
+graphql:
+  Note.*:
+    authenticated: true
+  Note.id:
+    public: true
+```
+
+A wildcard on a type the schema lacks, or on a type that is not an object type,
+is refused like any other rule.
 
 ## A policy that does not fit the schema
 
@@ -315,7 +352,7 @@ it found:
 - a rule on a type that is not an object type (an interface, union, input,
   scalar or enum);
 - a rule on a field the type does not have;
-- a named non-null field, unless `nonNull: 'allow'`;
+- a named non-null field, or one a `Type.*` rule covers, unless `nonNull: 'allow'`;
 - a Subscription rule with a relation that reads `source.`.
 
 `guardSchema` also throws when handed a schema it already produced, and, for a

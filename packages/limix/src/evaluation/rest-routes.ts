@@ -5,10 +5,12 @@ import {
 	type PatternToken,
 	parsePattern,
 } from '../rules/compile/pattern';
+import { shapeOf } from './shape';
 
 /**
  * The rule sets a request with this method must pass. Every method faces its
- * own routes, except HEAD: a server answers it by running the GET route, so
+ * own routes (those of method `*` among them, in their place), and a method
+ * outside the usual ten faces the `*` ones alone, except HEAD: a server answers it by running the GET route, so
  * HEAD faces its own rules and then the GET ones, and both must allow. The
  * last set is the handler's, and the only one that falls back to
  * `global.unmatched`.
@@ -17,9 +19,11 @@ export function ruleSetsForMethod(
 	policy: CompiledPolicy,
 	method: string,
 ): readonly (readonly CompiledRestRoute[])[] {
-	const own = policy.restRoutesByMethod.get(method) ?? [];
+	const get = (name: string) =>
+		policy.restRoutesByMethod.get(name) ?? policy.restRoutesByMethod.get('*');
+	const own = get(method) ?? [];
 	if (method !== 'HEAD') return [own];
-	return [own, policy.restRoutesByMethod.get('GET') ?? []];
+	return [own, get('GET') ?? []];
 }
 
 export interface RouteMatch {
@@ -79,9 +83,16 @@ export function findRoute(
 	const basedStandIns =
 		standIns && basePath ? standIns.map((s) => basePath + s) : undefined;
 	const captures = path !== undefined || isLiteral(route);
+	const shape = shapeOf(route);
+	const basedShape = shapeOf(based);
 	for (const candidate of routes) {
 		if (candidate.pattern === route || candidate.pattern === based) {
 			return { route: candidate, params: {}, exact: true };
+		}
+		// The same pattern spelled with another wildcard name (`*` for `*path`).
+		const candidateShape = shapeOf(candidate.pattern);
+		if (candidateShape === shape || candidateShape === basedShape) {
+			return { route: candidate, params: {}, exact: false };
 		}
 		const result =
 			path !== undefined

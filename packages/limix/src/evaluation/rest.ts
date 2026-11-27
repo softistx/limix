@@ -57,9 +57,13 @@ export async function decideRest(
 	const method = call.method.toUpperCase();
 	const steps: Step[] = [];
 	const sets = ruleSetsForMethod(policy, method);
+	// A route in two sets (a `*` rule, for HEAD) is judged once.
+	const judged = new Set<unknown>();
 	for (const [index, routes] of sets.entries()) {
 		const match = findRoute(routes, call, policy.global.basePath);
 		if (!match && index < sets.length - 1) continue;
+		if (match && judged.has(match.route)) continue;
+		if (match) judged.add(match.route);
 		const decision = match
 			? await applyMatch(match, method, call, steps)
 			: unmatched(policy, method, call, steps);
@@ -81,7 +85,8 @@ async function applyMatch(
 	};
 	steps.push({
 		kind: 'match',
-		label: `${method} ${route.pattern}`,
+		// A method `*` rule is named as such: the request's method is not its own.
+		label: `${route.method === '*' ? '*' : method} ${route.pattern}`,
 		passed: true,
 	});
 	return applyRule(

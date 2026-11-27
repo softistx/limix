@@ -96,6 +96,11 @@ const guarded = guardSchema(schema, options) // not guardSchema(guarded, ...)
 - `<Type>.<field>: is non-null, so a refusal would null its parent; make it
   nullable, or pass `nonNull: 'allow'`` — see
   [the non-null rule](graphql.md#the-non-null-rule).
+- `<Type>.*: covers <Type>.<field>, which is non-null, so a refusal would null
+  its parent; make it nullable, or pass `nonNull: 'allow'`` — the same, for a
+  field a `Type.*` rule covers (one line for each such field). Make the field
+  nullable, or pass `nonNull: 'allow'`. A field with a rule of its own is
+  judged by that rule's line, not the wildcard's.
 - `<Type>.<field>: a subscription starts with no `source`, so a relation
   reading `source.` fails at subscribe; read `args.``.
 
