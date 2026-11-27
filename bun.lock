@@ -17,7 +17,7 @@
     },
     "packages/limix": {
       "name": "@softistx/limix",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "dependencies": {
         "jose": "^6.2.18",
         "zod": "^4.6.7",
@@ -31,7 +31,7 @@
     },
     "packages/limix-janus": {
       "name": "@softistx/limix-janus",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "devDependencies": {
         "@softistx/janus": "^0.84.0",
         "@softistx/limix": "workspace:^",
@@ -45,7 +45,7 @@
     },
     "packages/limix-publish": {
       "name": "@softistx/limix-publish",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "bin": {
         "limix-publish": "./dist/cli/main.js",
       },
