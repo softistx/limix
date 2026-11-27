@@ -296,7 +296,7 @@ past the types still throws a `TypeError` when the request is answered.
 
 | Request | Judged as |
 | --- | --- |
-| `HEAD` | By the `HEAD` rule, else the `GET` rule |
+| `HEAD` | By its `HEAD` rules, then the `GET` ones: both must allow |
 | `OPTIONS` | By its own rule like any method; put a CORS layer first to answer preflights |
 | `ALL` routes (`app.all`) | By the request's method: a `GET` rule does not cover a `POST` to the same route. The route also takes methods such as `PROPFIND` that `alxiaOperations` cannot list, so coverage reports them under `unmatched` |
 | `QUERY` | A method like another |

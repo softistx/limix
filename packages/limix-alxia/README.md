@@ -36,7 +36,7 @@ declarations import without extensions, so `nodenext` is not supported.
 
 | Subpath | What it holds |
 | --- | --- |
-| `@softistx/limix-alxia` | `limixGuard`, `alxiaOperations`, `checkRoutes` and their types |
+| `@softistx/limix-alxia` | `limixGuard`, `alxiaOperations`, `checkRoutes`, `checkGuard` and their types |
 | `@softistx/limix-alxia/graphql` | `limixGraphql`: alxia-graphql's `graphql()` with the rules in front of every field |
 
 ## Usage
