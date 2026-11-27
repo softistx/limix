@@ -78,6 +78,12 @@ jobs:
           bun test ./scripts/
         env:
           BASE: ${{ github.base_ref }}
+      # The examples are not packages: `affected.ts` never selects them, so they
+      # are checked whole on every pull request (types, generated rules, specs).
+      - name: Check the examples
+        run: |
+          bun run --filter './examples/*' typecheck
+          bun run --filter './examples/*' test
       # The build exits 0 on packages that throw the instant they are
       # imported. This packs the packages, installs them as a consumer does
       # and imports every declared subpath; skipped when the change selects no

@@ -16,6 +16,23 @@
         "yaml": "^2.9.1",
       },
     },
+    "examples/books": {
+      "name": "@softistx/limix-example-books",
+      "version": "0.0.0",
+      "dependencies": {
+        "@softistx/alxia": "^0.28.0",
+        "@softistx/alxia-graphql": "^0.20.2",
+        "@softistx/graxia": "^0.18.0",
+        "@softistx/limix": "workspace:^",
+        "@softistx/limix-alxia": "workspace:^",
+        "@softistx/limix-graxia": "workspace:^",
+        "graphql": "^17.1.0",
+      },
+      "devDependencies": {
+        "@softistx/limix-codegen": "workspace:^",
+        "@types/bun": "^1.4.5",
+      },
+    },
     "packages/limix": {
       "name": "@softistx/limix",
       "version": "0.6.0",
@@ -217,6 +234,8 @@
     "@softistx/limix-alxia": ["@softistx/limix-alxia@workspace:packages/limix-alxia"],
 
     "@softistx/limix-codegen": ["@softistx/limix-codegen@workspace:packages/limix-codegen"],
+
+    "@softistx/limix-example-books": ["@softistx/limix-example-books@workspace:examples/books"],
 
     "@softistx/limix-graxia": ["@softistx/limix-graxia@workspace:packages/limix-graxia"],
 
