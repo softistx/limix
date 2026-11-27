@@ -1,7 +1,6 @@
 {
 	"name": "@softistx/limix-publish",
 	"version": "0.0.0",
-	"private": true,
 	"description": "The emitter of @softistx/limix remote rules: signs a rules file as a JWS, serves it and its JWKS (API and CLI)",
 	"license": "MIT",
 	"type": "module",
