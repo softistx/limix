@@ -4,7 +4,7 @@
 
 ### Patch Changes
 
-- [#27](https://github.com/softistx/limix/pull/27) [`3d6413a`](https://github.com/softistx/limix/commit/3d6413a218efc42501a4b4ebf88ae84b0a2a1b2b) Thanks [@SteveGT96](https://github.com/SteveGT96)! - First version on npm. 0.1.0 cannot be published, because npm never reuses a version number. Nothing else changes from 0.1.0.
+- [#27](https://github.com/softistx/limix/pull/27) [`3d6413a`](https://github.com/softistx/limix/commit/3d6413a218efc42501a4b4ebf88ae84b0a2a1b2b) Thanks [@SteveGT96](https://github.com/SteveGT96)! - No change from 0.1.0. It was released while a failed publish run was read as 0.1.0 missing from npm; 0.1.0 is on npm too.
 
 ## 0.1.0
 

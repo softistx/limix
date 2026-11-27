@@ -99,10 +99,13 @@ Declared divergences from janus:
   `<pkg>@<x.y.z>`, a release or a manual dispatch, and the commit must be an
   ancestor of `develop` (the develop-ancestor check). `release.yml` only opens
   the Version PR. Recipe: merge it, then from an up-to-date `develop` run
-  `bunx changeset tag && git push --follow-tags` and
-  `gh workflow run publish.yml --ref develop` (no push event fires for many tags
-  at once). `scripts/publish.ts` skips versions npmjs already holds, so a re-run
-  resumes, and never builds: run `bun run build` first. A package marked
+  `bun --bun x changeset tag && git push --follow-tags` (`--bun`: the
+  Changesets CLI needs a newer Node than the machine's). The tag push starts
+  `publish.yml`; run `gh workflow run publish.yml --ref develop` only when more
+  than three tags went at once (GitHub then fires no push event).
+  `scripts/publish.ts` skips versions npmjs already holds (also on a 403
+  "cannot publish over" while npmjs still answers 404 for a new package), so a
+  re-run resumes, and never builds: run `bun run build` first. A package marked
   `"private": true` never publishes.
 - **`verify:artifacts`** packs each package and loads the tarball. It refuses a
   package whose `publishConfig` is not `{ registry: npmjs, access: "restricted" }`, a build exiting 0 whose artifact does

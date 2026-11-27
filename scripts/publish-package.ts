@@ -34,6 +34,9 @@ const defaultDeps: PublishDeps = {
 	error: console.error,
 };
 
+/** npmjs's refusal of a version it holds, or held and unpublished: never retried. */
+const ALREADY_HELD = /cannot publish over the previously published versions?/i;
+
 /**
  * Publishes one package to registry.npmjs.org unless the version is already
  * there (idempotent: a re-run after a partial failure skips what landed). A
@@ -43,6 +46,14 @@ const defaultDeps: PublishDeps = {
  * A version that needs publishing is first checked against the disk: every
  * file its `package.json` points to must exist, else the package fails with
  * nothing published (an unbuilt checkout has no `dist/`).
+ *
+ * npmjs can answer 404 for a version it already holds: the package document of
+ * a new package lags behind its first publish (seen on limix 0.1.0, a run
+ * queued behind the tag-triggered one). Its 403 "cannot publish over the
+ * previously published versions" is then the registry's own word that the
+ * version is taken, so the package is skipped, not failed. Two blind spots:
+ * a version unpublished earlier gets the same answer (the log line says so),
+ * and a first attempt that landed behind a transient error is skipped untagged.
  */
 export async function publishPackage(
 	pkg: Pkg,
@@ -78,6 +89,12 @@ export async function publishPackage(
 			log: error,
 		},
 	);
+	if (!ok && !landed && ALREADY_HELD.test(output)) {
+		log(
+			`  skip      ${id} (${NPMJS.label} refuses it as already published: held, or unpublished; check \`npm view ${id}\`)`,
+		);
+		return { failed: false, published: false, tag: undefined };
+	}
 	if (!ok && !landed) {
 		error(`  FAILED    ${id} on ${NPMJS.label}`);
 		error(
