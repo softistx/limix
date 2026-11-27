@@ -11,7 +11,7 @@ import { makeHeld } from './held';
 import { checkOptions, type LimixAlxiaOptions } from './options';
 import { answer, refusalOfError } from './refusal';
 import { restCall } from './request';
-import { checkGuard, rungCodeProblems } from './setup-check';
+import { checkGuard, guardError, rungCodeProblems } from './setup-check';
 
 /** What the claims function and the relations function read: one request's context. */
 async function who<Ctx extends object>(
@@ -96,7 +96,8 @@ export function limixGuard<Ctx extends object = Empty>(
 	if (typeof starter === 'function') {
 		starter.call(app, async (server: { stop(force?: boolean): unknown }) => {
 			try {
-				checkGuard(middleware, app);
+				const issues = checkGuard(middleware, app);
+				if (issues.length > 0) throw guardError(issues);
 			} catch (error) {
 				await server.stop(true);
 				throw error;

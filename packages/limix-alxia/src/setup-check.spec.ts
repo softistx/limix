@@ -26,7 +26,7 @@ describe('policyProblems', () => {
 	test('a policy that fits its app has none', () => {
 		const app = routesOn(alxia());
 		expect(policyProblems(policy, app)).toEqual([]);
-		expect(() => checkRoutes(policy, app)).not.toThrow();
+		expect(checkRoutes(policy, app)).toEqual([]);
 	});
 
 	test('a rule no route takes is named with its method and pattern', () => {
@@ -108,17 +108,31 @@ describe('policyProblems', () => {
 });
 
 describe('checkRoutes', () => {
-	test('throws one TypeError listing every problem', () => {
+	test('returns every problem as an issue and never throws', () => {
 		const app = alxia().get('/open', ok);
-		let message = '';
-		try {
-			checkRoutes(policy, app);
-		} catch (error) {
-			message = error instanceof TypeError ? error.message : '';
-		}
-		expect(message).toStartWith(
-			'checkRoutes(): the policy does not fit the app:',
+		const issues = checkRoutes(policy, app);
+		expect(issues).toHaveLength(5);
+		expect(issues.every((issue) => issue.kind === 'unmatched-rule')).toBe(true);
+		expect(issues[0]).toEqual({
+			kind: 'unmatched-rule',
+			path: 'GET /me',
+			message:
+				'no route of the app takes this rule, so the routes it was written for are left to `unmatched`',
+			fix: expect.stringContaining('pattern'),
+		});
+	});
+
+	test('a rung code outside auth.errors. is a rung-code issue', () => {
+		const bad = compilePolicy(
+			definePolicy({
+				limix: 1,
+				global: { unmatched: 'deny' },
+				rest: { '/a/:id': { GET: rung('app.errors.nope') as never } },
+			}),
 		);
-		expect(message.split('\n- ')).toHaveLength(6);
+		const issues = checkRoutes(bad, alxia().get('/a/:id', ok));
+		expect(issues.map((i) => [i.kind, i.path])).toEqual([
+			['rung-code', 'GET /a/:id'],
+		]);
 	});
 });

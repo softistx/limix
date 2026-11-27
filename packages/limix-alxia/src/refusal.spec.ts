@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { alxia, defineMiddleware } from '@softistx/alxia';
-import { LimixRefusal } from '@softistx/limix';
-import type { MapRefusal, Refusal } from './options';
+import { LimixRefusal, type Refusal } from '@softistx/limix';
+import type { MapRefusal } from './options';
 import { answer, refusalOfError } from './refusal';
 
 function appAnswering(

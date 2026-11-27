@@ -1,7 +1,7 @@
 import { describe, expect, spyOn, test } from 'bun:test';
 import { alxia } from '@softistx/alxia';
 import { compilePolicy, definePolicy } from '@softistx/limix';
-import { call, ok, whoOf } from './app.fixtures';
+import { call, expectStopped, ok, whoOf } from './app.fixtures';
 import { limixGuard } from './guard';
 import { checkGuard } from './setup-check';
 
@@ -66,7 +66,17 @@ describe('a hook between the outer guard and the group guard', () => {
 				200,
 			);
 			expect((await call(app, '/console/users')).status).toBe(401);
-			expect(() => checkGuard(outer, app)).toThrow(
+			expect(checkGuard(outer, app)).toEqual([
+				{
+					kind: 'separated-guards',
+					path: 'GET /console/users',
+					message:
+						"a hook stands between this guard and the group's guard, so both judge it",
+					fix: "put the group's guard first in the group and limixGuard last among the app's own middlewares",
+				},
+			]);
+			await expectStopped(
+				app,
 				/GET \/console\/users: a hook stands between this guard and the group's guard, so both judge it; put the group's guard first in the group and limixGuard last among the app's own middlewares/,
 			);
 		});

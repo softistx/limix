@@ -36,7 +36,7 @@ declarations import without extensions, so `nodenext` is not supported.
 
 | Subpath | What it holds |
 | --- | --- |
-| `@softistx/limix-alxia` | `limixGuard`, `alxiaOperations`, `checkRoutes`, `checkGuard` and their types |
+| `@softistx/limix-alxia` | `limixGuard`, `alxiaOperations`, `checkRoutes`, `checkGuard` and their types (`RouteIssue` among them) |
 | `@softistx/limix-alxia/graphql` | `limixGraphql`: alxia-graphql's `graphql()` with the rules in front of every field |
 
 ## Usage
@@ -115,12 +115,16 @@ const policy = compilePolicy(definePolicy({
 }))
 const app = alxia().get('/health', ({ reply }) => reply(200, { ok: true }))
 
-checkRoutes(policy, app)
-// TypeError: checkRoutes(): the policy does not fit the app:
-// - GET /helth: no route of the app takes this rule, ...
+const issues = checkRoutes(policy, app)
+// [{ kind: 'unmatched-rule', path: 'GET /helth',
+//    message: 'no route of the app takes this rule, ...', fix: '...' }]
 ```
 
-Call it in a spec, or once the routes are declared at boot.
+It returns a `readonly RouteIssue[]` (empty means fine) and never throws. Call it
+in a spec, `expect(checkRoutes(policy, app)).toEqual([])`, or once the routes are
+declared at boot. `checkGuard(guard, app)` has the same shape. A `RouteIssue` is
+`{ kind, path, message, fix }`, with `kind` one of `rung-code`, `unmatched-rule`,
+`open-route` and `separated-guards`.
 
 ### Serve GraphQL behind the same rules
 
@@ -159,14 +163,14 @@ limixGraphql(app, { schema, limix }) // the SAME object
 - Several rules files on one app: a group or prefixed plugin with its own
   `limixGuard` (and `limixGraphql`) is judged by that guard alone, the innermost
   one that owns the route. The outer file names none of its routes; an outer
-  rule for one makes `checkRoutes` throw and the guard answer 503
+  rule for one makes `checkRoutes` report it and the guard answer 503
   `policy-mismatch`. See `docs/alxia.md`.
 - Requests are judged by the decoded path as the handler sees it, so a literal
   `/users/me` rule written before `/users/:id` applies, and `/users/%6De` is
   `/users/me`.
 - A route declared between `limixGuard()` and its `use()` stays open: an app
   started through `listen` stops at once (the guard's `onStart` hook), and
-  `checkGuard(guard, app)` pins it in a spec.
+  `expect(checkGuard(guard, app)).toEqual([])` pins it in a spec.
 - Each `fork()` carries its own guard (`limixGuard({ ..., app: fork })`); a
   guard on the base still judges fork routes, by rules never checked against
   them, and answers 503 `policy-mismatch` only when a rule names a fork-only

@@ -3,10 +3,9 @@ import {
 	isPolicySource,
 	LimixRefusal,
 } from '@softistx/limix';
-import { unguardedRoutes } from './endpoints';
 import type { LimixAlxiaOptions } from './options';
 import { outageOf } from './outage';
-import { policyProblems } from './setup-check';
+import { guardIssues, policyIssues } from './setup-check';
 
 /** What the guard holds: the policy to judge by now, or the refusal that answers instead. */
 export interface Held {
@@ -36,12 +35,11 @@ export function makeHeld(
 		let ok = checked.get(held);
 		if (ok === undefined) {
 			const problems = [
-				...policyProblems(held, options.app),
-				...unguardedRoutes(options.app, guard()).map(
-					(route) =>
-						`${route}: does not run this guard (declared before its use(), or outside the scope it was used in), so it would run without the rules`,
+				...policyIssues(held, options.app),
+				...guardIssues(guard(), options.app).filter(
+					(issue) => issue.kind === 'open-route',
 				),
-			];
+			].map((issue) => `${issue.path}: ${issue.message}`);
 			ok = problems.length === 0;
 			checked.set(held, ok);
 			if (!ok) {
