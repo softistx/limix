@@ -127,3 +127,44 @@ describe('limixGuard, a wildcard rule and its tail', () => {
 		);
 	});
 });
+
+describe('limixGuard, an empty tail under a parameter route', () => {
+	const cases: [string, Record<string, Record<string, object>>][] = [
+		[
+			'a literal wildcard rule before the parameter one',
+			{
+				'/users/me/*path': { GET: { roles: [['admin']] } },
+				'/users/:id/*path': { GET: { public: true } },
+			},
+		],
+		[
+			'a literal rule before the parameter one',
+			{
+				'/users/me': { GET: { roles: [['admin']] } },
+				'/users/:id/*path': { GET: { public: true } },
+			},
+		],
+		[
+			'an optional-group rule before the parameter one',
+			{
+				'/users/me{/*path}': { GET: { roles: [['admin']] } },
+				'/users/:id/*path': { GET: { public: true } },
+			},
+		],
+	];
+	for (const [name, rest] of cases) {
+		test(`${name}: anonymous /users/me is refused, others are not`, async () => {
+			const app = appOf(rules(rest), (a) => a.get('/users/:id/*', ok));
+			expect((await call(app, '/users/me')).status).toBe(401);
+			expect((await call(app, '/users/me/')).status).toBe(401);
+			expect((await call(app, '/users/me', { who: 'admin' })).status).toBe(200);
+			expect((await call(app, '/users/you')).status).toBe(200);
+		});
+	}
+
+	test('with no wildcard rule the empty tail falls to unmatched', async () => {
+		const policy = rules({ '/x/_': { GET: { roles: [['admin']] } } });
+		const app = appOf(policy, (a) => a.get('/x/*', ok));
+		expect((await call(app, '/x')).status).toBe(200);
+	});
+});

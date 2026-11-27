@@ -1,11 +1,11 @@
 import type { BaseContext } from '@softistx/alxia';
 import type { CompiledPolicy, RestRequest } from '@softistx/limix';
-import { decodedPath, limixPath, paramsOf } from './path';
+import { decodedPath, paramsOf } from './path';
 
 /** What the guard reads off a request, as `evaluateRest` takes it (the claims are added by the caller). */
 export interface RestCall {
 	method: string;
-	/** Only for a wildcard route whose tail is empty: the pattern, so `/files/*path` takes `/files`. */
+	/** Only for a wildcard route whose tail is empty: the rule it stands for, so `/files/*path` takes `/files`. */
 	route?: string;
 	path: string;
 	request: RestRequest;
@@ -47,11 +47,31 @@ async function jsonOf(request: Request): Promise<unknown> {
 	}
 }
 
-/** Whether the route ends in a wildcard that matched nothing (`/files`, `/files/`). */
-const emptyTail = (
-	route: string,
-	pathParams: Readonly<Record<string, string>>,
-) => route.endsWith('*') && (pathParams['*'] ?? '') === '';
+/** A pattern ending in a wildcard, alone or inside an optional group. */
+const endsWild = (pattern: string) => /\*[A-Za-z_$][\w$]*\}*$/.test(pattern);
+
+/**
+ * The rule an empty wildcard tail (`/users/me` on `/users/:id/*`) stands for,
+ * found as core would walk them in document order: the first that takes the
+ * path without the tail, else the first ending in a wildcard that takes it with
+ * a segment (`/_`) added, as alxia's optional tail matches a `*path` rule. Only
+ * wildcard rules are tried with the sentinel, so a literal `/x/_` never matches
+ * falsely.
+ */
+function emptyTailRule(
+	policy: CompiledPolicy,
+	method: string,
+	base: string,
+): string | undefined {
+	const routes = (method === 'HEAD' ? ['HEAD', 'GET'] : [method]).flatMap(
+		(name) => policy.restRoutesByMethod.get(name) ?? [],
+	);
+	const exact = routes.find((route) => route.matcher(base) !== false);
+	if (exact) return exact.pattern;
+	return routes.find(
+		(route) => endsWild(route.pattern) && route.matcher(`${base}/_`) !== false,
+	)?.pattern;
+}
 
 /**
  * What the request is judged by: its method, its path (the route it reached,
@@ -59,7 +79,8 @@ const emptyTail = (
  * decoded parameters put back), the parameters and query, and the JSON body
  * when a rule of this method reads it. No route pattern goes to the rules
  * (they are walked in order against the path as the handler sees it), except
- * for a wildcard route with an empty tail, which no path segment names.
+ * for a wildcard route with an empty tail, which takes the rule the tail
+ * would have met (see `emptyTailRule`).
  */
 export async function restCall(
 	ctx: BaseContext,
@@ -67,10 +88,14 @@ export async function restCall(
 	policy: CompiledPolicy,
 ): Promise<RestCall> {
 	const { method } = ctx.request;
+	const full = decodedPath(route, ctx.pathParams);
+	const tail = route.endsWith('*') && (ctx.pathParams['*'] ?? '') === '';
+	const base = tail && full.length > 1 ? full.replace(/\/$/, '') : full;
+	const rule = tail ? emptyTailRule(policy, method, base) : undefined;
 	return {
 		method,
-		...(emptyTail(route, ctx.pathParams) ? { route: limixPath(route) } : {}),
-		path: decodedPath(route, ctx.pathParams),
+		...(rule === undefined ? {} : { route: rule }),
+		path: tail ? base : full,
 		request: {
 			params: paramsOf(ctx.pathParams),
 			query: queryOf(ctx.url),

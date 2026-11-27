@@ -161,6 +161,24 @@ run the check again. Call it after the routes are declared.
 checkRoutes(policy, app)
 ```
 
+### `checkGuard(): routes that never run the guard and stay open: <METHOD path, ...>`
+
+**When:** `checkGuard(guard, app)` finds a route or socket of `app` whose chain
+does not hold the guard, or the app was started through `listen` (the guard
+registers the same check on `onStart`: the server is stopped and the error
+logged, since alxia only logs what a start hook throws).
+**Why:** the route was declared before `app.use(guard)` (a guard built first,
+a route, then `use()`), or outside the scope the guard was used in. It never
+runs the rules. An app never started through `listen` answers the guarded routes
+503 `policy-mismatch` instead.
+**Fix:** use the guard before declaring the routes, and give it the app it is
+used on:
+
+```ts
+app.use(limixGuard({ policy, claims, app }))
+app.get('/admin', handler)
+```
+
 ### `limix-alxia: a refusal's status is an HTTP error status (400 to 599), not <status>`
 
 **When:** answering a request whose refusal, or the `status` your `mapRefusal`
@@ -214,7 +232,7 @@ that no route takes; a route of the app that does not run this guard
 or outside the scope it was used in). The log line (or `onMismatch`) lists which.
 **Fix:** run `checkRoutes(policy, app)` in a spec to find the rule. Also check
 the guard is given the app that serves the routes: see
-[a fork answers 503 policy-mismatch](#fork-answers-503-policy-mismatch).
+[a fork answers 503 policy-mismatch](#a-fork-answers-503-policy-mismatch).
 
 ### `503 { "code": "limix.errors.unavailable", "params": { "reason": "no-relation-checker" } }`
 

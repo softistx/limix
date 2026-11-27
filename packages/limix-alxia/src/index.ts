@@ -7,4 +7,4 @@ export type {
 	RefusalAnswer,
 	RoutesOf,
 } from './options';
-export { checkRoutes } from './setup-check';
+export { checkGuard, checkRoutes } from './setup-check';

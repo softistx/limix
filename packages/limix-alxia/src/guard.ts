@@ -11,7 +11,7 @@ import { makeHeld } from './held';
 import { checkOptions, type LimixAlxiaOptions } from './options';
 import { answer, refusalOfError } from './refusal';
 import { restCall } from './request';
-import { rungCodeProblems } from './setup-check';
+import { checkGuard, rungCodeProblems } from './setup-check';
 
 /** What the claims function and the relations function read: one request's context. */
 async function who<Ctx extends object>(
@@ -85,6 +85,20 @@ export function limixGuard<Ctx extends object = Empty>(
 		}
 		return next();
 	});
+	// An app started through `listen` stops at once, and says why, when a route
+	// never runs the guard (alxia only logs what an `onStart` hook throws, so
+	// the hook stops the server itself); an app that is not gets the 503.
+	const starter: unknown = (app as { onStart?: unknown }).onStart;
+	if (typeof starter === 'function') {
+		starter.call(app, async (server: { stop(force?: boolean): unknown }) => {
+			try {
+				checkGuard(middleware, app);
+			} catch (error) {
+				await server.stop(true);
+				throw error;
+			}
+		});
+	}
 	return middleware;
 }
 markFactory(limixGuard);

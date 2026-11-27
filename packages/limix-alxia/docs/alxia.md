@@ -316,9 +316,12 @@ wildcard (`*`) keeps its slashes, and a `%` inside its value is encoded.
 
 Three limits:
 
-- A wildcard route with an empty tail (`/files`, `/files/`, `/api` on a prefixed
-  `/*`) has no segment to rebuild, so it is judged by the route pattern
-  (`/files/*path`) and the wildcard rule applies.
+- A wildcard route with an empty tail (`/files`, `/files/`, `/users/me` on
+  `/users/:id/*`, `/api` on a prefixed `/*`) has no segment to rebuild. The guard
+  walks the rules in document order and takes the first that matches the path
+  without the tail, else the first ending in a wildcard (`*path`, or inside
+  `{...}`) that matches it with a segment added: alxia's optional tail meets a
+  `*path` rule. That rule applies; with none, the request falls to `unmatched`.
 - Literal segments of the route are judged in the form a URL carries them
   (`/users/%C3%A9t%C3%A9`), while parameters are judged decoded (`été`): a rule
   written `/users/%C3%A9t%C3%A9` never applies to a parameter route. Write such a
@@ -374,6 +377,26 @@ used in, such as a guard used in a group but given the parent app) is named in
 the problems, and the guarded routes answer 503 `policy-mismatch`. The route
 that never runs the guard cannot be refused by it: it stays as open as it was,
 which is why the guard also throws when it is built with routes already declared.
+
+A route declared between `limixGuard()` and its `use()` is found by `checkGuard`:
+the guard registers it on the app's `onStart`, so an app started through `listen`
+stops at once (alxia only logs what an `onStart` hook throws, so the hook stops
+the server and rethrows) with
+`checkGuard(): routes that never run the guard and stay open: ...`. An app never
+started through `listen` keeps the request-time 503; pin it in a spec:
+
+```ts
+import { checkGuard } from '@softistx/limix-alxia'
+
+const guard = limixGuard({ policy, claims, app })
+app.use(guard)
+app.get('/health', handler)
+checkGuard(guard, app) // throws if a route of `app` does not run `guard`
+```
+
+```ts
+function checkGuard(guard: Middleware, app: RoutesOf): void
+```
 
 A policy that does not fit calls `onMismatch(problems)` once, so the 503 is
 explained once; without `onMismatch` it logs one `console.error` listing each

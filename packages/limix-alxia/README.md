@@ -159,6 +159,9 @@ limixGraphql(app, { schema, limix }) // the SAME object
 - Requests are judged by the decoded path as the handler sees it, so a literal
   `/users/me` rule written before `/users/:id` applies, and `/users/%6De` is
   `/users/me`.
+- A route declared between `limixGuard()` and its `use()` stays open: an app
+  started through `listen` stops at once (the guard's `onStart` hook), and
+  `checkGuard(guard, app)` pins it in a spec.
 - Each `fork()` carries its own guard (`limixGuard({ ..., app: fork })`); a
   guard on the base still judges fork routes, by rules never checked against
   them, and answers 503 `policy-mismatch` only when a rule names a fork-only

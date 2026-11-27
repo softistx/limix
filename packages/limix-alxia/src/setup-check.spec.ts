@@ -56,6 +56,22 @@ describe('policyProblems', () => {
 		expect(policyProblems(rules, alxia().get('/other/a', ok))).toHaveLength(1);
 	});
 
+	test("an alxia route's trailing wildcard takes an empty tail, so a literal rule meets it", () => {
+		const rules = rest({
+			'/users/me': { GET: { public: true } },
+			'/files/*path': { GET: { public: true } },
+		});
+		expect(
+			policyProblems(rules, alxia().get('/users/:id/*', ok).get('/files', ok)),
+		).toEqual([expect.stringContaining('GET /files/*path')]);
+		expect(
+			policyProblems(
+				rules,
+				alxia().get('/users/:id/*', ok).get('/files/*', ok),
+			),
+		).toEqual([]);
+	});
+
 	test('a method the app never declares is no match, HEAD follows GET', () => {
 		const rules = rest({
 			'/a': { POST: { public: true }, HEAD: { public: true } },

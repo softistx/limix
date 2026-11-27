@@ -1,4 +1,5 @@
 import type { CompiledPolicy } from '@softistx/limix';
+import { unguardedRoutes } from './endpoints';
 import { alxiaOperations } from './operations';
 import type { RoutesOf } from './options';
 
@@ -37,7 +38,9 @@ export function rungCodeProblems(policy: CompiledPolicy): string[] {
 type Segment =
 	| { kind: 'literal'; text: string }
 	| { kind: 'param' }
-	| { kind: 'wild' };
+	| { kind: 'wild' }
+	/** The `*` ending an alxia route: it takes an empty tail too. */
+	| { kind: 'tail' };
 
 /** The segments of a pattern, the optional groups of a rule's pattern taken both ways. */
 function variants(pattern: string): Segment[][] {
@@ -63,13 +66,24 @@ function segmentsOf(pattern: string): Segment[] {
 		});
 }
 
+/** A route's segments, its trailing wildcard marked as alxia's optional tail. */
+const asRoute = (segments: Segment[]): Segment[] =>
+	segments.map((segment, index) =>
+		segment.kind === 'wild' && index === segments.length - 1
+			? { kind: 'tail' }
+			: segment,
+	);
+
 /** Whether some path fits both segment lists. */
 function overlap(a: readonly Segment[], b: readonly Segment[]): boolean {
 	for (let i = 0; ; i++) {
 		const x = a[i];
 		const y = b[i];
-		if (x === undefined || y === undefined) return x === y;
-		if (x.kind === 'wild' || y.kind === 'wild') return true;
+		if (x === undefined || y === undefined) {
+			return x === y || x?.kind === 'tail' || y?.kind === 'tail';
+		}
+		if (x.kind !== 'literal' && x.kind !== 'param') return true;
+		if (y.kind !== 'literal' && y.kind !== 'param') return true;
 		if (x.kind === 'literal' && y.kind === 'literal' && x.text !== y.text) {
 			return false;
 		}
@@ -78,7 +92,7 @@ function overlap(a: readonly Segment[], b: readonly Segment[]): boolean {
 
 /** Whether the rule's pattern can take a path the route's pattern takes (the rule's with or without the policy's `basePath`). */
 function reaches(rule: string, path: string, basePath: string): boolean {
-	const routes = variants(path);
+	const routes = variants(path).map(asRoute);
 	return [
 		rule,
 		...(basePath && rule.startsWith(basePath)
@@ -128,6 +142,22 @@ export function checkRoutes(policy: CompiledPolicy, app: RoutesOf): void {
 	if (problems.length > 0) {
 		throw new TypeError(
 			`checkRoutes(): the policy does not fit the app:\n- ${problems.join('\n- ')}`,
+		);
+	}
+}
+
+/**
+ * Throws one TypeError naming every route or socket of `app` whose chain does
+ * not hold `guard` (the middleware `limixGuard()` returned): one declared
+ * before its `use()`, or outside the scope it was used in, runs without the
+ * rules. The guard registers this check on `app`'s `onStart`; call it in a spec
+ * for an app that is never started through `listen`.
+ */
+export function checkGuard(guard: unknown, app: RoutesOf): void {
+	const loose = unguardedRoutes(app, guard);
+	if (loose.length > 0) {
+		throw new TypeError(
+			`checkGuard(): routes that never run the guard and stay open: ${loose.join(', ')}. Put \`app.use(limixGuard({ ..., app }))\` before them, and give each guard the app it is used on`,
 		);
 	}
 }
