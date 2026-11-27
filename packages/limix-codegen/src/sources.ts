@@ -69,7 +69,9 @@ export async function readGraphql(
 			graphql.parse(texts[index] ?? '');
 		} catch (error) {
 			if (error instanceof graphql.GraphQLError) {
-				throw new CodegenError(`${path}: ${error.message}`);
+				const at = error.locations?.[0];
+				const where = at ? `${path}:${at.line}:${at.column}` : path;
+				throw new CodegenError(`${where}: ${error.message}`);
 			}
 			throw error;
 		}

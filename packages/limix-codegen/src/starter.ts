@@ -129,10 +129,20 @@ export function starterRules(
 	compilePolicy(expected);
 	if (format === 'json') return `${JSON.stringify(document, null, '\t')}\n`;
 	const text = yamlOf(document);
-	if (!Bun.deepEquals(parseRules(Bun.YAML.parse(text)), expected)) {
-		throw new CodegenError(
-			'the starter rules file does not read back as written: report this',
-		);
+	// The read-back needs Bun's YAML reader: on Node the check is skipped.
+	if (typeof globalThis.Bun === 'undefined') return text;
+	try {
+		if (!Bun.deepEquals(parseRules(Bun.YAML.parse(text)), expected)) {
+			throw new CodegenError(
+				'the text differs from the rules it was written from',
+			);
+		}
+	} catch (error) {
+		if (error instanceof CodegenError && error.message.startsWith('starter')) {
+			throw error;
+		}
+		const reason = error instanceof Error ? error.message : String(error);
+		throw new CodegenError(`starter rules did not read back: ${reason}`);
 	}
 	return text;
 }

@@ -51,7 +51,15 @@ export function openapiPath(path: string): string {
 
 /** The limix spelling of a path, proved by compiling it as a one-route policy. */
 function converted(path: string, source: string): string {
-	const pattern = openapiPath(path);
+	let pattern: string;
+	try {
+		pattern = openapiPath(path);
+	} catch (error) {
+		if (error instanceof CodegenError) {
+			throw new CodegenError(`${source}: ${error.message}`);
+		}
+		throw error;
+	}
 	try {
 		compilePolicy(
 			parseRules({

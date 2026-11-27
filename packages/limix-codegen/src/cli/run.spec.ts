@@ -134,7 +134,7 @@ describe('generate, refusals', () => {
 		const t = fakeIo({ ...INPUTS, 'bad.graphql': 'type Query {' });
 		const code = await run(['generate', '--graphql', 'bad.graphql'], t.io);
 		expect(code).toBe(1);
-		expect(t.err[0]).toContain('bad.graphql: ');
+		expect(t.err[0]).toMatch(/^bad\.graphql:1:\d+: /);
 	});
 
 	it('still joins files, so an extension across files works', async () => {

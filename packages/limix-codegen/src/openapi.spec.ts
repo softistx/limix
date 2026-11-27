@@ -125,7 +125,7 @@ describe('openapiOperations', () => {
 	it('refuses a path that cannot be a limix pattern', () => {
 		expect(() =>
 			openapiOperations({ paths: { '/a/{x}{y}': { get: {} } } }, 'api.yaml'),
-		).toThrow('adjacent parameters');
+		).toThrow(/^api.yaml: adjacent parameters in \/a\/\{x\}\{y\}/);
 	});
 
 	it('refuses a path without a slash and an item that is not an object', () => {

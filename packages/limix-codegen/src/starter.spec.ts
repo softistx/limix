@@ -6,6 +6,7 @@ import type { Rules } from '@softistx/limix';
 import { compilePolicy, evaluateRest } from '@softistx/limix';
 import { loadRules } from '@softistx/limix/bun';
 import type { Operation } from '@softistx/limix/coverage';
+import { CodegenError } from './errors';
 import { starterRules } from './starter';
 
 const operations: Operation[] = [
@@ -143,5 +144,13 @@ describe('starterRules, keys and order', () => {
 			claims: { authenticated: false },
 		});
 		expect(decision.allow).toBe(true);
+	});
+});
+
+describe('starterRules, read-back', () => {
+	it('refuses a path the YAML text cannot carry, as a CodegenError', () => {
+		expect(() =>
+			starterRules([{ kind: 'rest', method: 'GET', path: '/a\ud800' }], 'yaml'),
+		).toThrow(CodegenError);
 	});
 });
