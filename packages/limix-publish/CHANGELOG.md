@@ -1,5 +1,12 @@
 # @softistx/limix-publish
 
+## 0.1.1
+
+### Patch Changes
+
+- Updated dependencies [[`5e57f61`](https://github.com/softistx/limix/commit/5e57f616572ad303a5bbe397ab23fa5c849edce0)]:
+  - @softistx/limix@0.2.0
+
 ## 0.1.0
 
 ### Minor Changes
