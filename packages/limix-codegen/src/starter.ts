@@ -1,5 +1,6 @@
 import { compilePolicy, parseRules } from '@softistx/limix';
 import type { Operation } from '@softistx/limix/coverage';
+import { CodegenError } from './errors';
 import { compareText, METHODS } from './order';
 
 const YAML_HINT =
@@ -17,6 +18,37 @@ type Document = {
 
 const RULE: Rule = { authenticated: true };
 
+/** 0 static, 1 holds a `:` capture, 2 holds a `*` wildcard; escaped characters are text. */
+function segmentRank(segment: string): number {
+	let rank = 0;
+	for (let i = 0; i < segment.length; i++) {
+		const char = segment[i];
+		if (char === '\\') i++;
+		else if (char === '*') return 2;
+		else if (char === ':') rank = 1;
+	}
+	return rank;
+}
+
+/**
+ * Paths segment by segment: a static segment before a capture, a capture before
+ * a wildcard, ties by code unit. A rules file is first-match, so `/notes/new`
+ * must precede `/notes/:id`.
+ */
+export function comparePaths(a: string, b: string): number {
+	const left = a.split('/');
+	const right = b.split('/');
+	for (let i = 0; i < Math.min(left.length, right.length); i++) {
+		const x = left[i] ?? '';
+		const y = right[i] ?? '';
+		const byRank = segmentRank(x) - segmentRank(y);
+		if (byRank !== 0) return byRank;
+		const byText = compareText(x, y);
+		if (byText !== 0) return byText;
+	}
+	return left.length - right.length;
+}
+
 function restDocument(
 	operations: readonly Operation[],
 ): Record<string, Record<string, Rule>> {
@@ -28,7 +60,7 @@ function restDocument(
 		methods.set(operation.path, set);
 	}
 	const out: Record<string, Record<string, Rule>> = {};
-	for (const path of [...methods.keys()].sort(compareText)) {
+	for (const path of [...methods.keys()].sort(comparePaths)) {
 		const set = methods.get(path) ?? new Set<string>();
 		const known = METHODS.filter((method) => set.has(method));
 		out[path] = Object.fromEntries(known.map((method) => [method, RULE]));
@@ -60,19 +92,19 @@ function yamlOf(document: Document): string {
 	const section = (
 		name: string,
 		entries: Record<string, Record<string, Rule>>,
-		keyOf: (key: string) => string,
+		memberOf: (key: string) => string,
 	) => {
 		lines.push(`${name}:`);
 		for (const [key, members] of Object.entries(entries)) {
-			lines.push(`  ${keyOf(key)}:`);
+			lines.push(`  ${JSON.stringify(key)}:`);
 			for (const member of Object.keys(members)) {
-				lines.push(`    ${member}:`, '      authenticated: true');
+				lines.push(`    ${memberOf(member)}:`, '      authenticated: true');
 			}
 		}
 	};
-	if (document.rest)
-		section('rest', document.rest, (key) => JSON.stringify(key));
-	if (document.graphql) section('graphql', document.graphql, (key) => key);
+	if (document.rest) section('rest', document.rest, (method) => method);
+	if (document.graphql)
+		section('graphql', document.graphql, (field) => JSON.stringify(field));
 	return `${lines.join('\n')}\n`;
 }
 
@@ -93,8 +125,14 @@ export function starterRules(
 		...(Object.keys(rest).length ? { rest } : {}),
 		...(Object.keys(graphql).length ? { graphql } : {}),
 	};
-	compilePolicy(parseRules(document, 'starter'));
-	return format === 'json'
-		? `${JSON.stringify(document, null, '\t')}\n`
-		: yamlOf(document);
+	const expected = parseRules(document, 'starter');
+	compilePolicy(expected);
+	if (format === 'json') return `${JSON.stringify(document, null, '\t')}\n`;
+	const text = yamlOf(document);
+	if (!Bun.deepEquals(parseRules(Bun.YAML.parse(text)), expected)) {
+		throw new CodegenError(
+			'the starter rules file does not read back as written: report this',
+		);
+	}
+	return text;
 }

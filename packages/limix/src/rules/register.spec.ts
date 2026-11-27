@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import type { Condition } from './compile/types';
-import type { Rules } from './schema';
 import type { ConditionMap, Permission, TypedRules } from './register';
+import type { Rules } from './schema';
 
 type Reg = {
 	rest: 'GET /notes' | 'GET /notes/:id' | 'DELETE /notes/:id';

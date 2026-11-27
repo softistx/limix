@@ -7,8 +7,7 @@ and lists the operations a coverage test reads.
 
 ## Install
 
-The package is published with restricted access: installing it needs an npm
-token that can read the `@softistx` scope.
+Not published yet: the package is private until the first release.
 
 ```sh
 bun add @softistx/limix-graxia @softistx/limix @softistx/graxia graphql

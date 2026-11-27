@@ -1,5 +1,5 @@
 import { parseArgs } from 'node:util';
-import type { ModuleInput } from '../module';
+import { type ModuleInput, sourceNames } from '../module';
 import { readGraphql, readOpenapi, readRules } from '../sources';
 import type { Io } from './io';
 
@@ -52,5 +52,6 @@ export async function loadInputs(
 		input.rules = await readRules(flags.rules);
 		sources.push(flags.rules);
 	}
+	input.sources = sourceNames(sources);
 	return input;
 }

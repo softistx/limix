@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'bun:test';
+import { resolve } from 'node:path';
 import { parseRules } from '@softistx/limix';
 import { FIXTURE_INPUT } from './codegen.fixtures';
-import { generateModule, type ModuleInput } from './module';
+import { generateModule, type ModuleInput, sourceNames } from './module';
 
 const rest = (method: string, path: string) =>
 	({ kind: 'rest', method, path }) as const;
@@ -81,5 +82,28 @@ describe('generateModule', () => {
 		expect(() => generateModule({ sources: [] })).toThrow(
 			'nothing to generate',
 		);
+	});
+});
+
+describe('sourceNames', () => {
+	it('is relative, with slashes, sorted and without duplicates', () => {
+		expect(
+			sourceNames(['b.yaml', resolve('a/x.yaml'), 'b.yaml', './a/../c.yaml']),
+		).toEqual(['a/x.yaml', 'b.yaml', 'c.yaml']);
+	});
+
+	it('gives the same names whatever the order', () => {
+		expect(sourceNames(['one.yaml', 'two.yaml'])).toEqual(
+			sourceNames(['two.yaml', 'one.yaml']),
+		);
+	});
+
+	it('writes the regenerate sentence it is given', () => {
+		const text = generateModule({
+			sources: ['x'],
+			rest: [],
+			regenerate: 'run graphql-codegen again',
+		});
+		expect(text).toContain('// Do not edit: run graphql-codegen again.\n');
 	});
 });

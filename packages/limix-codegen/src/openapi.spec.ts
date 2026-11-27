@@ -20,6 +20,12 @@ describe('openapiPath', () => {
 		expect(openapiPath(from)).toBe(to);
 	});
 
+	it('refuses adjacent parameters', () => {
+		expect(() => openapiPath('/a/{x}{y}')).toThrow(
+			'adjacent parameters in /a/{x}{y}: limix needs literal text between two captures',
+		);
+	});
+
 	it('refuses unbalanced braces and an empty name', () => {
 		expect(() => openapiPath('/a/{b')).toThrow('unbalanced { in path /a/{b');
 		expect(() => openapiPath('/a/b}')).toThrow(CodegenError);
@@ -114,6 +120,12 @@ describe('openapiOperations', () => {
 		).toThrow(
 			'api.yaml: path item /a is a $ref: bundle the spec first (one file, path items inline)',
 		);
+	});
+
+	it('refuses a path that cannot be a limix pattern', () => {
+		expect(() =>
+			openapiOperations({ paths: { '/a/{x}{y}': { get: {} } } }, 'api.yaml'),
+		).toThrow('adjacent parameters');
 	});
 
 	it('refuses a path without a slash and an item that is not an object', () => {

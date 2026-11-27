@@ -9,7 +9,7 @@ import {
 	FIXTURE_RULES_YAML,
 	FIXTURE_SDL,
 } from '../codegen.fixtures';
-import { generateModule } from '../module';
+import { generateModule, sourceNames } from '../module';
 import * as api from './index';
 
 describe('the graphql-codegen plugin', () => {
@@ -31,7 +31,8 @@ describe('the graphql-codegen plugin', () => {
 			expect(output).toBe(
 				generateModule({
 					...FIXTURE_INPUT,
-					sources: ['the GraphQL schema', openapi, rules],
+					sources: ['the GraphQL schema', ...sourceNames([openapi, rules])],
+					regenerate: 'run graphql-codegen again',
 				}),
 			);
 		} finally {
@@ -45,13 +46,29 @@ describe('the graphql-codegen plugin', () => {
 		expect(output).not.toContain('rest:');
 	});
 
-	it('refuses an unknown key and a wrong openapi value', async () => {
+	it('ignores the keys graphql-codegen merges into every config', async () => {
+		const config = { emitLegacyCommonJSImports: true, importExtension: '' };
+		const output = await api.plugin(buildSchema(FIXTURE_SDL), [], config);
+		expect(output).toContain('graphql: LimixGraphql;');
+		expect(output).toContain('// Do not edit: run graphql-codegen again.');
+	});
+
+	it('refuses a wrong value of rules or openapi', async () => {
 		const schema = buildSchema(FIXTURE_SDL);
-		await expect(api.plugin(schema, [], { nope: 1 } as never)).rejects.toThrow(
-			'limix plugin: unknown config key nope (rules, openapi)',
-		);
 		await expect(
-			api.plugin(schema, [], { openapi: 3 } as never),
+			// @ts-expect-error openapi is a file or a list of files
+			api.plugin(schema, [], { openapi: 3 }),
 		).rejects.toThrow('`openapi` must be a file or a list of files');
+		await expect(
+			// @ts-expect-error rules is a file
+			api.plugin(schema, [], { rules: 3 }),
+		).rejects.toThrow('`rules` must be a file');
+	});
+
+	it('names two copies of graphql', async () => {
+		await expect(
+			// @ts-expect-error not a GraphQLSchema of this graphql
+			api.plugin({ getTypeMap: () => ({}) }, [], {}),
+		).rejects.toThrow('two copies of graphql');
 	});
 });

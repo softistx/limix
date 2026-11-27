@@ -38,12 +38,13 @@ export async function readOpenapi(
 const MISSING_PEER =
 	'--graphql needs @softistx/limix-graxia and graphql: bun add -d @softistx/limix-graxia graphql';
 
+const hasCode = (error: unknown): error is { code: unknown } =>
+	typeof error === 'object' && error !== null && 'code' in error;
+
 function isModuleNotFound(error: unknown): boolean {
-	const code = (error as { code?: unknown } | null)?.code;
+	if (hasCode(error) && error.code === 'ERR_MODULE_NOT_FOUND') return true;
 	return (
-		code === 'ERR_MODULE_NOT_FOUND' ||
-		(error instanceof Error &&
-			/Cannot find (module|package)/.test(error.message))
+		error instanceof Error && /Cannot find (module|package)/.test(error.message)
 	);
 }
 
@@ -54,13 +55,33 @@ export async function readGraphql(
 ): Promise<GraphqlOperation[]> {
 	const texts = await Promise.all(paths.map((path) => io.readFile(path)));
 	let operations: typeof import('@softistx/limix-graxia/operations');
+	let graphql: typeof import('graphql');
 	try {
 		operations = await import('@softistx/limix-graxia/operations');
+		graphql = await import('graphql');
 	} catch (error) {
 		if (isModuleNotFound(error)) throw new CodegenError(MISSING_PEER);
 		throw error;
 	}
-	return operations.graphqlOperations(texts.join('\n'), { fields: 'all' });
+	// Each file alone, to name the one that does not parse.
+	paths.forEach((path, index) => {
+		try {
+			graphql.parse(texts[index] ?? '');
+		} catch (error) {
+			if (error instanceof graphql.GraphQLError) {
+				throw new CodegenError(`${path}: ${error.message}`);
+			}
+			throw error;
+		}
+	});
+	try {
+		return operations.graphqlOperations(texts.join('\n'), { fields: 'all' });
+	} catch (error) {
+		if (error instanceof graphql.GraphQLError) {
+			throw new CodegenError(`${paths.join(', ')}: ${error.message}`);
+		}
+		throw error;
+	}
 }
 
 /** The rules file, validated: YAML or JSON, through `loadRules`. */

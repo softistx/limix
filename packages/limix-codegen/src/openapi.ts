@@ -1,3 +1,4 @@
+import { compilePolicy, parseRules } from '@softistx/limix';
 import type { RestOperation } from '@softistx/limix/coverage';
 import { CodegenError } from './errors';
 
@@ -13,8 +14,8 @@ const OPENAPI_METHODS: Readonly<Record<string, string>> = {
 	query: 'QUERY',
 };
 
-const IDENTIFIER = /^[$_\p{ID_Start}][$\p{ID_Continue}‌‍]*$/u;
-const ID_CONTINUE = /^(?:[$\p{ID_Continue}]|‌|‍)$/u;
+const IDENTIFIER = /^[$_\p{ID_Start}][$\p{ID_Continue}\u200c\u200d]*$/u;
+const ID_CONTINUE = /^(?:[$\p{ID_Continue}]|\u200c|\u200d)$/u;
 const SYNTAX = new Set(['\\', '(', ')', '[', ']', '+', '?', '!', ':', '*']);
 
 /**
@@ -37,10 +38,35 @@ export function openapiPath(path: string): string {
 			const next = chars[end + 1];
 			const bare = IDENTIFIER.test(name) && !(next && ID_CONTINUE.test(next));
 			out += bare ? `:${name}` : `:"${name.replace(/[\\"]/g, '\\$&')}"`;
+			if (chars[end + 1] === '{') {
+				throw new CodegenError(
+					`adjacent parameters in ${path}: limix needs literal text between two captures`,
+				);
+			}
 			i = end;
 		} else out += SYNTAX.has(char) ? `\\${char}` : char;
 	}
 	return out;
+}
+
+/** The limix spelling of a path, proved by compiling it as a one-route policy. */
+function converted(path: string, source: string): string {
+	const pattern = openapiPath(path);
+	try {
+		compilePolicy(
+			parseRules({
+				limix: 1,
+				global: { unmatched: 'deny' },
+				rest: { [pattern]: { GET: { authenticated: true } } },
+			}),
+		);
+	} catch (error) {
+		const reason = error instanceof Error ? error.message : String(error);
+		throw new CodegenError(
+			`${source}: path ${path} cannot be a limix pattern: ${reason}`,
+		);
+	}
+	return pattern;
 }
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -78,7 +104,11 @@ export function openapiOperations(
 				? OPENAPI_METHODS[key]
 				: undefined;
 			if (method && isObject(value)) {
-				operations.push({ kind: 'rest', method, path: openapiPath(path) });
+				operations.push({
+					kind: 'rest',
+					method,
+					path: converted(path, source),
+				});
 			}
 		}
 	}

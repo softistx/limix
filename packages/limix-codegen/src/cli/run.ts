@@ -11,10 +11,19 @@ const COMMANDS = {
 } as const;
 
 /** `node:util` parseArgs refusals carry an `ERR_PARSE_ARGS_*` code. */
+const hasCode = (error: unknown): error is { code: unknown } =>
+	typeof error === 'object' && error !== null && 'code' in error;
+
 function isParseError(error: unknown): boolean {
-	const code = (error as { code?: unknown } | null)?.code;
-	return typeof code === 'string' && code.startsWith('ERR_PARSE_ARGS');
+	return (
+		hasCode(error) &&
+		typeof error.code === 'string' &&
+		error.code.startsWith('ERR_PARSE_ARGS')
+	);
 }
+
+const isCommand = (name: string): name is keyof typeof COMMANDS =>
+	Object.hasOwn(COMMANDS, name);
 
 /**
  * The whole command line, testable without a process: returns the exit code
@@ -30,16 +39,19 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
 		io.stdout(MAIN_HELP);
 		return 0;
 	}
-	if (!Object.hasOwn(COMMANDS, first)) {
+	if (!isCommand(first)) {
 		io.stderr(`unknown command "${first}"\n\n${MAIN_HELP}`);
 		return 2;
 	}
-	const command = COMMANDS[first as keyof typeof COMMANDS];
+	const command = COMMANDS[first];
 	try {
 		return await command.run(rest, io);
 	} catch (error) {
-		if (error instanceof UsageError || isParseError(error)) {
-			io.stderr(`${(error as Error).message}\n\n${command.help}`);
+		if (
+			error instanceof Error &&
+			(error instanceof UsageError || isParseError(error))
+		) {
+			io.stderr(`${error.message}\n\n${command.help}`);
 			return 2;
 		}
 		if (error instanceof CodegenError || error instanceof RulesError) {
@@ -47,8 +59,12 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
 			return 1;
 		}
 		// A file that cannot be read or written: ENOENT, EISDIR, EACCES...
-		if (typeof (error as { code?: unknown } | null)?.code === 'string') {
-			io.stderr(`${(error as Error).message}\n`);
+		if (
+			error instanceof Error &&
+			hasCode(error) &&
+			typeof error.code === 'string'
+		) {
+			io.stderr(`${error.message}\n`);
 			return 1;
 		}
 		throw error;

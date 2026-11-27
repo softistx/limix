@@ -9,8 +9,8 @@ starter rules file. A CLI and a graphql-codegen plugin; it runs on Bun.
 
 ## Install
 
-The package is published with restricted access: installing it needs an npm
-token that can read the `@softistx` scope.
+Not published yet: this package and `@softistx/limix-graxia` are private until
+the first release.
 
 ```sh
 bun add -d @softistx/limix-codegen @softistx/limix
@@ -18,7 +18,9 @@ bun add -d @softistx/limix-codegen @softistx/limix
 
 `@softistx/limix` and `typescript` (6 or 7) are required peers.
 `@softistx/limix-graxia` and `graphql` are optional peers, needed only for
-`--graphql` and the plugin:
+`--graphql` and the plugin. Installing `limix-graxia` brings `@softistx/graxia`
+in as its own peer, but codegen never imports graxia: it reads
+`@softistx/limix-graxia/operations`, which loads `graphql` alone.
 
 ```sh
 bun add -d @softistx/limix-graxia graphql
@@ -71,7 +73,9 @@ export default {
 }
 ```
 
-Run it with `bun --bun graphql-codegen`: the plugin reads files through Bun.
+Run it with `bun --bun graphql-codegen` when `rules` or `openapi` is given: the
+plugin reads those files through Bun. Keys other than `rules` and `openapi`
+(graphql-codegen adds its own) are ignored.
 
 ## Subpaths
 

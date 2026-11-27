@@ -118,6 +118,64 @@ describe('generate', () => {
 	});
 });
 
+describe('generate, refusals', () => {
+	it('refuses an --out that is an input, exit 2', async () => {
+		const t = fakeIo(INPUTS);
+		const code = await run(
+			['generate', '--openapi', 'openapi.yaml', '--out', './openapi.yaml'],
+			t.io,
+		);
+		expect(code).toBe(2);
+		expect(t.err[0]).toContain('is also an input');
+		expect(t.writes).toEqual([]);
+	});
+
+	it('names the SDL file that does not parse, exit 1', async () => {
+		const t = fakeIo({ ...INPUTS, 'bad.graphql': 'type Query {' });
+		const code = await run(['generate', '--graphql', 'bad.graphql'], t.io);
+		expect(code).toBe(1);
+		expect(t.err[0]).toContain('bad.graphql: ');
+	});
+
+	it('still joins files, so an extension across files works', async () => {
+		const t = fakeIo({
+			'a.graphql': 'type Query { me: String }',
+			'b.graphql': 'extend type Query { you: String }',
+		});
+		const code = await run(
+			[
+				'generate',
+				'--graphql',
+				'a.graphql',
+				'--graphql',
+				'b.graphql',
+				'--out',
+				'g.ts',
+			],
+			t.io,
+		);
+		expect(code).toBe(0);
+		expect(t.files.get('g.ts')).toContain('Query.you');
+	});
+
+	it('writes the same header whatever the order of two --openapi flags', async () => {
+		const files = { ...INPUTS, 'other.yaml': FIXTURE_OPENAPI_YAML };
+		const one = fakeIo(files);
+		const two = fakeIo(files);
+		const base = ['generate', '--out', 'g.ts'];
+		await run(
+			[...base, '--openapi', 'openapi.yaml', '--openapi', 'other.yaml'],
+			one.io,
+		);
+		await run(
+			[...base, '--openapi', 'other.yaml', '--openapi', 'openapi.yaml'],
+			two.io,
+		);
+		expect(one.files.get('g.ts')).toBe(two.files.get('g.ts'));
+		expect(one.files.get('g.ts')).toContain('from openapi.yaml, other.yaml.');
+	});
+});
+
 describe('init', () => {
 	it('writes a starter once and leaves an existing file alone', async () => {
 		const t = fakeIo(INPUTS);

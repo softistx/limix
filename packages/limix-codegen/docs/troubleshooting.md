@@ -9,7 +9,7 @@ your message. `<...>` stands for the part that varies.
 
 ## In your editor
 
-### `Object literal may only specify known properties, and '"/notez"' does not exist`
+### `Object literal may only specify known properties, and ''/notez'' does not exist in type 'CheckedRest<LimixRest>'`
 
 **When:** a key of `definePolicy`'s `rest` or `graphql` is not an operation of
 the API.
@@ -22,8 +22,10 @@ run `limix-codegen generate` again and commit the file.
 
 **When:** a wrong path compiles.
 **Why:** the generated file is not in the program (check your tsconfig
-`include`), its input was not given (no `--openapi` leaves REST unchecked), or
-the key holds `*` or `{`, which is accepted unchecked.
+`include`), its input was not given (no `--openapi` leaves REST unchecked), the
+key holds `*` or `{` (accepted unchecked), or the rules are not an inline object
+literal given to `definePolicy`: a variable, a spread or an escaped `\*` key is
+not checked.
 **Fix:** include `src/generated`, and pass every input in the script.
 
 ### An unknown condition in `compilePolicy` options
@@ -40,6 +42,11 @@ the key holds `*` or `{`, which is accepted unchecked.
 **When:** `generate --check` exits 1.
 **Why:** an input changed, or the file was never committed.
 **Fix:** run the same command without `--check` and commit the result.
+
+### `--out <file> is also an input: it would be overwritten`
+
+**When:** `--out` resolves to a `--graphql`, `--openapi` or `--rules` path (exit 2).
+**Fix:** write the types to their own file.
 
 ### `--check` fails right after `generate`
 
@@ -67,6 +74,17 @@ bun add -d @softistx/limix-graxia graphql
 **When:** an OpenAPI path has a `{` with no `}` (or a lone `}`).
 **Fix:** correct the path in the spec.
 
+### `adjacent parameters in <path>: limix needs literal text between two captures`
+
+**When:** an OpenAPI path holds `{a}{b}` with nothing between the two.
+**Fix:** a limix pattern cannot split two captures; spell the route with text
+between them in the spec, or write its rule by hand.
+
+### `<file>: path <path> cannot be a limix pattern: <reason>`
+
+**When:** the converted path does not compile as a rules-file pattern.
+**Fix:** correct the path in the spec; the reason is the compiler's.
+
 ### `<file>: use .yaml, .yml or .json` and `<file>: not an OpenAPI document: `paths` must be an object`
 
 **Why:** the extension decides how a file is read, and an OpenAPI or Swagger 2
@@ -78,9 +96,17 @@ document must hold a `paths` object.
 ### `the limix graphql-codegen plugin runs on Bun: start it with bun --bun graphql-codegen`
 
 **When:** graphql-codegen runs on Node.
-**Fix:** `bun --bun graphql-codegen`.
+**Fix:** `bun --bun graphql-codegen` (needed only when `rules` or `openapi` is given).
 
-### `limix plugin: unknown config key <key> (rules, openapi)`
+### `two copies of graphql: ...`
 
-**When:** the plugin's `config` holds another key.
-**Fix:** use `rules` (one file) and `openapi` (one file or a list).
+**When:** the schema graphql-codegen hands over is not an instance of the
+`graphql` this package loads.
+**Why:** two versions of `graphql` are installed.
+**Fix:** keep one copy (`bun pm ls graphql`, then dedupe it in the lockfile).
+
+### `<file>: <GraphQL syntax error>`
+
+**When:** `--graphql` names a file that does not parse; the message starts with
+the file.
+**Fix:** correct the SDL.

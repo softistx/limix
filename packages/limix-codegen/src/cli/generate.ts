@@ -1,3 +1,4 @@
+import { resolve } from 'node:path';
 import { generateModule } from '../module';
 import { GENERATE_HELP } from './help';
 import { loadInputs, parseInputs } from './inputs';
@@ -23,6 +24,14 @@ export async function generateCommand(
 		throw new UsageError('give at least one of --graphql, --openapi, --rules');
 	}
 	const out = values.out ?? DEFAULT_OUT;
+	const target = resolve(out);
+	const inputs = [...(values.graphql ?? []), ...(values.openapi ?? [])];
+	if (values.rules) inputs.push(values.rules);
+	if (inputs.some((input) => resolve(input) === target)) {
+		throw new UsageError(
+			`--out ${out} is also an input: it would be overwritten`,
+		);
+	}
 	const wanted = generateModule(await loadInputs(values, io));
 	const present = await io.exists(out);
 	const current = present ? lf(await io.readFile(out)) : undefined;
