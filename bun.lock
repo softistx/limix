@@ -32,7 +32,7 @@
     },
     "packages/limix-alxia": {
       "name": "@softistx/limix-alxia",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "devDependencies": {
         "@softistx/alxia": "^0.28.0",
         "@softistx/alxia-graphql": "^0.20.2",
