@@ -1,5 +1,11 @@
 # @softistx/limix
 
+## 0.4.0
+
+### Minor Changes
+
+- [#41](https://github.com/softistx/limix/pull/41) [`35d93c0`](https://github.com/softistx/limix/commit/35d93c016bed2112db44aadfa3b27cdb971c15c9) Thanks [@SteveGT96](https://github.com/SteveGT96)! - Coverage and `evaluateRest` resolve overlapping REST patterns by one walk in document order. A `route` is no longer matched exactly before the earlier patterns, so a static rule declared after a param or wildcard rule that takes its path no longer applies to `route` callers, as it never did to `path` callers. Coverage reports such a rule as stale with `shadowedBy`. Fixes [#33](https://github.com/softistx/limix/issues/33).
+
 ## 0.3.0
 
 ### Minor Changes
