@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { anonymous, policyOf } from '../evaluation/evaluation.fixtures';
+import { anonymous, policyOf, user } from '../evaluation/evaluation.fixtures';
 import { explain } from '../evaluation/explain';
 import { rest } from './coverage.fixtures';
 import { coverage } from './index';
@@ -255,5 +255,79 @@ describe('coverage: a rule an earlier one shadows', () => {
 				shadowedBy: { path: '/notes/:id', label: 'GET /notes/:id' },
 			},
 		]);
+	});
+});
+
+describe('a route is matched through a stand-in, every alternative', () => {
+	it('an escaped literal rule before a param rule takes no route of the param', async () => {
+		const policy = denied({
+			'/notes/\\:slug': { GET: { public: true } },
+			'/notes/:slug': { GET: { authenticated: true } },
+		});
+		const result = await explain(policy, {
+			method: 'GET',
+			route: '/notes/:slug',
+			claims: anonymous,
+		});
+		if (result.decision.allow) throw new Error('expected a refusal');
+		expect(result.decision.refusal.status).toBe(401);
+		const report = coverage(policy, [rest('GET', '/notes/:slug')]);
+		expect(report.operations[0]).toMatchObject({
+			status: 'covered',
+			match: 'exact',
+		});
+		expect(report.stale.some((r) => r.kind === 'rest' && r.shadowedBy)).toBe(
+			false,
+		);
+	});
+
+	it('a rule before a plain-text optional group takes only part of it', () => {
+		for (const [first, later, operation] of [
+			['/a:x', '/a{b}', '/a{b}'],
+			['/:a/:b', '/x{/y}', '/x{/y}'],
+		] as const) {
+			const policy = denied({
+				[first]: { GET: { authenticated: true } },
+				[later]: { GET: { public: true } },
+			});
+			const report = coverage(policy, [rest('GET', operation)]);
+			expect(report.operations[0]?.status).toBe('public');
+			expect(report.stale.some((r) => r.kind === 'rest' && r.shadowedBy)).toBe(
+				false,
+			);
+		}
+	});
+
+	it('a bare % in a rule does not throw coverage, and a route falls to unmatched', async () => {
+		const policy = denied({ '/n/%': { GET: { public: true } } });
+		expect(() => coverage(policy, [rest('GET', '/n/:id')])).not.toThrow();
+		const result = await explain(policy, {
+			method: 'GET',
+			route: '/n/%E0',
+			claims: anonymous,
+		});
+		expect(result.decision.allow).toBe(false);
+	});
+
+	it('an escaped literal route keeps the params it captures', async () => {
+		const seen: unknown[] = [];
+		const policy = policyOf(
+			{
+				global: { unmatched: 'deny' },
+				rest: { '/n/:id': { GET: { when: ['see'] } } },
+			},
+			{
+				see: ({ request }) => {
+					seen.push((request as { params: unknown }).params);
+					return true;
+				},
+			},
+		);
+		await explain(policy, {
+			method: 'GET',
+			route: '/n/\\:x',
+			claims: user(),
+		});
+		expect(seen).toEqual([{ id: ':x' }]);
 	});
 });

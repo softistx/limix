@@ -42,7 +42,7 @@ declarations import without extensions, so `nodenext` is not supported.
 | `loadRules(path)` from `@softistx/limix/bun` | Reads a `.yaml`, `.yml` or `.json` file, then `parseRules`; refuses a repeated key and several YAML documents |
 | `definePolicy(rules)` | Writes the document in code; a typo fails to compile, and once a generated file registers the API's operations ([`Register`](docs/rules.md#typed-operations-and-names)) so does an operation the API does not have |
 | `compilePolicy(rules, { conditions })` | Precompiles the route and field tables into a `CompiledPolicy` |
-| `evaluateRest(policy, input)` | Decides a REST request, the first rule in document order whose pattern is the `route` or whose matcher takes the `path` (`method`, `route` or `path`, `claims`, `request`, `relations`, `info`): `{ allow: true }` or `{ allow: false, refusal }` |
+| `evaluateRest(policy, input)` | Decides a REST request, the first rule in document order whose pattern is the `route` or whose matcher takes the `path` (or the `route`) (`method`, `route` or `path`, `claims`, `request`, `relations`, `info`): `{ allow: true }` or `{ allow: false, refusal }` |
 | `evaluateField(policy, input)` | The same for one GraphQL field (`type`, `field`, `claims`, `args`, `source`, `relations`, `info`, `root`) |
 | `explain(policy, input)` | The same evaluation, with every step, for a simulator |
 | `staticSource(policy)`, `mutableSource(initial?)`, `policySource(impl)`, `isPolicySource`, `POLICY_SOURCE` | Where an evaluator gets its policy; an empty source refuses with `limix.errors.unavailable`. `mutableSource` adds `swap(policy \| null)`; `policySource` brands your own `{ current, subscribe }` |

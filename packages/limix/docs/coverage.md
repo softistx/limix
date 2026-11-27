@@ -102,7 +102,13 @@ with and without `global.basePath`, and the first such rule wins, so an earlier
 `/notes/:id` takes `/notes/new` before a later `/notes/new` is reached. `HEAD`
 faces its own rules and then the `GET` ones. Coverage reads an operation as an
 already-matched route, and `evaluateRest` gives the same rule for a `path`, a
-`route` or both (a spec runs all three). A `HEAD` operation is `public` only
+`route` or both on the cases the spec lists. A route is matched without a
+request path through stand-in paths (each parameter a sentinel segment, each
+optional group with and without): an earlier rule takes it only if its matcher
+takes every alternative. Limit: a route that opens (a wildcard, or an optional
+group holding a parameter) is matched by its own spelling only, so it can
+disagree with a `path` caller when an earlier wildcard takes it.
+A `HEAD` operation is `public` only
 when every rule it faces is, and it is `uncovered` when no `GET` rule names it,
 even beside a `HEAD` rule (the guard refuses it under `deny`).
 

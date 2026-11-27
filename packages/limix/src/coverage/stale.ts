@@ -1,4 +1,8 @@
-import { leavesPartlyOpen, ruleSetsForMethod } from '../evaluation/rest-routes';
+import {
+	ruleSetsForMethod,
+	standInsOf,
+	takesAll,
+} from '../evaluation/rest-routes';
 import { ROOT_TYPES } from '../evaluation/roots';
 import type { CompiledPolicy, CompiledRestRoute } from '../rules';
 import { findOperationRoute } from './lookup';
@@ -47,11 +51,12 @@ export function staleRest(
 			if (used.has(route)) continue;
 			// The rules-file spelling, without the basePath compile put in front.
 			const path = route.pattern.slice(base.length);
-			const earlier = leavesPartlyOpen(route.pattern)
-				? undefined
-				: routes
-						.slice(0, index)
-						.find((candidate) => candidate.matcher(route.pattern) !== false);
+			const standIns = standInsOf(route.pattern);
+			const earlier =
+				standIns &&
+				routes
+					.slice(0, index)
+					.find((candidate) => takesAll(candidate, standIns));
 			stale.push({
 				kind: 'rest',
 				method,
