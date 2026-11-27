@@ -88,7 +88,7 @@ A relation rung that names a `code` answers with it, in place of
 `auth.errors.not-found` or `auth.errors.forbidden`. `@softistx/alxia-access`'s
 `refusalOf` reads only codes under `auth.errors.` or `tenancy.errors.`, so a
 custom code must sit under `auth.errors.` for it to be read; `limix.errors.unavailable`
-is not, and the alxia integration maps it to its own 503.
+is not, and `@softistx/limix-alxia` ([guide](../../limix-alxia/docs/alxia.md#refusals)) answers it as its own 503.
 
 `LimixRefusal` extends `Error` and carries the registered symbol
 `Symbol.for('limix.refusal')`. An integration that must not import the class

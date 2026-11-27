@@ -14,7 +14,7 @@ fixes only on 5.x) until nothing imports it, then `npm deprecate`d.
 | `@softistx/limix` | The core, framework-agnostic: rules in YAML/JSON (JSON schema) or through a typed `definePolicy` builder producing the same structure; REST and GraphQL evaluation; the `RelationChecker` port; coverage over a neutral list of operations; the remote client (signed JWS, JWKS, hot swap, last good copy kept through an outage). |
 | `@softistx/limix-janus` | The `RelationChecker` adapter over janus `can`. |
 | `@softistx/limix-graxia` | The graxia and graphql-js integration: a field guard (`guardSchema`) and graxia plugin (`limixGraxia`), `checkNeeds` and `canOf` for `@needs`, `graphqlOperations` for coverage. |
-| `@softistx/limix-alxia` | alxia's HTTP routes, tenant and refusals; reuses `limix-graxia` for GraphQL. |
+| `@softistx/limix-alxia` | The alxia integration: `limixGuard` (a middleware judging every request that reaches a route, refusals in the app's error format), `alxiaOperations` for coverage, `checkRoutes`, and `limixGraphql` (`./graphql`, the endpoint behind `limix-graxia`). |
 | `@softistx/limix-publish` | The emitter: signs a rules file as a JWS and serves the JWKS (API and CLI). |
 
 ## Decisions (owner, 2026-11-26)
@@ -79,6 +79,16 @@ Declared divergences from janus:
   (declared: it reads `definePlugin` and, through `./agent`, `needsOf`, so any
   0.x minor from 0.18 is accepted). With no peer-floor tooling, a new graxia
   minor is untested until a limix-graxia release.
+- `@softistx/limix-alxia` accepts any `@softistx/alxia` `>=0.28.0 <1.0.0` and
+  `@softistx/alxia-graphql` `>=0.20.2 <1.0.0` (declared: it reads `ctx.route`,
+  `app.routes` and `app.sockets`, `defineMiddleware`, `markFactory`,
+  `errorFormat`, `problemOf` and `problem`, and `graphql()` with its `schema` and
+  `plugins` options, so any 0.x minor from those is accepted). With no
+  peer-floor tooling, a new alxia minor is untested until a limix-alxia release.
+  It takes no `@softistx/alxia-access` or `@softistx/alxia-tenancy` dependency:
+  it reads the shape of their refusals (a string `code` under `auth.errors.` or
+  `tenancy.errors.` and a numeric `status`) and gets the tenant through the
+  host's `claims(ctx)`.
 - No `nxgt-versions.yml` or `check-nxgt-versions.ts`: limix depends on no
   `@nxgt` package.
 - `biome.json` turns off `useLiteralKeys` only, which the scripts need under
