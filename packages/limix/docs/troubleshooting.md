@@ -195,7 +195,7 @@ mistake earlier, with the hint above.
 a pattern type-checks; `compilePolicy` refuses it.
 **Fix:** put the method in the key, or nest under it, as above.
 
-## rest['GET /x'] is a rule, so its keys are rule terms (roles, permissions, relations, when, authenticated, public); `GET` is not one
+## a rule's keys are rule terms (roles, permissions, relations, when, authenticated, public); `GET` is not one
 
 **When:** `compilePolicy` (and so `definePolicy` output) meets a flat key
 (`"GET /x"`, `"Query.me"`) or a nested rule whose value holds a key that is not

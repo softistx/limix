@@ -30,7 +30,7 @@ function isRule(rule: unknown, where: PropertyKey[], issues: RulesIssue[]) {
 	const path = formatPath(where);
 	issues.push({
 		path,
-		message: `${path} is a rule, so its keys are rule terms (roles, permissions, relations, when, authenticated, public); \`${stray}\` is not one`,
+		message: `a rule's keys are rule terms (roles, permissions, relations, when, authenticated, public); \`${stray}\` is not one`,
 	});
 	return false;
 }

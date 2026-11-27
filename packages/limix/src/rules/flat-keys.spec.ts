@@ -224,7 +224,7 @@ describe('compilePolicy: flat keys', () => {
 			{
 				path: "rest['GET /x']",
 				message:
-					"rest['GET /x'] is a rule, so its keys are rule terms (roles, permissions, relations, when, authenticated, public); `GET` is not one",
+					"a rule's keys are rule terms (roles, permissions, relations, when, authenticated, public); `GET` is not one",
 			},
 		]);
 	});
@@ -242,7 +242,7 @@ describe('compilePolicy: flat keys', () => {
 			{
 				path: "graphql['Query.me']",
 				message:
-					"graphql['Query.me'] is a rule, so its keys are rule terms (roles, permissions, relations, when, authenticated, public); `id` is not one",
+					"a rule's keys are rule terms (roles, permissions, relations, when, authenticated, public); `id` is not one",
 			},
 		]);
 	});
