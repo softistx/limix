@@ -218,6 +218,40 @@ describe('compilePolicy: flat keys', () => {
 		]);
 	});
 
+	it('refuses a flat REST key holding a method map instead of failing open', () => {
+		const rules = { ...base, rest: { 'GET /x': { GET: { roles: [['a']] } } } };
+		expect(issuesOf(() => compilePolicy(rules as never))).toEqual([
+			{
+				path: "rest['GET /x']",
+				message:
+					"a rule's keys are rule terms (roles, permissions, relations, when, authenticated, public); `GET` is not one",
+			},
+		]);
+	});
+
+	it('refuses it through definePolicy with a variable', () => {
+		const loose = { 'GET /x': { GET: { roles: [['a']] } } };
+		const rules = definePolicy({ ...base, rest: loose });
+		expect(issuesOf(() => compilePolicy(rules))).toHaveLength(1);
+	});
+
+	it('refuses a flat GraphQL key holding a field map', () => {
+		const loose = { 'Query.me': { id: { roles: [['a']] } } };
+		const rules = definePolicy({ ...base, graphql: loose });
+		expect(issuesOf(() => compilePolicy(rules))).toEqual([
+			{
+				path: "graphql['Query.me']",
+				message:
+					"a rule's keys are rule terms (roles, permissions, relations, when, authenticated, public); `id` is not one",
+			},
+		]);
+	});
+
+	it('refuses an unknown term in a nested rule too', () => {
+		const rules = { ...base, rest: { '/x': { GET: { rolez: [['a']] } } } };
+		expect(issuesOf(() => compilePolicy(rules as never))).toHaveLength(1);
+	});
+
 	it('names the issue paths in the spelling of the source', () => {
 		const issues = compileIssues({
 			rest: { 'GET /a': { when: ['nope'] }, '/b': { '*': { when: ['nope'] } } },

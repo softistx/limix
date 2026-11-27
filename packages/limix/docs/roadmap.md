@@ -6,9 +6,6 @@ dates here, and the version something shipped in is the only number.
 ## Now
 
 - **1.0 API freeze** — the breaks found by the API review.
-- **Typed registration and codegen for flat keys** — `Register` and
-  `@softistx/limix-codegen` for the `"GET /notes"` and `"Query.me"` spellings,
-  which `definePolicy` does not check against a registered list yet.
 
 ## Next
 
@@ -35,7 +32,9 @@ Nothing yet.
 - **0.6.0** — flat rule keys (`"POST /users/:id"`, `"Query.me"`) beside the
   nested form, mixed in one file in document order; a bare `*` in a path, the
   method `*` and `Type.*`; coverage's `match: 'wildcard'` and
-  `summary.byWildcard`. A rule named twice is an error.
+  `summary.byWildcard`; `definePolicy` checks flat keys and `Type.*` against a
+  registered list (`TypedRulesInput`) and accepts the nested method `*` and
+  field `*` under a known key. A rule named twice is an error.
 - **0.4.0** — one walk in document order for `evaluateRest` and coverage when
   REST patterns overlap; a stale rule an earlier pattern always takes carries
   `shadowedBy`. The [migration guide from `@softistx/security`](migrating-from-security.md)

@@ -9,6 +9,32 @@ import {
 import type { Rules } from '../schema';
 import type { GraphqlRule, RestMethodName, RestRule } from '../types';
 
+const RULE_TERMS = new Set([
+	'roles',
+	'permissions',
+	'relations',
+	'when',
+	'authenticated',
+	'public',
+]);
+
+/**
+ * Whether `rule` is a rule: a key that is no rule term (a method map under a
+ * flat key, say) would compile to a rule with no requirement, which allows
+ * everyone, so it is recorded as an issue instead.
+ */
+function isRule(rule: unknown, where: PropertyKey[], issues: RulesIssue[]) {
+	if (!isObject(rule)) return true;
+	const stray = Object.keys(rule).find((key) => !RULE_TERMS.has(key));
+	if (stray === undefined) return true;
+	const path = formatPath(where);
+	issues.push({
+		path,
+		message: `a rule's keys are rule terms (roles, permissions, relations, when, authenticated, public); \`${stray}\` is not one`,
+	});
+	return false;
+}
+
 /** One REST rule, however its key was spelled. */
 export interface RestEntry {
 	/** The pattern as written, without the `global.basePath`. */
@@ -71,7 +97,7 @@ export function restEntries(rules: Rules, issues: RulesIssue[]): RestEntry[] {
 		where: PropertyKey[],
 	) => {
 		const name = `${method} ${normalisePattern(pattern)}`;
-		if (duplicate(name, where)) return;
+		if (duplicate(name, where) || !isRule(rule, where, issues)) return;
 		entries.push({ pattern, method, rule, where });
 	};
 	for (const [key, value] of Object.entries(rules.rest ?? {})) {
@@ -127,7 +153,7 @@ export function graphqlEntries(
 		where: PropertyKey[],
 	) => {
 		const name = `${type}.${field}`;
-		if (duplicate(name, where)) return;
+		if (duplicate(name, where) || !isRule(rule, where, issues)) return;
 		entries.push({ type, field, rule, where });
 	};
 	for (const [key, value] of Object.entries(rules.graphql ?? {})) {

@@ -195,6 +195,31 @@ mistake earlier, with the hint above.
 a pattern type-checks; `compilePolicy` refuses it.
 **Fix:** put the method in the key, or nest under it, as above.
 
+## a rule's keys are rule terms (roles, permissions, relations, when, authenticated, public); `GET` is not one
+
+**When:** `compilePolicy` (and so `definePolicy` output) meets a flat key
+(`"GET /x"`, `"Query.me"`) or a nested rule whose value holds a key that is not
+a rule term. The path reads `rest['GET /x']`, `rest['/x'].GET` or
+`graphql['Query.me']`.
+**Why:** a flat key holds the rule itself, not a method or field map. Such a
+rule would have no requirement and allow everyone, so it is refused.
+TypeScript cannot tell a flat key from a path pattern in a variable or a spread;
+`parseRules` refuses the same mistake earlier.
+**Fix:** write the rule's terms under the flat key, or nest under a path or type.
+
+```yaml
+rest:
+  GET /x:
+    roles: [[admin]]     # not: GET /x: { GET: { roles: [[admin]] } }
+```
+
+## Editor: `Object literal may only specify known properties ... 'CheckedRestInput<...>'`
+
+**When:** a flat key of `definePolicy` (`'GET /notez'`, `'Query.you'`) is
+underlined once a generated file registers the API's operations.
+**Why:** the registered list does not hold it.
+**Fix:** see [`@softistx/limix-codegen`'s troubleshooting](../../limix-codegen/docs/troubleshooting.md#in-your-editor).
+
 ## duplicate rule: rest['POST /users/:id'] and rest['/users/:id'].POST both name POST /users/:id
 
 **When:** two keys give a rule to the same method and pattern, in the same

@@ -10,7 +10,7 @@ export async function initCommand(
 	argv: readonly string[],
 	io: Io,
 ): Promise<number> {
-	const { values } = parseInputs(argv, {});
+	const { values } = parseInputs(argv, { flat: { type: 'boolean' } });
 	if (values.help) {
 		io.stdout(INIT_HELP);
 		return 0;
@@ -38,7 +38,10 @@ export async function initCommand(
 		{ rules: false },
 	);
 	const operations = [...(input.rest ?? []), ...(input.graphql ?? [])];
-	await io.writeFile(target, starterRules(operations, format));
+	await io.writeFile(
+		target,
+		starterRules(operations, format, { flat: values.flat === true }),
+	);
 	io.stdout(
 		`wrote ${target} (${operations.length} operations, unmatched: deny)\n`,
 	);

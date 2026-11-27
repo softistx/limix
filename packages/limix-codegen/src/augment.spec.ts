@@ -79,3 +79,58 @@ describe('the generated augmentation', () => {
 		).not.toThrow();
 	});
 });
+
+describe('the generated augmentation, flat keys', () => {
+	it('registers flat keys, Type.* and the nested wildcards', () => {
+		const rules = definePolicy({
+			limix: 1,
+			global: unmatched,
+			rest: {
+				'GET /notes': rule,
+				'DELETE /notes/:id': rule,
+				'* /admin/*': rule,
+				'/files/*path': { GET: rule },
+				'/notes/:id': { '*': rule },
+			},
+			graphql: {
+				'Query.me': rule,
+				'Note.*': rule,
+				Mutation: { '*': rule },
+			},
+		});
+		expect(rules.rest).toBeDefined();
+	});
+
+	it('refuses a flat key the API does not have', () => {
+		definePolicy({
+			limix: 1,
+			global: unmatched,
+			// @ts-expect-error `GET /notez` is not an operation of the API
+			rest: { 'GET /notez': rule },
+		});
+		definePolicy({
+			limix: 1,
+			global: unmatched,
+			// @ts-expect-error the API has no PUT /notes
+			rest: { 'PUT /notes': rule },
+		});
+		definePolicy({
+			limix: 1,
+			global: unmatched,
+			// @ts-expect-error `Query.you` is not a field
+			graphql: { 'Query.you': rule },
+		});
+		definePolicy({
+			limix: 1,
+			global: unmatched,
+			// @ts-expect-error `Nope` is not a type
+			graphql: { 'Nope.*': rule },
+		});
+		definePolicy({
+			limix: 1,
+			global: unmatched,
+			// @ts-expect-error `Nope` is not a type
+			graphql: { Nope: { '*': rule } },
+		});
+	});
+});

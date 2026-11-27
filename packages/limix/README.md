@@ -40,7 +40,7 @@ declarations import without extensions, so `nodenext` is not supported.
 | --- | --- |
 | `parseRules(input, source?)` | Validates a value (an object, or a YAML or JSON text you parsed), returns `Rules` |
 | `loadRules(path)` from `@softistx/limix/bun` | Reads a `.yaml`, `.yml` or `.json` file, then `parseRules`; refuses a repeated key and several YAML documents |
-| `definePolicy(rules)` | Writes the document in code; a typo fails to compile, and once a generated file registers the API's operations ([`Register`](docs/rules.md#typed-operations-and-names)) so does an operation the API does not have |
+| `definePolicy(rules)` | Writes the document in code (it takes a `TypedRulesInput<R>`, `RulesInput` until a generated file registers an `R`); a typo fails to compile, and once a generated file registers the API's operations ([`Register`](docs/rules.md#typed-operations-and-names)) so does an operation the API does not have, flat keys (`"GET /notes"`, `"Query.me"`) included. Generate the file and write the rules with [`@softistx/limix-codegen`](../limix-codegen/docs/writing-rules.md) |
 | `compilePolicy(rules, { conditions })` | Precompiles the route and field tables into a `CompiledPolicy` |
 | `evaluateRest(policy, input)` | Decides a REST request, the first rule in document order whose pattern is the `route` or whose matcher takes the `path` (or the `route`) (`method`, `route` or `path`, `claims`, `request`, `relations`, `info`): `{ allow: true }` or `{ allow: false, refusal }` |
 | `evaluateField(policy, input)` | The same for one GraphQL field (`type`, `field`, `claims`, `args`, `source`, `relations`, `info`, `root`) |

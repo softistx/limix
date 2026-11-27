@@ -37,6 +37,7 @@ import {
 	type Subject,
 	type TermStep,
 	type TypedRules,
+	type TypedRulesInput,
 } from './index';
 
 test('the rules format starts at version 1', () => {
@@ -102,6 +103,7 @@ export type _Types = [
 	Subject,
 	TermStep,
 	TypedRules,
+	TypedRulesInput,
 ];
 
 test('the package exports map', () => {
