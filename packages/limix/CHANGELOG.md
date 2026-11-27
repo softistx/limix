@@ -1,5 +1,11 @@
 # @softistx/limix
 
+## 0.2.0
+
+### Minor Changes
+
+- [#30](https://github.com/softistx/limix/pull/30) [`5e57f61`](https://github.com/softistx/limix/commit/5e57f616572ad303a5bbe397ab23fa5c849edce0) Thanks [@SteveGT96](https://github.com/SteveGT96)! - Export `holdsPermission(claims)`, the permission test the evaluation uses: a name holds when it is a token of `scope` and, when the `permissions` claim is present, also in that list. Anything malformed holds nothing. An integration can use it to answer a synchronous "can this caller?" question with the same fail-closed rules.
+
 ## 0.1.1
 
 ### Patch Changes
