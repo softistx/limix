@@ -1,0 +1,90 @@
+{
+	"name": "@softistx/limix-alxia",
+	"version": "0.0.0",
+	"private": true,
+	"description": "The alxia integration of @softistx/limix: route guard, coverage operations, and the GraphQL endpoint through limix-graxia",
+	"license": "MIT",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"files": [
+		"dist",
+		"docs",
+		"README.md",
+		"package.json",
+		"LICENSE"
+	],
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"default": "./dist/index.js"
+		},
+		"./graphql": {
+			"types": "./dist/graphql/index.d.ts",
+			"import": "./dist/graphql/index.js",
+			"default": "./dist/graphql/index.js"
+		},
+		"./package.json": "./package.json"
+	},
+	"keywords": [
+		"policy",
+		"authorization",
+		"alxia",
+		"rest",
+		"graphql",
+		"typescript"
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/softistx/limix.git",
+		"directory": "packages/limix-alxia"
+	},
+	"publishConfig": {
+		"registry": "https://registry.npmjs.org/",
+		"access": "restricted"
+	},
+	"scripts": {
+		"build": "bun run ../../build.ts",
+		"test": "bun test ./src/",
+		"typecheck": "bun check"
+	},
+	"nxgt": {
+		"entrypoints": [
+			"src/index.ts",
+			"src/graphql/index.ts"
+		]
+	},
+	"devDependencies": {
+		"@softistx/alxia": "^0.28.0",
+		"@softistx/alxia-graphql": "^0.20.2",
+		"@softistx/graxia": "^0.18.0",
+		"@softistx/limix": "workspace:^",
+		"@softistx/limix-graxia": "workspace:^",
+		"@types/bun": "^1.4.5",
+		"graphql": "^17.1.0"
+	},
+	"peerDependencies": {
+		"@softistx/alxia": ">=0.28.0 <1.0.0",
+		"@softistx/alxia-graphql": ">=0.20.2 <1.0.0",
+		"@softistx/graxia": ">=0.18.0 <1.0.0",
+		"@softistx/limix": "workspace:^",
+		"@softistx/limix-graxia": "workspace:^",
+		"graphql": "^17.1.0",
+		"typescript": "^6.0.3 || ^7.0.0"
+	},
+	"peerDependenciesMeta": {
+		"@softistx/alxia-graphql": {
+			"optional": true
+		},
+		"@softistx/graxia": {
+			"optional": true
+		},
+		"@softistx/limix-graxia": {
+			"optional": true
+		},
+		"graphql": {
+			"optional": true
+		}
+	}
+}

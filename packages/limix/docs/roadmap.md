@@ -5,11 +5,14 @@ dates here, and the version something shipped in is the only number.
 
 ## Now
 
+- **alxia integration** — rules on HTTP routes in an alxia API
+  (`@softistx/limix-alxia`): a route guard with refusals in the app's error
+  format, `alxiaOperations` and `checkRoutes`, and a GraphQL endpoint behind
+  the same rules. Not published yet.
 - **graxia integration** — rules on GraphQL fields in a graxia API (`@softistx/limix-graxia`): a field guard, a graxia plugin, `@needs` checks and coverage operations.
 
 ## Next
 
-- **alxia integration** — rules on HTTP routes, tenants and refusals in an alxia API.
 - **Migration from @softistx/security** — a guide from the `policy` part of
   `@softistx/security`.
 - **Code generation** — a CLI and a graphql-codegen plugin that type

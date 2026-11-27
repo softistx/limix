@@ -29,6 +29,34 @@
         "typescript": "^6.0.3 || ^7.0.0",
       },
     },
+    "packages/limix-alxia": {
+      "name": "@softistx/limix-alxia",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@softistx/alxia": "^0.28.0",
+        "@softistx/alxia-graphql": "^0.20.2",
+        "@softistx/graxia": "^0.18.0",
+        "@softistx/limix": "workspace:^",
+        "@softistx/limix-graxia": "workspace:^",
+        "@types/bun": "^1.4.5",
+        "graphql": "^17.1.0",
+      },
+      "peerDependencies": {
+        "@softistx/alxia": ">=0.28.0 <1.0.0",
+        "@softistx/alxia-graphql": ">=0.20.2 <1.0.0",
+        "@softistx/graxia": ">=0.18.0 <1.0.0",
+        "@softistx/limix": "workspace:^",
+        "@softistx/limix-graxia": "workspace:^",
+        "graphql": "^17.1.0",
+        "typescript": "^6.0.3 || ^7.0.0",
+      },
+      "optionalPeers": [
+        "@softistx/alxia-graphql",
+        "@softistx/graxia",
+        "@softistx/limix-graxia",
+        "graphql",
+      ],
+    },
     "packages/limix-graxia": {
       "name": "@softistx/limix-graxia",
       "version": "0.0.0",
@@ -150,11 +178,19 @@
 
     "@pnpm/deps.graph-sequencer": ["@pnpm/deps.graph-sequencer@1100.0.1", "", {}, "sha512-pOr5+q1fLYKwFN3LAJuGZEnfXDcQ73zqgDHMtGy+K+uIoUqyY+6MeDCWFwfu+4EFuq76I5EPFofoNAI+Bmmq4A=="],
 
+    "@softistx/alxia": ["@softistx/alxia@0.28.0", "", { "peerDependencies": { "typescript": "^6.0.3 || ^7.0.0" } }, "sha512-mCeH9B14Bvu/H8zOGpEVZjlKs6Lsi1POUKruCD8O0EDo7ADOOy0+B0uZa28oMlbOxpUClqDndfY8KDLHS7/jrQ=="],
+
+    "@softistx/alxia-graphql": ["@softistx/alxia-graphql@0.20.2", "", { "peerDependencies": { "@softistx/alxia": "^0.28.0", "@softistx/graxia": "^0.16.0 || ^0.17.0 || ^0.18.0", "@softistx/graxia-graphiql": "^0.4.0", "graphql": "^17.1.0", "typescript": "^6.0.3 || ^7.0.0" } }, "sha512-i2HpHfJnIm6+2l5BY526SmxWIvKr94mxoDixrbkCp4gykzJG4LW3bWDKK96VX4YnL+H343+JRX7mPzBDa5FHTw=="],
+
     "@softistx/graxia": ["@softistx/graxia@0.18.0", "", { "peerDependencies": { "@softistx/telemetry": "^0.5.0", "graphql": "^17.1.0", "typescript": "^6.0.3 || ^7.0.0" }, "optionalPeers": ["@softistx/telemetry", "typescript"] }, "sha512-VZdpmrGWFj4DXvpAXj5JUZidBrlQQNcKLC+6JZmqDjhvmSx+OlVxQchM3o7YwwfaiCel8Pjnu5RKmTU504ZLlw=="],
+
+    "@softistx/graxia-graphiql": ["@softistx/graxia-graphiql@0.4.2", "", { "peerDependencies": { "@softistx/graxia": "^0.18.0", "typescript": "^6.0.3 || ^7.0.0" }, "optionalPeers": ["typescript"] }, "sha512-rmoQVkb7J6q+miIseX7/8lKYqPHHqqeLo9zxM8y/310mIjn8jXt6GI2Iz9JWylRwJV8GA5o9apU2jGnS5LbzvQ=="],
 
     "@softistx/janus": ["@softistx/janus@0.84.0", "", { "peerDependencies": { "typescript": "^6.0.3 || ^7.0.0" } }, "sha512-x/3eFuSAzI0f/s8hqYoKStj5A4risk/puC3k6pHAgRpfR+NUK0ipxqW5ArfKOIaH/GH0nMqEVP6qKYAjx3+Gng=="],
 
     "@softistx/limix": ["@softistx/limix@workspace:packages/limix"],
+
+    "@softistx/limix-alxia": ["@softistx/limix-alxia@workspace:packages/limix-alxia"],
 
     "@softistx/limix-graxia": ["@softistx/limix-graxia@workspace:packages/limix-graxia"],
 

@@ -326,7 +326,7 @@ A refusal with status 503. `params.reason` says why.
   per request.
 
 `@softistx/alxia-access`'s `refusalOf` reads only codes under `auth.errors.` and
-`tenancy.errors.`, so this one needs the alxia integration's own mapping.
+`tenancy.errors.`, so this one needs the mapping `@softistx/limix-alxia` does (503 with `retry-after`).
 
 ## Policy source unavailable (limix.errors.unavailable): it holds no policy, every request is refused
 
