@@ -76,6 +76,16 @@ app.use(limixGuard({ policy, claims, app }))
 mapRefusal: (refusal) => (refusal.status === 401 ? { code: 'app.sign-in' } : undefined)
 ```
 
+### `<limixGuard() | limixGraphql()>: `onMismatch` is a function`
+
+**When:** `onMismatch` is given and is not a function.
+**Why:** it is called once per policy that does not fit the app, with the problems.
+**Fix:**
+
+```ts
+onMismatch: (problems) => logger.error({ problems })
+```
+
 ### `<limixGuard() | limixGraphql()>: the rules use relations; pass `relations`, a RelationChecker (janusRelations() from @softistx/limix-janus) or a function of the context returning one`
 
 **When:** a static policy has a rule with `relations` and the options have no
@@ -199,7 +209,9 @@ source.swap(policy)
 **When:** the held policy does not fit the app's routes. It is decided once per
 policy, on the first request.
 **Why:** one of: a relation rung's `code` outside `auth.errors.`; a REST rule
-that no route takes. The log line (or `onMismatch`) lists which.
+that no route takes; a route of the app that does not run this guard
+(`<route>: does not run this guard ...`: declared before the guard's `use()`,
+or outside the scope it was used in). The log line (or `onMismatch`) lists which.
 **Fix:** run `checkRoutes(policy, app)` in a spec to find the rule. Also check
 the guard is given the app that serves the routes: see
 [a fork answers 503 policy-mismatch](#fork-answers-503-policy-mismatch).
@@ -238,10 +250,11 @@ limixGraphql(app, { schema, limix })
 ### A fork answers 503 policy-mismatch
 
 **When:** the guard sits on a base app (`base.use(limixGuard({ ..., app: base }))`)
-and the routes are declared on `base.fork()`.
+and a rule names a route declared on `base.fork()` only.
 **Why:** a guard checks the routes of the `app` it was given. A fork's routes are
-not in `base.routes`, so no route of the app takes the rules and the guard
-answers 503 `policy-mismatch` instead of judging routes it never checked.
+not in `base.routes`, so no route of the app takes that rule and the guard
+answers 503 `policy-mismatch`. Fork routes that a base route also takes are
+judged, but by rules never checked against them.
 **Fix:** each fork carries its own guard, given the fork:
 
 ```ts

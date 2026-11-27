@@ -58,7 +58,7 @@ function graxiaOptions<Ctx extends object>({
 	nonNull,
 }: LimixGraphqlExtras<Ctx>): LimixGraxiaOptions<ServerContext<Ctx>> {
 	return {
-		policy: limix.policy,
+		policy: outageOf(limix).watch(limix.policy),
 		claims: limix.claims,
 		...(limix.relations === undefined ? {} : { relations: limix.relations }),
 		// One outage for REST and GraphQL: limix-graxia reports through the state

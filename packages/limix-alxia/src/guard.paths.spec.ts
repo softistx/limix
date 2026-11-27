@@ -99,3 +99,31 @@ describe('limixGuard judges the decoded path, not the route pattern', () => {
 		expect(body.pathParams['id']).toBe('a/b');
 	});
 });
+
+describe('limixGuard, a wildcard rule and its tail', () => {
+	const files = rules({ '/files/*path': { GET: { roles: [['admin']] } } });
+	const build = (prefix: '' | `/${string}` = '') =>
+		appOf(files, (a) => a.get('/files/*', ok), prefix);
+
+	test('an empty tail is still judged by the wildcard rule', async () => {
+		const app = build();
+		expect((await call(app, '/files')).status).toBe(401);
+		expect((await call(app, '/files/')).status).toBe(401);
+		expect((await call(app, '/files', { who: 'admin' })).status).toBe(200);
+	});
+
+	test('so is an empty tail on a prefixed wildcard route', async () => {
+		const policy = rules({ '/api/*path': { GET: { roles: [['admin']] } } });
+		const app = appOf(policy, (a) => a.get('/*', ok), '/api');
+		expect((await call(app, '/api')).status).toBe(401);
+		expect((await call(app, '/api/')).status).toBe(401);
+	});
+
+	test('a percent in a wildcard value is judged, not a 500', async () => {
+		const app = build();
+		expect((await call(app, '/files/100%25')).status).toBe(401);
+		expect((await call(app, '/files/100%25/a', { who: 'admin' })).status).toBe(
+			200,
+		);
+	});
+});

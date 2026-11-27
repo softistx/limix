@@ -1,10 +1,12 @@
 import type { BaseContext } from '@softistx/alxia';
 import type { CompiledPolicy, RestRequest } from '@softistx/limix';
-import { decodedPath, paramsOf } from './path';
+import { decodedPath, limixPath, paramsOf } from './path';
 
 /** What the guard reads off a request, as `evaluateRest` takes it (the claims are added by the caller). */
 export interface RestCall {
 	method: string;
+	/** Only for a wildcard route whose tail is empty: the pattern, so `/files/*path` takes `/files`. */
+	route?: string;
 	path: string;
 	request: RestRequest;
 }
@@ -45,12 +47,19 @@ async function jsonOf(request: Request): Promise<unknown> {
 	}
 }
 
+/** Whether the route ends in a wildcard that matched nothing (`/files`, `/files/`). */
+const emptyTail = (
+	route: string,
+	pathParams: Readonly<Record<string, string>>,
+) => route.endsWith('*') && (pathParams['*'] ?? '') === '';
+
 /**
  * What the request is judged by: its method, its path (the route it reached,
  * `route` given by the caller once it has checked one was reached, with the
  * decoded parameters put back), the parameters and query, and the JSON body
- * when a rule of this method reads it. No route pattern goes to the rules:
- * they are walked in order against the path as the handler sees it.
+ * when a rule of this method reads it. No route pattern goes to the rules
+ * (they are walked in order against the path as the handler sees it), except
+ * for a wildcard route with an empty tail, which no path segment names.
  */
 export async function restCall(
 	ctx: BaseContext,
@@ -60,6 +69,7 @@ export async function restCall(
 	const { method } = ctx.request;
 	return {
 		method,
+		...(emptyTail(route, ctx.pathParams) ? { route: limixPath(route) } : {}),
 		path: decodedPath(route, ctx.pathParams),
 		request: {
 			params: paramsOf(ctx.pathParams),

@@ -6,12 +6,7 @@ import {
 	isPolicySource,
 	type RelationChecker,
 } from '@softistx/limix';
-import {
-	claimApp,
-	declaredRoutes,
-	definitionOf,
-	isEndpoint,
-} from './endpoints';
+import { claimApp, declaredRoutes, endpointTest } from './endpoints';
 import { makeHeld } from './held';
 import { checkOptions, type LimixAlxiaOptions } from './options';
 import { answer, refusalOfError } from './refusal';
@@ -59,23 +54,14 @@ export function limixGuard<Ctx extends object = Empty>(
 		);
 	}
 	claimApp(app);
-	const held = makeHeld(options as LimixAlxiaOptions<never>);
-	const exempt = new Map<string, boolean>();
-	const isExempt = (method: string, route: string): boolean => {
-		const key = `${method} ${route}`;
-		let found = exempt.get(key);
-		if (found === undefined) {
-			const definition = definitionOf(app, method, route);
-			// A definition the app does not hold is judged: fail closed.
-			found = definition !== undefined && isEndpoint(definition);
-			exempt.set(key, found);
-		}
-		return found;
-	};
-	return defineMiddleware<Ctx>()(async (ctx, next) => {
+	const isExempt = endpointTest(app);
+	const held = makeHeld(options as LimixAlxiaOptions<never>, () => middleware);
+	const middleware = defineMiddleware<Ctx>()(async (ctx, next) => {
 		const { route } = ctx;
 		if (route === undefined) return next();
-		if (isExempt(ctx.request.method, route)) return next();
+		const upgrade =
+			ctx.request.headers.get('upgrade')?.toLowerCase() === 'websocket';
+		if (isExempt(ctx.request.method, route, upgrade)) return next();
 		const rules = held.snapshot();
 		if (isLimixRefusal(rules)) return answer(ctx, rules, mapRefusal);
 		try {
@@ -99,5 +85,6 @@ export function limixGuard<Ctx extends object = Empty>(
 		}
 		return next();
 	});
+	return middleware;
 }
 markFactory(limixGuard);

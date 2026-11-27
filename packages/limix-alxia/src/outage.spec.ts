@@ -37,14 +37,23 @@ describe('outageOf', () => {
 		expect(calls.n).toBe(2);
 	});
 
-	test('a policy held but unfit for the schema is reported once, then again for another', () => {
+	test('a recovery seen only through the watched source ends the outage', () => {
 		const { full, source, calls } = options();
 		const outage = outageOf(full);
+		const watched = outage.watch(full.policy) as typeof source;
+		source.swap(null);
 		outage.graphql();
 		outage.graphql();
 		expect(calls.n).toBe(1);
+		source.swap(policy);
+		expect(watched.current()).toBe(policy);
 		source.swap(null);
 		outage.graphql();
 		expect(calls.n).toBe(2);
+	});
+
+	test('a static policy is watched as it is', () => {
+		const { full } = options();
+		expect(outageOf(full).watch(policy)).toBe(policy);
 	});
 });

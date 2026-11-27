@@ -3,6 +3,7 @@ import {
 	isPolicySource,
 	LimixRefusal,
 } from '@softistx/limix';
+import { unguardedRoutes } from './endpoints';
 import type { LimixAlxiaOptions } from './options';
 import { outageOf } from './outage';
 import { policyProblems } from './setup-check';
@@ -19,19 +20,28 @@ const unavailable = (reason: 'no-policy' | 'policy-mismatch') =>
  * The policy held now, one read per call, fail closed: a source holding none
  * answers 503 `no-policy`, and a policy that does not fit the app's routes
  * (checked once per policy, on the first request, when every route is declared)
- * answers 503 `policy-mismatch`, and `onMismatch` (else `console.error`) hears
+ * or has a route that does not run the guard answers 503 `policy-mismatch`, and `onMismatch` (else `console.error`) hears
  * why once per unfit policy. `onUnavailable` runs once per outage, shared with
  * the GraphQL field guard of the same options, and is re-armed when a fitting
  * policy is back.
  */
-export function makeHeld(options: LimixAlxiaOptions<never>): Held {
+export function makeHeld(
+	options: LimixAlxiaOptions<never>,
+	guard: () => unknown,
+): Held {
 	const { policy } = options;
 	const outage = outageOf(options);
 	const checked = new WeakMap<CompiledPolicy, boolean>();
 	const fits = (held: CompiledPolicy): boolean => {
 		let ok = checked.get(held);
 		if (ok === undefined) {
-			const problems = policyProblems(held, options.app);
+			const problems = [
+				...policyProblems(held, options.app),
+				...unguardedRoutes(options.app, guard()).map(
+					(route) =>
+						`${route}: does not run this guard (declared before its use(), or outside the scope it was used in), so it would run without the rules`,
+				),
+			];
 			ok = problems.length === 0;
 			checked.set(held, ok);
 			if (!ok) {

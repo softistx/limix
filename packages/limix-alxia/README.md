@@ -160,7 +160,9 @@ limixGraphql(app, { schema, limix }) // the SAME object
   `/users/me` rule written before `/users/:id` applies, and `/users/%6De` is
   `/users/me`.
 - Each `fork()` carries its own guard (`limixGuard({ ..., app: fork })`); a
-  guard on the base serving fork routes answers 503 `policy-mismatch`.
+  guard on the base still judges fork routes, by rules never checked against
+  them, and answers 503 `policy-mismatch` only when a rule names a fork-only
+  route.
 - `onUnavailable` runs once per outage for REST and GraphQL together;
   `onMismatch(problems)` replaces the `console.error` for an unfit policy.
 - JSON bodies are detected as alxia does (any type mentioning `json`); a custom

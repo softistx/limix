@@ -1,4 +1,4 @@
-import { isPolicySource } from '@softistx/limix';
+import { isPolicySource, type PolicySource } from '@softistx/limix';
 import type { LimixAlxiaOptions } from './options';
 
 /** One outage, as REST and GraphQL both see it. */
@@ -7,40 +7,53 @@ export interface Outage {
 	rest(fit: unknown | null, current: unknown | null): void;
 	/** limix-graxia's `onUnavailable`: the GraphQL side saw the policy unusable. */
 	graphql(): void;
+	/** The policy as limix-graxia should read it: a source that tells this state which policy is held, so a recovery seen by GraphQL alone ends the outage. */
+	watch<P extends object>(policy: P): P;
 }
 
 const outages = new WeakMap<object, Outage>();
 
 /**
  * The outage state of one `limix` options object, shared by the REST guard
- * and the GraphQL field guard it feeds: `onUnavailable` runs once per outage
- * whichever side sees it first, and again after a fitting policy came back
- * (seen by the REST side, or told apart by the policy the source holds).
+ * and the GraphQL field guard it feeds. It remembers the outage last reported
+ * (by the policy the source held then): a report of the same outage from the
+ * other side is dropped, and a different policy held, or a fitting one seen by
+ * REST, ends it, so the next outage is reported whichever side sees it.
  */
 export function outageOf(options: LimixAlxiaOptions<never>): Outage {
 	const known = outages.get(options);
 	if (known) return known;
-	const notify = () => options.onUnavailable?.();
-	let down = false;
-	let at: unknown;
+	let reported: { at: unknown } | undefined;
+	const note = (at: unknown) => {
+		if (reported && reported.at === at) return;
+		reported = { at };
+		options.onUnavailable?.();
+	};
 	const outage: Outage = {
 		rest(fit, current) {
-			if (fit) {
-				down = false;
-				return;
-			}
-			if (down) return;
-			down = true;
-			at = current;
-			notify();
+			if (fit) reported = undefined;
+			else note(current);
 		},
 		graphql() {
 			const { policy } = options;
-			const current = isPolicySource(policy) ? policy.current() : policy;
-			if (down && at === current) return;
-			down = true;
-			at = current;
-			notify();
+			note(isPolicySource(policy) ? policy.current() : policy);
+		},
+		watch(policy) {
+			if (!isPolicySource(policy)) return policy;
+			const source: PolicySource = policy;
+			return Object.create(source, {
+				current: {
+					value() {
+						const held = source.current();
+						// limix-graxia reports an outage once, by its own state, which a
+						// recovery only the REST guard saw never re-arms: report the
+						// withdrawal here, where every read of the source passes.
+						if (held === null) note(null);
+						else if (reported && held !== reported.at) reported = undefined;
+						return held;
+					},
+				},
+			});
 		},
 	};
 	outages.set(options, outage);

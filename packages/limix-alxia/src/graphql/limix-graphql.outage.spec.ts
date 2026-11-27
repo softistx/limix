@@ -19,7 +19,7 @@ beforeEach(() => {
 });
 afterEach(() => mock.restore());
 
-function build() {
+function build(withGuard = true) {
 	const source = mutableSource(gqlPolicy);
 	const calls = { n: 0 };
 	const app = alxia();
@@ -29,7 +29,7 @@ function build() {
 		app,
 		onUnavailable: () => calls.n++,
 	};
-	app.use(limixGuard(limix));
+	if (withGuard) app.use(limixGuard(limix));
 	app.get('/open', ok);
 	limixGraphql(app, { schema: schema(), limix });
 	return { app, source, calls };
@@ -62,6 +62,30 @@ describe('onUnavailable across REST and GraphQL', () => {
 		source.swap(null);
 		await query(app, '{ open }');
 		await call(app, '/open');
+		expect(calls.n).toBe(2);
+	});
+
+	for (const withGuard of [true, false]) {
+		test(`two outages seen by GraphQL traffic only are reported twice (guard: ${withGuard})`, async () => {
+			const { app, source, calls } = build(withGuard);
+			source.swap(null);
+			await query(app, '{ open }');
+			source.swap(gqlPolicy);
+			await query(app, '{ open }');
+			source.swap(null);
+			await query(app, '{ open }');
+			expect(calls.n).toBe(2);
+		});
+	}
+
+	test('a second outage after REST saw the recovery is reported', async () => {
+		const { app, source, calls } = build();
+		source.swap(null);
+		await query(app, '{ open }');
+		source.swap(gqlPolicy);
+		await call(app, '/open');
+		source.swap(null);
+		await query(app, '{ open }');
 		expect(calls.n).toBe(2);
 	});
 });

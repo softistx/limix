@@ -34,7 +34,7 @@ export function decodedPath(
 	return route
 		.split('/')
 		.map((segment) => {
-			if (segment === '*') return pathParams['*'] ?? '';
+			if (segment === '*') return (pathParams['*'] ?? '').replace(/%/g, '%25');
 			if (!segment.startsWith(':')) return segment;
 			const value = pathParams[segment.slice(1)] ?? '';
 			return value.replace(/%/g, '%25').replace(/\//g, '%2F');

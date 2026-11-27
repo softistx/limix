@@ -54,7 +54,7 @@ function limixGuard<Ctx extends object = Empty>(options: LimixAlxiaOptions<Ctx>)
 | `relations` | `RelationChecker \| (ctx) => RelationChecker` | none | The relations port; a function is called once per request, and only when the held rules use relations |
 | `app` | `{ routes, sockets? }` | required | The app (or group) the guard is used on, so its routes are checked against the rules |
 | `mapRefusal` | `(refusal, ctx) => RefusalAnswer \| Response \| undefined` | none | Rewords a refusal, or answers it yourself |
-| `onUnavailable` | `() => void` | none | Called once each time a source stops holding a fitting policy; once for REST and GraphQL together when both share the options |
+| `onUnavailable` | `() => void` | none | Called once each time a source stops holding a fitting policy. With `limixGraphql` on the same options, REST and GraphQL report one outage once; each later outage is reported again, whichever side sees it |
 | `onMismatch` | `(problems: readonly string[]) => void` | `console.error` | Called once per policy that does not fit the app, with each cause; when absent, one `console.error` says it |
 
 `Ctx` is the context your `claims` function reads. Annotate its parameter and
@@ -147,10 +147,12 @@ A request is judged by the full declared path, prefix included (`/admin/stats`).
 
 `app.fork()` makes a new app with its own routes. A guard belongs to the app it
 was given: each fork carries its own,
-`base.fork().use(limixGuard({ ..., app: fork }))`. A guard on `base` that
-serves routes declared on a fork does not see them in `base.routes`, so it
-answers 503 `policy-mismatch` rather than judge routes it never checked. See
-[troubleshooting](troubleshooting.md#fork-answers-503-policy-mismatch).
+`base.fork().use(limixGuard({ ..., app: fork }))`. A guard on `base` still runs
+for the routes declared on a fork, but those routes are not in `base.routes`:
+they are judged by rules never checked against them. The guard answers 503
+`policy-mismatch` only when a rule names a route that no route of `base` takes
+(a rule written for a fork-only route). See
+[troubleshooting](troubleshooting.md#a-fork-answers-503-policy-mismatch).
 
 ## Claims and tenants
 
@@ -298,7 +300,7 @@ past the types still throws a `TypeError` when the request is answered.
 | `OPTIONS` | By its own rule like any method; put a CORS layer first to answer preflights |
 | `ALL` routes (`app.all`) | By the request's method: a `GET` rule does not cover a `POST` to the same route. The route also takes methods such as `PROPFIND` that `alxiaOperations` cannot list, so coverage reports them under `unmatched` |
 | `QUERY` | A method like another |
-| WebSocket upgrade | As a `GET` on the socket's path, refused before the upgrade |
+| WebSocket upgrade | As a `GET` on the socket's path, refused before the upgrade. A socket you declare at a `limixGraphql` path is judged by the REST rules like any other: an upgrade is matched to its socket first, as alxia does |
 
 A plain `GET` on a socket path is answered 426 by alxia before the guard runs.
 
@@ -310,7 +312,18 @@ decoded path parameters put back, then core walks the rules in document order.
 So a literal `/users/me` rule written before `/users/:id` applies to
 `GET /users/me`, `/users/me/` and `/users/%6De` alike. A `/` or `%` inside a
 parameter's value stays inside its segment (`/users/a%2Fb` is one segment); a
-wildcard (`*`) keeps its slashes.
+wildcard (`*`) keeps its slashes, and a `%` inside its value is encoded.
+
+Three limits:
+
+- A wildcard route with an empty tail (`/files`, `/files/`, `/api` on a prefixed
+  `/*`) has no segment to rebuild, so it is judged by the route pattern
+  (`/files/*path`) and the wildcard rule applies.
+- Literal segments of the route are judged in the form a URL carries them
+  (`/users/%C3%A9t%C3%A9`), while parameters are judged decoded (`été`): a rule
+  written `/users/%C3%A9t%C3%A9` never applies to a parameter route. Write such a
+  rule decoded, or declare the route as a literal.
+- Core matches rules case-insensitively, so `/Users/ME` meets `/users/me`.
 
 ## Unmatched requests
 
@@ -346,11 +359,21 @@ closed and reads the source once per request.
 `onUnavailable` runs once per outage and is re-armed when a fitting policy is
 swapped in. With `limixGraphql` on the same options object, the REST guard and
 the GraphQL field guard share one outage: a source swapped to `null` reports
-once, whichever request sees it first. `policy-mismatch` is decided once per policy, on the first request
+once, whichever request sees it first. A report of the same outage from the
+other side is dropped only while the first stands; a different policy held, or a
+fitting one seen by the REST guard, ends it, so the next outage is reported
+again, with or without the REST guard. `policy-mismatch` is decided once per policy, on the first request
 (routes are declared after `use()`), and has these causes:
 
 - a relation rung's `code` outside `auth.errors.`;
 - a REST rule that no route of the app takes (a typo, a removed route).
+
+The check also looks at every route and socket of `app`: one whose chain does
+not hold this guard (declared before its `use()`, or outside the scope it was
+used in, such as a guard used in a group but given the parent app) is named in
+the problems, and the guarded routes answer 503 `policy-mismatch`. The route
+that never runs the guard cannot be refused by it: it stays as open as it was,
+which is why the guard also throws when it is built with routes already declared.
 
 A policy that does not fit calls `onMismatch(problems)` once, so the 503 is
 explained once; without `onMismatch` it logs one `console.error` listing each

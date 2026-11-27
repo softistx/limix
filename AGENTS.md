@@ -81,7 +81,11 @@ Declared divergences from janus:
   minor is untested until a limix-graxia release.
 - `@softistx/limix-alxia` accepts any `@softistx/alxia` `>=0.28.0 <1.0.0` and
   `@softistx/alxia-graphql` `>=0.20.2 <1.0.0` (declared: it reads `ctx.route`,
-  `app.routes` and `app.sockets`, `defineMiddleware`, `markFactory`,
+  `app.routes` and `app.sockets`, `ctx.pathParams`, `RouteDefinition.handler`
+  and `SocketDefinition.handlers` by identity (a group, plugin or mount copy
+  keeps the handler, which is how `limixGraphql`'s endpoint is told apart),
+  `derive` (the guard's own middleware is looked for in a definition's chain),
+  `defineMiddleware`, `markFactory`,
   `errorFormat`, `problemOf` and `problem`, and `graphql()` with its `schema` and
   `plugins` options, so any 0.x minor from those is accepted). With no
   peer-floor tooling, a new alxia minor is untested until a limix-alxia release.
