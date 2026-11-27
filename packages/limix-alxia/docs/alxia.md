@@ -180,7 +180,10 @@ to the group's file.
   cache that answers from a store, say) answers before the group's guard, so the
   outer guard does not leave the route: both judge it (closed), and
   `checkGuard(guard, app)` reports it (`a hook stands between this guard and the
-  group's guard`).
+  group's guard`). A `derive` or `decorate` declared after `limixGuard` on the
+  outer app is such a hook too: every group then has both guards judge.
+  `checkGuard` reports it when the app starts through `listen`; under a bare
+  `fetch` it shows as a 403 from the outer rules.
 - A group without its own guard is judged by the outer rules.
 - A guard used with a path (`group.use('/users', guard)`): alxia keeps the hook
   on the routes the path reaches, with no `when`, so the group's guard takes those
@@ -193,7 +196,9 @@ to the group's file.
   (`alxia({ prefix: '/console' })`), or use a group.
 - A plugin without a prefix gives its chain, its guard included, to the host
   routes declared after it, so that guard judges them too. They are never left
-  to it: the outer guard judges them, whatever handler they use.
+  to it: the outer guard judges them, whatever handler or options they share
+  (the route must be the very one the guard's own app declared, by the hook
+  object in its chain).
 - Under a host prefix, rules for a plugin's own guard use `global.basePath`.
   Its `limixGraphql` endpoint is then refused (403), because the guard cannot
   find the prefixed definition; use a group there.

@@ -90,10 +90,13 @@ const isMiddleware = (hook: ChainHook, run: unknown): boolean =>
  * Whether `definition` was declared behind the registered guard `later`: the
  * app `later` was given holds the definition itself, or the one a mount copied
  * (same handler, kind, method, schema and exact path), and that definition's
- * chain holds `later`. A route a prefixless plugin's guard merely leaked onto
- * owns nothing of that guard.
+ * chain holds this very hook `step` (the object that follows the asking guard in
+ * `definition`'s chain, not merely the same guard). A route a prefixless
+ * plugin's guard merely leaked onto owns nothing of that guard.
  */
-function ownedBy(definition: Definition, later: unknown): boolean {
+function ownedBy(definition: Definition, step: ChainHook): boolean {
+	if (step.kind !== 'middleware') return false;
+	const later: unknown = step.run;
 	if (typeof later !== 'function') return false;
 	const app = appOfGuard.get(later);
 	if (app === undefined) return false;
@@ -104,7 +107,7 @@ function ownedBy(definition: Definition, later: unknown): boolean {
 					sameKind(d, definition) &&
 					d.schema === definition.schema)) &&
 			definition.path === d.path &&
-			d.derive.some((hook) => isMiddleware(hook, later)),
+			d.derive.includes(step),
 	);
 }
 
@@ -124,7 +127,7 @@ export function judgedLater(definition: Definition, self: unknown): boolean {
 	const next = at < 0 ? undefined : chain[at + 1];
 	if (next === undefined || next.kind !== 'middleware') return false;
 	if (next.when !== undefined || (next.run as unknown) === self) return false;
-	return ownedBy(definition, next.run);
+	return ownedBy(definition, next);
 }
 
 /**
@@ -147,7 +150,7 @@ export function separatedGuards(app: RoutesOf, self: unknown): string[] {
 							hook.kind === 'middleware' &&
 							hook.when === undefined &&
 							(hook.run as unknown) !== self &&
-							ownedBy(definition, hook.run),
+							ownedBy(definition, hook),
 					)
 			);
 		})

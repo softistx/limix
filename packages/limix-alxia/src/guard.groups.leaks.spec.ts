@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, spyOn, test } from 'bun:test';
 import { alxia } from '@softistx/alxia';
 import { compilePolicy, definePolicy } from '@softistx/limix';
 import { call, ok, whoOf } from './app.fixtures';
@@ -205,5 +205,102 @@ describe('a guard used twice on one app', () => {
 		app.get('/x', list as never);
 		expect((await call(app, '/x')).status).toBe(401);
 		expect((await call(app, '/x', { who: 'admin' })).status).toBe(200);
+	});
+});
+
+describe('a guard reused on another app than the one it was given', () => {
+	const shared = () => ({
+		handler: ({ reply }: { reply: (s: 200, b: object) => never }) =>
+			reply(200, { secret: 'open' }),
+		options: { detail: { summary: 'x' } },
+	});
+	const outerOf = (app: ReturnType<typeof alxia>, path: string) =>
+		limixGuard({
+			policy: rules('deny', { [path]: adminOnly }),
+			claims: whoOf,
+			app,
+		});
+	const openGuard = (app: ReturnType<typeof alxia>) =>
+		limixGuard({ policy: rules('allow', {}), claims: whoOf, app });
+
+	for (const how of ['host.use(gA)', 'a prefixless plugin carrying gA']) {
+		test(`a twin app with the same handler and options, ${how}: the host's rules still judge`, async () => {
+			const { handler, options } = shared();
+			const twin = alxia();
+			const gA = openGuard(twin);
+			twin.use(gA);
+			twin.get('/users', options as never, handler as never);
+			const app = alxia();
+			app.use(outerOf(app, '/users'));
+			if (how.startsWith('host')) app.use(gA);
+			else {
+				const plugin = alxia();
+				plugin.use(gA);
+				app.plugin(plugin);
+			}
+			app.get('/users', options as never, handler as never);
+			expect((await call(app, '/users')).status).toBe(401);
+		});
+	}
+
+	test('a twin app with the same handler and its own options (schema)', async () => {
+		const { handler } = shared();
+		const twin = alxia();
+		const gA = openGuard(twin);
+		twin.use(gA);
+		twin.get('/x', handler as never);
+		const app = alxia();
+		app.use(outerOf(app, '/x'));
+		app.use(gA);
+		app.get('/x', handler as never);
+		expect((await call(app, '/x')).status).toBe(401);
+	});
+
+	test('a twin app with the same options and another handler', async () => {
+		const { handler, options } = shared();
+		const twin = alxia();
+		const gA = openGuard(twin);
+		twin.use(gA);
+		twin.get(
+			'/x',
+			options as never,
+			(({ reply }: { reply: never }) =>
+				(reply as (s: 200, b: object) => never)(200, { a: 1 })) as never,
+		);
+		const app = alxia();
+		app.use(outerOf(app, '/x'));
+		app.use(gA);
+		app.get('/x', options as never, handler as never);
+		expect((await call(app, '/x')).status).toBe(401);
+	});
+
+	test('a plugin serving POST /x and the host GET /x with the same handler and options (sameKind)', async () => {
+		const { handler, options } = shared();
+		const app = alxia();
+		app.use(outerOf(app, '/x'));
+		const plugin = alxia();
+		plugin.use(openGuard(plugin));
+		plugin.post('/x', options as never, handler as never);
+		app.plugin(plugin);
+		app.get('/x', options as never, handler as never);
+		expect((await call(app, '/x')).status).toBe(401);
+	});
+
+	test('a guard given an app that never used it: both guards judge, the outer 401 first, then 503', async () => {
+		const { handler, options } = shared();
+		const twin = alxia();
+		const gA = openGuard(twin);
+		twin.get('/x', options as never, handler as never);
+		const app = alxia();
+		app.use(outerOf(app, '/x'));
+		app.use(gA);
+		app.get('/x', options as never, handler as never);
+		const logged = spyOn(console, 'error').mockImplementation(() => {});
+		try {
+			expect((await call(app, '/x')).status).toBe(401);
+			expect((await call(app, '/x', { who: 'admin' })).status).toBe(503);
+		} finally {
+			logged.mockRestore();
+		}
 	});
 });

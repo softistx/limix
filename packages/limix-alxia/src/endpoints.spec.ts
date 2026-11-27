@@ -107,12 +107,14 @@ describe('judgedLater', () => {
 
 	test('a hook with a `when` is not a guard that runs for the request', () => {
 		const { outerGuard, definition } = nested();
-		const [outerHook, innerHook] = (definition as { derive: object[] }).derive;
-		const scoped = {
-			...(definition as object),
-			derive: [outerHook, { ...innerHook, when: '/g' }],
-		} as never;
-		expect(judgedLater(scoped, outerGuard)).toBe(false);
+		const hook = (definition as { derive: object[] }).derive[1] as object;
+		expect(judgedLater(definition, outerGuard)).toBe(true);
+		Object.assign(hook, { when: '/g' });
+		try {
+			expect(judgedLater(definition, outerGuard)).toBe(false);
+		} finally {
+			Reflect.deleteProperty(hook, 'when');
+		}
 	});
 
 	test('a chain without the asking guard is judged', () => {
