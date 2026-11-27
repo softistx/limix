@@ -80,9 +80,13 @@ jobs:
           BASE: ${{ github.base_ref }}
       # The examples are not packages: `affected.ts` never selects them, so they
       # are checked whole on every pull request (types, generated rules, specs).
+      # They import every package's dist, and a bin is linked only when its
+      # file exists, so build all the packages and install again first.
       - name: Check the examples
         if: github.head_ref != 'changeset-release/develop'
         run: |
+          bun run build
+          bun install --frozen-lockfile
           bun run --filter './examples/*' typecheck
           bun run --filter './examples/*' test
       # The build exits 0 on packages that throw the instant they are
