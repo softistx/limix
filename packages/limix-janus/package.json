@@ -1,6 +1,6 @@
 {
 	"name": "@softistx/limix-janus",
-	"version": "0.2.3",
+	"version": "0.2.4",
 	"description": "The RelationChecker adapter of @softistx/limix over janus permissions",
 	"license": "MIT",
 	"type": "module",
