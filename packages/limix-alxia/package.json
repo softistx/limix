@@ -15,11 +15,13 @@
 	],
 	"exports": {
 		".": {
+			"@softistx/source": "./src/index.ts",
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js",
 			"default": "./dist/index.js"
 		},
 		"./graphql": {
+			"@softistx/source": "./src/graphql/index.ts",
 			"types": "./dist/graphql/index.d.ts",
 			"import": "./dist/graphql/index.js",
 			"default": "./dist/graphql/index.js"

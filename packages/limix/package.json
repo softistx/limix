@@ -16,21 +16,25 @@
 	],
 	"exports": {
 		".": {
+			"@softistx/source": "./src/index.ts",
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js",
 			"default": "./dist/index.js"
 		},
 		"./coverage": {
+			"@softistx/source": "./src/coverage/index.ts",
 			"types": "./dist/coverage/index.d.ts",
 			"import": "./dist/coverage/index.js",
 			"default": "./dist/coverage/index.js"
 		},
 		"./bun": {
+			"@softistx/source": "./src/bun/index.ts",
 			"types": "./dist/bun/index.d.ts",
 			"import": "./dist/bun/index.js",
 			"default": "./dist/bun/index.js"
 		},
 		"./remote": {
+			"@softistx/source": "./src/remote/index.ts",
 			"types": "./dist/remote/index.d.ts",
 			"import": "./dist/remote/index.js",
 			"default": "./dist/remote/index.js"
