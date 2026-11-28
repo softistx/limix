@@ -199,6 +199,38 @@ describe('the placement lets nothing else through', () => {
 		expect(await status(app, ENDPOINT, { who: 'admin' })).toBe(200);
 	});
 
+	test('a host middleware before the host guard that rewrites ctx.route to the endpoint', async () => {
+		const app = alxia({ prefix: '/api' });
+		app.use(
+			defineMiddleware(async (_ctx, next) =>
+				next({ route: ENDPOINT } as never),
+			),
+		);
+		const limix = optionsOf(hostRules, app);
+		app.use(limixGuard(limix));
+		limixGraphql(app, { schema: outerSchema(), limix });
+		app.plugin(guardedPlugin('/console/graphql'));
+		app.post('/evil/console/graphql', ok);
+		expect(
+			await status(app, '/api/evil/console/graphql', { who: 'admin' }),
+		).toBe(403);
+	});
+
+	test('a placement never outlives its request: the same Request sent to an app without a host guard', async () => {
+		const plugin = guardedPlugin('/console/graphql');
+		const guarded = host();
+		guarded.plugin(plugin);
+		const bare = alxia({ prefix: '/api' });
+		bare.plugin(plugin);
+		const request = new Request(`http://localhost${ENDPOINT}`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json', 'x-who': 'admin' },
+			body: JSON.stringify({ query: '{ stats }' }),
+		});
+		expect((await guarded.fetch(request)).status).toBe(200);
+		expect((await bare.fetch(request)).status).toBe(403);
+	});
+
 	/**
 	 * The answer each variant gets. alxia 404s a doubled slash, an encoded slash
 	 * and a path that does not start at the host prefix. A trailing slash is
@@ -216,7 +248,17 @@ describe('the placement lets nothing else through', () => {
 			const app = mounted((a) => a.post('/evil/console/graphql', ok));
 			const res = await send(app, path, { who: 'admin' });
 			expect(res.status).toBe(expected);
-			if (expected === 200) expect(await res.text()).toContain('stats');
+			if (expected === 200) {
+				const json = (await res.json()) as { data: { stats: string } };
+				expect(json.data.stats).toBe('stats');
+			}
 		});
 	}
+
+	test('the trailing-slash endpoint refuses an anonymous caller with no data', async () => {
+		const app = mounted((a) => a.post('/evil/console/graphql', ok));
+		const res = await send(app, `${ENDPOINT}/`);
+		expect(res.status).toBe(401);
+		expect(JSON.stringify(await res.json())).not.toContain('"stats":"stats"');
+	});
 });

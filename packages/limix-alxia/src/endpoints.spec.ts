@@ -251,11 +251,40 @@ describe('skipTest placement', () => {
 		const route = '/api/console/graphql';
 		const hostLeaves = skipTest(host, () => hostGuard);
 		const pluginLeaves = skipTest(plugin, () => pluginGuard);
-		const first = new Request('http://localhost/x');
-		const second = new Request('http://localhost/x');
+		const first = new Request(`http://localhost${route}`);
+		const second = new Request(`http://localhost${route}`);
 		expect(hostLeaves('POST', route, false, first)).toBe(true);
 		expect(pluginLeaves('POST', route, false, first)).toBe(true);
 		expect(pluginLeaves('POST', route, false, second)).toBe(false);
+		hostLeaves.release(first);
+		expect(pluginLeaves('POST', route, false, first)).toBe(false);
+	});
+
+	test('a route that disagrees with the request URL is not placed, nor accepted', () => {
+		const rules = compilePolicy(
+			definePolicy({ limix: 1, global: { unmatched: 'allow' } }),
+		);
+		const plugin = alxia();
+		const pluginGuard = limixGuard({
+			policy: rules,
+			claims: whoOf,
+			app: plugin,
+		});
+		plugin.use(pluginGuard);
+		plugin.post('/console/graphql', own());
+		registerEndpoints(plugin.routes as never, []);
+		const host = alxia({ prefix: '/api' });
+		const hostGuard = limixGuard({ policy: rules, claims: whoOf, app: host });
+		host.use(hostGuard);
+		host.plugin(plugin);
+		const route = '/api/console/graphql';
+		const request = new Request('http://localhost/api/evil/console/graphql');
+		expect(skipTest(host, () => hostGuard)('POST', route, false, request)).toBe(
+			true,
+		);
+		expect(
+			skipTest(plugin, () => pluginGuard)('POST', route, false, request),
+		).toBe(false);
 	});
 });
 

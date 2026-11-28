@@ -151,7 +151,8 @@ route to another guard only when the guard right after it in the route's chain
 declares this route behind: the same route at the same exact path. Otherwise the
 outer guard judges it as well, and both guards must allow it (closed). So a
 missing, misplaced or misconfigured inner guard never opens a route. A
-`limixGraphql` endpoint is left by every guard to its own field rules.
+`limixGraphql` endpoint is left by every guard to its own field rules (a plugin's
+endpoint mounted under a prefix only when the host has a `limixGuard`, see below).
 
 ```ts
 const app = alxia()
