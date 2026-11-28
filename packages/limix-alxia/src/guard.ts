@@ -64,7 +64,7 @@ export function limixGuard<Ctx extends object = Empty>(
 		if (route === undefined) return next();
 		const upgrade =
 			ctx.request.headers.get('upgrade')?.toLowerCase() === 'websocket';
-		if (leaves(ctx.request.method, route, upgrade, ctx)) return next();
+		if (leaves(ctx.request.method, route, upgrade, ctx.request)) return next();
 		const rules = held.snapshot();
 		if (isLimixRefusal(rules)) return answer(ctx, rules, mapRefusal);
 		try {

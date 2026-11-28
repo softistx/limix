@@ -167,8 +167,8 @@ export function judgedElsewhere(
 }
 
 /**
- * The definition the outermost guard matched for a request, by the request's
- * context (alxia hands the same object to every hook of the chain): a plugin
+ * The definition the outermost guard matched for a request, by the request
+ * (one `Request` object for the whole chain; the context may be cloned on the way): a plugin
  * mounted under a prefix holds its routes under its own paths, so its guard
  * cannot find the copy the host router matched, and learns it from here.
  */
@@ -253,9 +253,14 @@ export function placedEndpoint(
 export function skipTest(
 	app: RoutesOf,
 	self: () => unknown,
-): (method: string, route: string, upgrade: boolean, ctx: object) => boolean {
+): (
+	method: string,
+	route: string,
+	upgrade: boolean,
+	request: object,
+) => boolean {
 	const kept = new Map<string, Definition | undefined>();
-	return (method, route, upgrade, ctx) => {
+	return (method, route, upgrade, request) => {
 		const key = `${method} ${route} ${upgrade}`;
 		const definition = kept.has(key)
 			? kept.get(key)
@@ -268,11 +273,11 @@ export function skipTest(
 				method,
 				route,
 				upgrade,
-				placed.get(ctx),
+				placed.get(request),
 			);
 		}
 		// The first guard to match the request is the outermost: its match stands.
-		if (!placed.has(ctx)) placed.set(ctx, { route, definition });
+		if (!placed.has(request)) placed.set(request, { route, definition });
 		return isEndpoint(definition) || judgedLater(definition, self());
 	};
 }

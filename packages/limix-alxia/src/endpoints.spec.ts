@@ -14,6 +14,7 @@ import {
 	placedEndpoint,
 	prefixOf,
 	registerEndpoints,
+	skipTest,
 } from './endpoints';
 import { limixGuard } from './guard';
 
@@ -226,6 +227,35 @@ describe('placedEndpoint', () => {
 		expect(
 			check(m, { placement: { route: m.placement.route, definition } }),
 		).toBe(false);
+	});
+});
+
+describe('skipTest placement', () => {
+	test('a placement recorded for one Request is not seen for another', () => {
+		const rules = compilePolicy(
+			definePolicy({ limix: 1, global: { unmatched: 'allow' } }),
+		);
+		const plugin = alxia();
+		const pluginGuard = limixGuard({
+			policy: rules,
+			claims: whoOf,
+			app: plugin,
+		});
+		plugin.use(pluginGuard);
+		plugin.post('/console/graphql', own());
+		registerEndpoints(plugin.routes as never, []);
+		const host = alxia({ prefix: '/api' });
+		const hostGuard = limixGuard({ policy: rules, claims: whoOf, app: host });
+		host.use(hostGuard);
+		host.plugin(plugin);
+		const route = '/api/console/graphql';
+		const hostLeaves = skipTest(host, () => hostGuard);
+		const pluginLeaves = skipTest(plugin, () => pluginGuard);
+		const first = new Request('http://localhost/x');
+		const second = new Request('http://localhost/x');
+		expect(hostLeaves('POST', route, false, first)).toBe(true);
+		expect(pluginLeaves('POST', route, false, first)).toBe(true);
+		expect(pluginLeaves('POST', route, false, second)).toBe(false);
 	});
 });
 

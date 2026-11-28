@@ -177,7 +177,7 @@ describe('the placement lets nothing else through', () => {
 		);
 	});
 
-	test('a middleware between the guards that moves ctx.route', async () => {
+	test('a middleware between the guards that moves ctx.route off the placed route', async () => {
 		const app = host();
 		const mover = defineMiddleware(async (_ctx, next) =>
 			next({ route: '/api/evil/console/graphql' } as never),
@@ -185,24 +185,38 @@ describe('the placement lets nothing else through', () => {
 		app.use(mover);
 		app.plugin(guardedPlugin('/console/graphql'));
 		app.post('/evil/console/graphql', ok);
-		expect(
-			await status(app, '/api/evil/console/graphql', { who: 'admin' }),
-		).toBe(403);
+		expect(await status(app, ENDPOINT, { who: 'admin' })).toBe(403);
 	});
 
-	for (const path of [
-		`${ENDPOINT}/`,
-		'/api//console/graphql',
-		'/api/console%2Fgraphql',
-		'/evil/api/console/graphql',
-	]) {
-		test(`${path} never reaches a REST route with a 200`, async () => {
+	test('a middleware between the guards that clones ctx: the endpoint is still left to the field guard', async () => {
+		const app = host();
+		const cloner = defineMiddleware(async (ctx, next) =>
+			next({ ...ctx } as never),
+		);
+		app.use(cloner);
+		app.plugin(guardedPlugin('/console/graphql'));
+		expect(await status(app, ENDPOINT)).toBe(401);
+		expect(await status(app, ENDPOINT, { who: 'admin' })).toBe(200);
+	});
+
+	/**
+	 * The answer each variant gets. alxia 404s a doubled slash, an encoded slash
+	 * and a path that does not start at the host prefix. A trailing slash is
+	 * routed to the endpoint itself (declared route `ENDPOINT`), so its 200 is the
+	 * field guard's answer, checked below by its body; it is never the REST route.
+	 */
+	const variants: Array<[string, number]> = [
+		[`${ENDPOINT}/`, 200],
+		['/api//console/graphql', 404],
+		['/api/console%2Fgraphql', 404],
+		['/evil/api/console/graphql', 404],
+	];
+	for (const [path, expected] of variants) {
+		test(`${path} gets exactly its expected answer, never a REST 200`, async () => {
 			const app = mounted((a) => a.post('/evil/console/graphql', ok));
-			const answer = await status(app, path, { who: 'admin' });
-			expect([401, 403, 404, 200]).toContain(answer);
-			const body = await (await send(app, path, { who: 'admin' })).text();
-			// 200 is only the field guard's answer to the endpoint itself.
-			if (answer === 200) expect(body).toContain('stats');
+			const res = await send(app, path, { who: 'admin' });
+			expect(res.status).toBe(expected);
+			if (expected === 200) expect(await res.text()).toContain('stats');
 		});
 	}
 });
