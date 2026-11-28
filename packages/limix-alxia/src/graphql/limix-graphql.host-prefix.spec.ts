@@ -222,10 +222,12 @@ describe('the placement lets nothing else through', () => {
 		guarded.plugin(plugin);
 		const bare = alxia({ prefix: '/api' });
 		bare.plugin(plugin);
-		const request = new Request(`http://localhost${ENDPOINT}`, {
-			method: 'POST',
-			headers: { 'content-type': 'application/json', 'x-who': 'admin' },
-			body: JSON.stringify({ query: '{ stats }' }),
+		// No body: alxia rebuilds a request that has one (its body limit), which
+		// would hand each app a new Request and hide a placement left behind.
+		const url = new URL(`http://localhost${ENDPOINT}`);
+		url.searchParams.set('query', '{ stats }');
+		const request = new Request(url, {
+			headers: { 'x-who': 'admin', 'x-graphql-csrf': '1' },
 		});
 		expect((await guarded.fetch(request)).status).toBe(200);
 		expect((await bare.fetch(request)).status).toBe(403);
