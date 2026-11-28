@@ -1,5 +1,21 @@
 # @softistx/limix-codegen
 
+## 0.5.0
+
+### Minor Changes
+
+- [#67](https://github.com/softistx/limix/pull/67) [`0461bf5`](https://github.com/softistx/limix/commit/0461bf531f0e5f2f8f126ca52f3551083e43d555) Thanks [@SteveGT96](https://github.com/SteveGT96)! - The generated file exports `RestRules` and `GraphqlRules`, the types of a block of rules kept in its own file.
+  
+  - `RestRules<W extends string = ConditionName>` is `RestRulesInput<Register, W>` and `GraphqlRules<W>` is `GraphqlRulesInput<Register, W>`; each is written only when REST or GraphQL operations are generated. A block written `satisfies RestRules<'ownsBook'>` refuses an unknown path, method, role, permission or condition where it lives, then goes to `definePolicy` in a list.
+  - The file now starts with a type-only import from `@softistx/limix` (a module either way, so the `Register` augmentation is unchanged). Run `limix-codegen generate` again to refresh it; `--check` reports the old file as out of date.
+  - Requires `@softistx/limix` with `RestRulesInput` and `GraphqlRulesInput`.
+
+### Patch Changes
+
+- Updated dependencies [[`53b7ca5`](https://github.com/softistx/limix/commit/53b7ca51804ca357c033eec94a8356d7a64141f7)]:
+  - @softistx/limix@0.8.0
+  - @softistx/limix-graxia@0.3.2
+
 ## 0.4.0
 
 ### Minor Changes
