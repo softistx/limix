@@ -34,7 +34,15 @@ export function nestGraphql(
 		fields.set(field, rule);
 	};
 	blocks.forEach((graphql, index) => {
-		if (!isObject(graphql)) return;
+		if (!isObject(graphql)) {
+			if (listed) {
+				issues.push({
+					path: formatPath(['graphql', index]),
+					message: 'a rules block must be an object',
+				});
+			}
+			return;
+		}
 		const base: PropertyKey[] = listed ? ['graphql', index] : ['graphql'];
 		for (const [key, value] of Object.entries(graphql)) {
 			if (value === undefined) continue;

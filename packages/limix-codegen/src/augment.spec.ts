@@ -160,24 +160,24 @@ describe('the generated augmentation, the vocabulary declared by hand', () => {
 			definePolicy({
 				limix: 1,
 				global: unmatched,
-				// @ts-expect-error `root` is not a declared role
 				rest: {
+					// @ts-expect-error `root` is not a declared role
 					'GET /notes': { roles: [['root']] },
 				},
 			});
 			definePolicy({
 				limix: 1,
 				global: unmatched,
-				// @ts-expect-error `notes:erase` is not a declared permission
 				graphql: {
+					// @ts-expect-error `notes:erase` is not a declared permission
 					'Query.me': { permissions: [['notes:erase']] },
 				},
 			});
 			definePolicy({
 				limix: 1,
 				global: unmatched,
-				// @ts-expect-error `weekend` is not a declared condition
 				rest: {
+					// @ts-expect-error `weekend` is not a declared condition
 					'/notes': { GET: { when: ['weekend'] } },
 				},
 			});

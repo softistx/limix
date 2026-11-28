@@ -556,7 +556,7 @@ export const rules = definePolicy({
 - **Do not spread** (`rest: { ...a, ...b }`): a key written in both would be
   overwritten silently. A list refuses it instead: a rule written twice across
   blocks, in either spelling, throws a `RulesError` naming both places
-  ([`duplicate rule: rest[0]['/books'].GET and rest[1]['GET /books'] both name GET /books`](troubleshooting.md#duplicate-rule-rest0books-get-and-rest1get-books-both-name-get-books)).
+  ([`duplicate rule: rest[0]['/books'].GET and rest[1]['GET /books'] both name GET /books`](troubleshooting.md#duplicate-rule-rest0booksget-and-rest1get-books-both-name-get-books)).
 - Rules of one path in two blocks join: `'/books': { GET }` in one and
   `'POST /books'` in the other are one group, at the first block's place.
 
@@ -630,7 +630,9 @@ checked against it. `ConditionMap<R>` is what the `conditions` option takes.
 `GraphqlOperationName` give the registered unions to your own code;
 `TypedRulesInput` (flat and nested keys, what `definePolicy` takes) and
 `TypedRules` (nested keys only, over `Rules`; every `TypedRules` value is a
-`TypedRulesInput`) are the narrowed documents, `DefinePolicyOptions` the options.
+`TypedRulesInput`) are the narrowed documents, `RestRulesInput` and
+`GraphqlRulesInput` the `rest` and `graphql` members of `TypedRulesInput` on
+their own (one block, for `satisfies`), `DefinePolicyOptions` the options.
 Nothing is registered by default: until something is declared, every type is
 what it was (`string`).
 

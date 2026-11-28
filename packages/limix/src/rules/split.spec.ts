@@ -14,6 +14,9 @@ function issuesOf(run: () => unknown) {
 	throw new Error('expected a RulesError');
 }
 
+// What the compiler refuses is never run.
+const typeOnly = (_check: () => unknown): void => {};
+
 describe('definePolicy: rules split across blocks', () => {
 	it('merges a list into what the single block gives', () => {
 		const single = definePolicy({
@@ -134,5 +137,32 @@ describe('definePolicy: rules split across blocks', () => {
 			}),
 		);
 		expect(issues[0]?.path).toBe("rest[1]['GET /a'].roles[0]");
+	});
+
+	it('refuses a block that is not an object', () => {
+		const issues = issuesOf(() =>
+			definePolicy({ ...base, rest: [null] } as never),
+		);
+		expect(issues).toEqual([
+			{ path: 'rest[0]', message: 'a rules block must be an object' },
+		]);
+		const graphql = issuesOf(() =>
+			definePolicy({ ...base, graphql: [{}, 3] } as never),
+		);
+		expect(graphql[0]?.path).toBe('graphql[1]');
+	});
+
+	it('fails to compile on a typo inside a list', () => {
+		typeOnly(() =>
+			definePolicy({
+				...base,
+				rest: [
+					{
+						// @ts-expect-error GTE is not a method
+						'/a': { GTE: {} },
+					},
+				],
+			}),
+		);
 	});
 });

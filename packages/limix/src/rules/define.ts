@@ -23,23 +23,10 @@ export interface DefinePolicyOptions<C> {
 
 type Names<C> = [C] extends [never] ? ConditionName : keyof C & string;
 
-/**
- * What `definePolicy` takes: a `TypedRulesInput` whose `rest` and `graphql` are
- * each one block or a list of blocks (see `RestRulesInput`).
- */
-type DefineInput<C> = Omit<
-	TypedRulesInput<Register, Names<C>>,
-	'rest' | 'graphql'
-> & {
-	rest?:
-		| RestRulesInput<Register, Names<C>>
-		| readonly RestRulesInput<Register, Names<C>>[]
-		| undefined;
-	graphql?:
-		| GraphqlRulesInput<Register, Names<C>>
-		| readonly GraphqlRulesInput<Register, Names<C>>[]
-		| undefined;
-};
+type Rest<C> = RestRulesInput<Register, Names<C>>;
+type Graphql<C> = GraphqlRulesInput<Register, Names<C>>;
+/** A `TypedRulesInput` without its transports, which each overload gives back. */
+type Base<C> = Omit<TypedRulesInput<Register, Names<C>>, 'rest' | 'graphql'>;
 
 /**
  * Writes a policy in code. A flat key (`"POST /users/:id"`, `"Query.me"`,
@@ -68,13 +55,44 @@ type DefineInput<C> = Omit<
  * a spread would overwrite silently.
  */
 export function definePolicy<const C extends ConditionMap = never>(
-	rules: NoInfer<DefineInput<C>>,
-	// Types only: the argument is never read.
+	rules: NoInfer<
+		Base<C> & {
+			rest?: readonly Rest<C>[] | undefined;
+			graphql?: readonly Graphql<C>[] | undefined;
+		}
+	>,
 	_options?: DefinePolicyOptions<C>,
+): Rules;
+export function definePolicy<const C extends ConditionMap = never>(
+	rules: NoInfer<
+		Base<C> & {
+			rest?: readonly Rest<C>[] | undefined;
+			graphql?: Graphql<C> | undefined;
+		}
+	>,
+	_options?: DefinePolicyOptions<C>,
+): Rules;
+export function definePolicy<const C extends ConditionMap = never>(
+	rules: NoInfer<
+		Base<C> & {
+			rest?: Rest<C> | undefined;
+			graphql?: readonly Graphql<C>[] | undefined;
+		}
+	>,
+	_options?: DefinePolicyOptions<C>,
+): Rules;
+export function definePolicy<const C extends ConditionMap = never>(
+	rules: NoInfer<
+		Base<C> & { rest?: Rest<C> | undefined; graphql?: Graphql<C> | undefined }
+	>,
+	_options?: DefinePolicyOptions<C>,
+): Rules;
+export function definePolicy(
+	rules: PolicyDocument,
+	// Types only: the argument is never read.
+	_options?: unknown,
 ): Rules {
-	const { rules: nested, origins } = nestWithOrigins(
-		rules as unknown as PolicyDocument,
-	);
+	const { rules: nested, origins } = nestWithOrigins(rules);
 	try {
 		return parseRules(nested, 'definePolicy');
 	} catch (error) {

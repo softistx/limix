@@ -125,7 +125,15 @@ export function nestRest(
 	};
 	const passed = new Map<string, unknown>();
 	blocks.forEach((rest, index) => {
-		if (!isObject(rest)) return;
+		if (!isObject(rest)) {
+			if (listed) {
+				issues.push({
+					path: formatPath(['rest', index]),
+					message: 'a rules block must be an object',
+				});
+			}
+			return;
+		}
 		const base: PropertyKey[] = listed ? ['rest', index] : ['rest'];
 		for (const [key, value] of Object.entries(rest)) {
 			if (value === undefined) continue;
