@@ -1,3 +1,5 @@
+// Owner-sanctioned exception (softistx/limix#60): definePolicy validates at run
+// time, so the refused `GTE` call at the end is wrapped and asserts the throw.
 import { expect, test } from 'bun:test';
 import { definePolicy } from './define';
 import type { GraphqlRule, RestRule, Rules } from './types';

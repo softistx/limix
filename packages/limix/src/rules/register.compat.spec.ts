@@ -3,8 +3,8 @@
 // type-checked then must type-check now, and a refusal must still refuse.
 // Owner-sanctioned exception (softistx/limix#60): `RulesInput` is gone (the rules
 // format is nested only), so the two cases that named it are written against
-// `Rules` and against the open shape, and the refused FETCH call is wrapped
-// (definePolicy validates at run time now), as comments below say.
+// `Rules` and against the open shape, and the refused FETCH call of `keeps definePolicy accepting and refusing` is
+// wrapped in `refused` (definePolicy validates at run time now), as comments below say.
 import { describe, expect, it } from 'bun:test';
 import type { Condition } from './compile/types';
 import { definePolicy } from './define';
