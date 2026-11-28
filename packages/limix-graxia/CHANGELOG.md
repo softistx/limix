@@ -1,5 +1,11 @@
 # @softistx/limix-graxia
 
+## 0.3.3
+
+### Patch Changes
+
+- [#72](https://github.com/softistx/limix/pull/72) [`d5aee5b`](https://github.com/softistx/limix/commit/d5aee5bca556381db227c54ab0b788db8f144f91) Thanks [@SteveGT96](https://github.com/SteveGT96)! - Tested against graxia 0.20 and janus 0.85; peer ranges unchanged.
+
 ## 0.3.2
 
 ### Patch Changes
