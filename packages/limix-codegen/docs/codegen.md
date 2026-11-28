@@ -49,7 +49,9 @@ are generated. They are the types of a block of rules kept in its own file:
 declared role and permission names, `'ownsBook'` being the condition names `when`
 may use (`RestRules` alone accepts any declared condition name). See
 [Splitting the policy across files](writing-rules.md#7-splitting-the-policy-across-files).
-The import makes the file a module, which an augmentation needs anyway.
+The import makes the file a module, which an augmentation needs anyway. With
+several generated files, import `RestRules` from the one you mean: a barrel that
+does `export *` over two of them makes the name ambiguous.
 
 Commit it, and keep it inside your tsconfig `include`: the augmentation works
 only when the file is in the program. The output is sorted (REST by path, then

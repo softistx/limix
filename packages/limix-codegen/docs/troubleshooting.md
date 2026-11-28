@@ -27,7 +27,10 @@ run `limix-codegen generate` again and commit the file.
 key holds `*` or `{` (accepted unchecked), or the rules are not an inline object
 literal given to `definePolicy`: a variable, a spread or an escaped `\*` key is
 not checked.
-**Fix:** include `src/generated`, and pass every input in the script.
+**Fix:** include `src/generated`, and pass every input in the script. A block
+kept in its own file is checked with `satisfies RestRules` (or `GraphqlRules`)
+from the generated file: see
+[Splitting the policy across files](writing-rules.md#7-splitting-the-policy-across-files).
 
 ### `Type '"x"' is not assignable to type '"admin" | "editor"'` in `roles`, `permissions` or `when`
 

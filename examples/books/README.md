@@ -31,6 +31,7 @@ From the repository root:
 ```sh
 bun install
 bun run build          # the packages: the example imports their dist
+bun install            # again, to link the limix-codegen bin `generate` needs
 cd examples/books
 bun run start          # http://localhost:3000, PORT=8080 to change it
 bun run test           # generated-file check, then the specs
@@ -158,6 +159,6 @@ bun run check:limix  # the CI check, also the first step of `bun run test`
 ```
 
 `check:limix` fails when the committed types are out of date. Add a route: put
-it in `openapi.yaml`, run `generate`, write its rule in `src/policy.ts`; the
+it in `openapi.yaml`, run `generate`, write its rule in the block of `src/policy/` it belongs to; the
 coverage spec stays green only if the rule exists, and fails on a rule that
 reaches no operation (a typo, a removed route, a shadowed rule).
