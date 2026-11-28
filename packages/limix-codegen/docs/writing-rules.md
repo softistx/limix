@@ -179,7 +179,12 @@ error in that block. List order is first-match order, and a rule written in two
 blocks is refused: see "Splitting a policy across files" in the
 [rules guide](../../limix/docs/rules.md#splitting-a-policy-across-files). A
 variable typed `Rest | readonly Rest[]` matches no `definePolicy` overload:
-narrow it first. The starter `init` writes stays one file.
+narrow it first. A mistake in a block written inline in the list is reported on
+the `rest:` key (`No overload matches this call`, ending with `Index signature
+for type …`): write each block in its own constant or file, `satisfies RestRules`, as
+above, and the error shows in the block (`satisfies` inside the list does not
+move it)
+([troubleshooting](../../limix/docs/troubleshooting.md#index-signature-for-type-stringstring-is-missing-in-type-)). The starter `init` writes stays one file.
 
 ## 8. In CI
 

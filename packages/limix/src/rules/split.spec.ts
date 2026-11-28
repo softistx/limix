@@ -152,6 +152,86 @@ describe('definePolicy: rules split across blocks', () => {
 		expect(graphql[0]?.path).toBe('graphql[1]');
 	});
 
+	it('refuses a nested group joined across blocks over a competing rule, naming the block', () => {
+		const issues = issuesOf(() =>
+			definePolicy({
+				...base,
+				rest: [
+					{ '/b': { GET: { public: true } } },
+					{ '/a': { '*': { authenticated: true } } },
+					{ '/b': { POST: { authenticated: true } } },
+				],
+			}),
+		);
+		expect(issues).toEqual([
+			{
+				path: "rest[2]['/b'].POST",
+				message:
+					'`POST /b` would move above `* /a`: write it with the first `/b` rules, in rest[0], or write `/a` after it',
+			},
+		]);
+	});
+
+	it('keeps the block index of a group that is not an object', () => {
+		expect(
+			issuesOf(() =>
+				definePolicy({ ...base, graphql: [{}, { Query: 3 }] } as never),
+			),
+		).toEqual([
+			{
+				path: 'graphql[1].Query',
+				message: 'a type group must be an object, received number',
+			},
+		]);
+		expect(
+			issuesOf(() =>
+				definePolicy({
+					...base,
+					rest: [{ '/a': { GET: { public: true } } }, { '/a': 3 }],
+				} as never),
+			),
+		).toEqual([
+			{
+				path: "rest[1]['/a']",
+				message: 'a path group must be an object, received number',
+			},
+		]);
+	});
+
+	it('joins a graphql type written in two blocks', () => {
+		const split = definePolicy({
+			...base,
+			graphql: [
+				{ Query: { me: { authenticated: true } } },
+				{ 'Query.books': { public: true } },
+				{ Query: { orders: { roles: [['admin']] } } },
+			],
+		});
+		expect(split.graphql).toEqual({
+			Query: {
+				me: { authenticated: true },
+				books: { public: true },
+				orders: { roles: [['admin']] },
+			},
+		});
+	});
+
+	it('takes a single rest block beside a list of graphql blocks', () => {
+		const rules = definePolicy({
+			...base,
+			rest: { 'GET /books': { public: true } },
+			graphql: [
+				{ 'Query.me': { authenticated: true } },
+				{ 'Query.books': { public: true } },
+			],
+		});
+		expect(rules.rest).toEqual({ '/books': { GET: { public: true } } });
+		expect(Object.keys(rules.graphql?.['Query'] ?? {})).toEqual([
+			'me',
+			'books',
+		]);
+	});
+
 	it('fails to compile on a typo inside a list', () => {
 		typeOnly(() =>
 			definePolicy({

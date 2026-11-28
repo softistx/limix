@@ -242,4 +242,20 @@ describe('the generated RestRules and GraphqlRules aliases', () => {
 		};
 		expect(refused).toBeInstanceOf(Function);
 	});
+
+	it('reports a typo inside an inline list on the `rest` key, and at its own key with satisfies', () => {
+		const refused = () => {
+			definePolicy({
+				limix: 1,
+				global: unmatched,
+				// @ts-expect-error TS2769 on the list: no overload matches, the block holding the typo is not named
+				rest: [{ 'GET /notes': rule }, { 'GET /notez': rule }],
+			});
+			return {
+				// @ts-expect-error `/notez` is not an operation: with satisfies the error is at the block's own key
+				'GET /notez': rule,
+			} satisfies RestRules;
+		};
+		expect(refused).toBeInstanceOf(Function);
+	});
 });

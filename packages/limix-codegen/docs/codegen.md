@@ -71,7 +71,7 @@ again". `--check` is "the file is missing or out of date", nothing more.
 The role, permission and condition names are not generated, because that would
 need codegen to read the policy. Declare them by hand; `definePolicy` then
 narrows `roles`, `permissions` and `when` to them. See
-[Declare the vocabulary](writing-rules.md#declare-the-vocabulary).
+[Declare the vocabulary](writing-rules.md#2-declare-the-vocabulary).
 
 ## What stays unchecked
 
@@ -205,7 +205,7 @@ To move over:
    `Subsequent property declarations must have the same type` (see
    [troubleshooting](troubleshooting.md)).
 2. Move the role, permission and condition names into a `declare module` block
-   you write (see [Declare the vocabulary](writing-rules.md#declare-the-vocabulary)).
+   you write (see [Declare the vocabulary](writing-rules.md#2-declare-the-vocabulary)).
 3. Write the policy in code with `definePolicy`, typed by the generated file.
    A YAML or JSON rules file still loads with `loadRules`, but codegen does not
    type it: check it against the API with `@softistx/limix/coverage`.

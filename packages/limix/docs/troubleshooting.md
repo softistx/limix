@@ -275,10 +275,48 @@ definePolicy({
 })
 ```
 
+## rest[1]: a rules block must be an object
+
+**When:** `definePolicy` takes `rest` (or `graphql`) as a list and an element is
+not an object (`null`, a number, an array, a string); the path is
+`rest[<i>]` or `graphql[<i>]`. A group inside a block that is not an object
+(`{ '/a': 3 }`, `{ Query: 3 }`) is refused at its own place the same way, for
+example `rest[1]['/a']: a path group must be an object, received number`.
+**Why:** each element is one block of rules, read in order with the others.
+**Fix:** make the element an object of rules, or drop it. A conditional block
+is `...(flag ? [block] : [])` in the list, not `flag && block`.
+
+## Index signature for type '`${string}*${string}`' is missing in type '…[]'
+
+**When:** a `Register` is in place (codegen) and `definePolicy` takes `rest` or
+`graphql` as an inline list. TypeScript reports `TS2769: No overload matches
+this call` on the `rest:` key, the last overload ending with this message,
+whichever block of the list holds the mistake (a path or field that is not an
+operation, a role or condition nobody declared, a bad method such as `GTE`).
+**Why:** `definePolicy` has four overloads (a list or a single block, for each
+of `rest` and `graphql`). A list that fails them all is reported against the
+last overload, which expects a single block, so the message talks about an
+index signature and does not say where the mistake is.
+**Fix:** a block in the list has a mistake. Write each block as its own
+constant `satisfies RestRulesInput` (or codegen's `RestRules`), so that the
+error shows on the key that holds it:
+
+```ts
+const books = {
+  'GET /bokks': { public: true }, // error here: not an operation of the API
+} satisfies RestRules
+
+definePolicy({ limix: 1, global: { unmatched: 'deny' }, rest: [books, admin] })
+```
+
 ## `GET /a` would move above `GET /b`: nest it under `/a`, or write `/b` after it
 
 **When:** `definePolicy` is given a flat key whose path was written earlier, with
-other rules after it (`Invalid rules in definePolicy`).
+other rules after it (`Invalid rules in definePolicy`), or a nested group that
+joins an earlier one the same way, including across blocks of a list: `rest: [{
+'/b': { GET } }, { '/a': { '*': … } }, { '/b': { POST } }]` is refused with
+`POST /b` would move above `* /a`: write it with the first `/b` rules, in
+rest[0], or write `/a` after it.
 **Why:** a flat key joins the earlier key of its path, which moves the rule up,
 and REST rules are first-match in document order. Moving it above a rule that
 could answer the same request (the same method, a `*` rule on either side, or a

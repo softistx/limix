@@ -1,6 +1,6 @@
 import { formatPath, type RulesIssue } from './error';
 import { FLAT_GRAPHQL_KEY, splitFlatGraphql } from './keys';
-import { duplicate, isObject, type Origin } from './nest-shared';
+import { duplicate, isObject, notAGroup, type Origin } from './nest-shared';
 
 /** Nests the flat keys of a `graphql` block by type; GraphQL rules are not first-match. */
 export function nestGraphql(
@@ -55,6 +55,9 @@ export function nestGraphql(
 					if (rule !== undefined)
 						place(key, field, rule, [...base, key, field], false);
 				}
+			} else if (listed) {
+				// Kept out of the output: it would replace an earlier block's group.
+				issues.push(notAGroup([...base, key], value, 'a type group'));
 			} else {
 				passed.set(key, value);
 			}
