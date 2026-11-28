@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'bun:test';
 import { resolve } from 'node:path';
-import { parseRules } from '@softistx/limix';
 import { FIXTURE_INPUT } from './codegen.fixtures';
 import { generateModule, type ModuleInput, sourceNames } from './module';
 
@@ -51,14 +50,19 @@ describe('generateModule', () => {
 		expect(onlyRest).toContain('\t\trest: LimixRest;');
 		expect(onlyRest).not.toContain('graphql:');
 		expect(onlyRest).not.toContain('permission:');
-		const rules = parseRules({
-			limix: 1,
-			global: { unmatched: 'deny' },
-			rest: { '/a': { GET: { roles: [['admin']] } } },
+		const onlyGraphql = generateModule({
+			sources: ['s'],
+			graphql: [{ kind: 'graphql', type: 'Query', field: 'me', root: true }],
 		});
-		const onlyRules = generateModule({ sources: ['r'], rules });
-		expect(onlyRules).toContain('\t\trole: LimixRole;');
-		expect(onlyRules).not.toContain('rest:');
+		expect(onlyGraphql).toContain('\t\tgraphql: LimixGraphql;');
+		expect(onlyGraphql).not.toContain('rest:');
+	});
+
+	it('registers the operations only: no permission, role or condition', () => {
+		const text = generateModule(FIXTURE_INPUT);
+		for (const key of ['permission', 'role', 'condition']) {
+			expect(text).not.toContain(`${key}:`);
+		}
 	});
 
 	it('gives the same bytes whatever the order of the input', () => {
@@ -80,7 +84,7 @@ describe('generateModule', () => {
 
 	it('refuses an input with no source', () => {
 		expect(() => generateModule({ sources: [] })).toThrow(
-			'nothing to generate',
+			'nothing to generate: no OpenAPI or GraphQL',
 		);
 	});
 });

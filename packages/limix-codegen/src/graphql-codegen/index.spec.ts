@@ -6,7 +6,6 @@ import { buildSchema } from 'graphql';
 import {
 	FIXTURE_INPUT,
 	FIXTURE_OPENAPI_YAML,
-	FIXTURE_RULES_YAML,
 	FIXTURE_SDL,
 } from '../codegen.fixtures';
 import { generateModule, sourceNames } from '../module';
@@ -25,17 +24,14 @@ describe('the graphql-codegen plugin', () => {
 		const dir = await mkdtemp(join(tmpdir(), 'limix-codegen-'));
 		try {
 			const openapi = join(dir, 'openapi.yaml');
-			const rules = join(dir, 'rules.yaml');
 			await Bun.write(openapi, FIXTURE_OPENAPI_YAML);
-			await Bun.write(rules, FIXTURE_RULES_YAML);
 			const output = await api.plugin(buildSchema(FIXTURE_SDL), [], {
 				openapi,
-				rules,
 			});
 			expect(output).toBe(
 				generateModule({
 					...FIXTURE_INPUT,
-					sources: ['the GraphQL schema', ...sourceNames([openapi, rules])],
+					sources: ['the GraphQL schema', ...sourceNames([openapi])],
 					regenerate: 'run graphql-codegen again',
 				}),
 			);
@@ -57,16 +53,18 @@ describe('the graphql-codegen plugin', () => {
 		expect(output).toContain('// Do not edit: run graphql-codegen again.');
 	});
 
-	it('refuses a wrong value of rules or openapi', async () => {
+	it('refuses a wrong value of openapi', async () => {
 		const schema = buildSchema(FIXTURE_SDL);
 		await expect(
 			// @ts-expect-error openapi is a file or a list of files
 			api.plugin(schema, [], { openapi: 3 }),
 		).rejects.toThrow('`openapi` must be a file or a list of files');
+	});
+
+	it('refuses a rules option: the plugin never reads a policy', async () => {
 		await expect(
-			// @ts-expect-error rules is a file
-			api.plugin(schema, [], { rules: 3 }),
-		).rejects.toThrow('`rules` must be a file');
+			api.plugin(buildSchema(FIXTURE_SDL), [], { rules: 'rules.yaml' }),
+		).rejects.toThrow('the limix plugin never reads a policy: drop `rules`');
 	});
 
 	it('names two copies of graphql', async () => {

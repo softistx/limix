@@ -17,12 +17,17 @@ describe('the limix-codegen bin', () => {
 		expect(result.stderr.toString()).toContain('unknown command "nope"');
 	});
 
-	it('documents the stale check, the exit codes and --flat', () => {
-		expect(MAIN_HELP).toContain('or a stale rule');
-		expect(GENERATE_HELP).toContain('or a rule is stale');
-		expect(GENERATE_HELP).toContain('judged against the');
+	it('documents the exit codes, --check, --flat and --out, and no rules file', () => {
+		expect(MAIN_HELP).toContain('missing or out of date');
+		expect(GENERATE_HELP).toContain('--check');
+		expect(GENERATE_HELP).toContain('never reads a policy');
 		expect(INIT_HELP).toContain('--flat');
-		expect(INIT_HELP).toContain('"GET /notes", "Query.me"');
+		expect(INIT_HELP).toContain("'GET /notes', 'Query.me'");
+		expect(INIT_HELP).toContain('--out <file>');
+		for (const help of [MAIN_HELP, GENERATE_HELP, INIT_HELP]) {
+			expect(help).not.toContain('--rules');
+			expect(help).not.toContain('stale');
+		}
 	});
 
 	it('answers init --help with --flat on stdout', async () => {

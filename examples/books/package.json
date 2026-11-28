@@ -6,8 +6,8 @@
 	"type": "module",
 	"scripts": {
 		"start": "bun src/server.ts",
-		"generate": "limix-codegen generate --openapi openapi.yaml --graphql schema.graphql --rules rules.yaml",
-		"check:limix": "limix-codegen generate --check --openapi openapi.yaml --graphql schema.graphql --rules rules.yaml",
+		"generate": "limix-codegen generate --openapi openapi.yaml --graphql schema.graphql",
+		"check:limix": "limix-codegen generate --check --openapi openapi.yaml --graphql schema.graphql",
 		"test": "bun run check:limix && bun test ./src/",
 		"typecheck": "bun check"
 	},

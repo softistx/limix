@@ -7,7 +7,7 @@ export type {
 	ConditionContext,
 } from './compile';
 export { compilePolicy } from './compile';
-export { definePolicy } from './define';
+export { type DefinePolicyOptions, definePolicy } from './define';
 export { RulesError, type RulesIssue } from './error';
 export { parseRules } from './parse';
 export type {
@@ -22,4 +22,3 @@ export type {
 	TypedRulesInput,
 } from './register';
 export { LIMIX_FORMAT_VERSION, type Rules } from './schema';
-export type { RulesInput } from './types';

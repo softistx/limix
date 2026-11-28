@@ -11,11 +11,11 @@ fixes only on 5.x) until nothing imports it, then `npm deprecate`d.
 
 | Package | What it holds |
 | --- | --- |
-| `@softistx/limix` | The core, framework-agnostic: rules in YAML/JSON (JSON schema) or through a typed `definePolicy` builder producing the same structure; REST and GraphQL evaluation; the `RelationChecker` port; coverage over a neutral list of operations; the remote client (signed JWS, JWKS, hot swap, last good copy kept through an outage). |
+| `@softistx/limix` | The core, framework-agnostic: rules in YAML/JSON (JSON schema, nested keys only) or through a typed `definePolicy` builder (which alone also takes flat keys) producing the same structure; REST and GraphQL evaluation; the `RelationChecker` port; coverage over a neutral list of operations; the remote client (signed JWS, JWKS, hot swap, last good copy kept through an outage). |
 | `@softistx/limix-janus` | The `RelationChecker` adapter over janus `can`. |
 | `@softistx/limix-graxia` | The graxia and graphql-js integration: a field guard (`guardSchema`) and graxia plugin (`limixGraxia`), `checkNeeds` and `canOf` for `@needs`, `graphqlOperations` for coverage. |
 | `@softistx/limix-alxia` | The alxia integration: `limixGuard` (a middleware judging every request that reaches a route, refusals in the app's error format), `alxiaOperations` for coverage, `checkRoutes`, and `limixGraphql` (`./graphql`, the endpoint behind `limix-graxia`). |
-| `@softistx/limix-codegen` | Build-time types for the rules: a CLI and a graphql-codegen plugin that register the API's operations (GraphQL SDL through `limix-graxia/operations`, OpenAPI) and the rules file's permission, role and condition names in core's `Register`, `--check` for CI, and `init` for a starter rules file. |
+| `@softistx/limix-codegen` | Build-time types for a code-first `definePolicy`, and nothing else: a CLI and a graphql-codegen plugin that register the API's operations (GraphQL SDL through `limix-graxia/operations`, OpenAPI) in core's `Register`, `--check` for CI, and `init` for a starter `policy.ts`. It never reads a YAML/JSON policy: the role, permission and condition names are declared by hand. |
 | `@softistx/limix-publish` | The emitter: signs a rules file as a JWS and serves the JWKS (API and CLI). |
 
 ## Decisions (owner, 2026-11-26)
@@ -90,7 +90,7 @@ The migration guide's TypeScript fences are byte copies of
 `migration-guide.spec.ts` holds: edit the file, then paste it.
 
 `examples/books` is a private workspace package (`@softistx/limix-example-books`, never published, no
-changeset): a books and authors API on alxia served over REST and GraphQL behind one rules file, with
+changeset): a books and authors API on alxia served over REST and GraphQL behind one code-first policy, with
 committed generated types (`bun run generate`, `check:limix`) and specs. The root `typecheck` and `test` scripts
 and `ci.yml` run it (not `build`: a break there must not block a publish); `affected.ts`, `verify-artifacts` and `check-changesets` read
 `packages/*` only, so they skip it.

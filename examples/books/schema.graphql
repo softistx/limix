@@ -23,6 +23,6 @@ type Author {
 	id: ID!
 	name: String!
 	books: [Book!]!
-	"Restricted: only an admin may read it (rules.yaml, Author.email)."
+	"Restricted: only an admin may read it (src/policy.ts, Author.email)."
 	email: String
 }

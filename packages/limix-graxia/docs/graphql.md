@@ -283,14 +283,15 @@ parent is what you want.
 guardSchema(schema, { ...options, nonNull: 'allow' })
 ```
 
-A `Type.*` rule covers every field of the type that has no rule of its own, so
+A `Type.*` rule (the field `*` of a type, `'Note.*'` in `definePolicy`) covers every field of the type that has no rule of its own, so
 the same rule applies to every non-null field it covers: the message names the
 wildcard and each such field.
 
 ```yaml
 graphql:
-  Note.*:            # covers Note.id, which the schema declares ID!
-    authenticated: true
+  Note:
+    "*":             # covers Note.id, which the schema declares ID!
+      authenticated: true
 ```
 
 ```
@@ -315,10 +316,11 @@ no rule names it exactly. An exact `Note.id` wins over the wildcard.
 
 ```yaml
 graphql:
-  Note.*:
-    authenticated: true
-  Note.id:
-    public: true
+  Note:
+    "*":
+      authenticated: true
+    id:
+      public: true
 ```
 
 A wildcard on a type the schema lacks, or on a type that is not an object type,

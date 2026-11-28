@@ -1,14 +1,13 @@
 /**
- * How a key of `rest` and `graphql` is read, in one place: the zod schemas
- * (and so the JSON schema) and `compile/entries.ts` share these patterns.
+ * The flat key spellings, which belong to `definePolicy` only: a rules file
+ * (YAML or JSON) is nested, a path pattern keyed by method under `rest` and a
+ * type name keyed by field under `graphql`.
  *
- * REST: a flat key is `METHOD /pattern` (method `*` for any); a key that looks
- * like one and is not (`get /x`, `GET  /x`, `PROPFIND /x`) is refused rather
- * than read as a path with a space; anything else is a path pattern whose
- * value is keyed by method.
+ * REST: a flat key is `METHOD /pattern` (method `*` for any).
+ * GraphQL: a flat key is `Type.field` or `Type.*`.
  *
- * GraphQL: a flat key is `Type.field` or `Type.*`; any other key holding a dot,
- * and a `*` type, is refused; anything else is a type name.
+ * `nest.ts` turns them into nested ones; the rules format refuses them with
+ * the hint of `flatKeyHint`.
  */
 
 /** The methods a rule may name, in the order docs list them. */
@@ -30,39 +29,47 @@ const FLAT_GRAPHQL_SOURCE = '[_A-Za-z]\\w*\\.(?:[_A-Za-z]\\w*|\\*)$';
 
 /** `POST /users/:id`, `* /admin/*`. */
 export const FLAT_REST_KEY = new RegExp(`^${FLAT_REST_SOURCE}`);
-/** A key shaped like a flat one that is not (`get /x`): refused. */
-export const MALFORMED_REST_KEY = new RegExp(
-	`^(?!${FLAT_REST_SOURCE})[^/\\s]+\\s+/`,
-);
-/** A path pattern: its value is keyed by method. */
-export const NESTED_REST_KEY = new RegExp(
-	`^(?!${FLAT_REST_SOURCE})(?![^/\\s]+\\s+/)`,
-);
-
 /** `Query.me`, `Note.*`. */
 export const FLAT_GRAPHQL_KEY = new RegExp(`^${FLAT_GRAPHQL_SOURCE}`);
-/** A dotted key that is not `Type.field`, and a `*` type: refused. */
-export const MALFORMED_GRAPHQL_KEY = new RegExp(
-	`^(?!${FLAT_GRAPHQL_SOURCE})(?:\\*|[\\s\\S]*\\.[\\s\\S]*)$`,
-);
-/** A type name other than the three roots, which the schema lists itself. */
-export const NESTED_GRAPHQL_KEY =
-	/^(?!Query$|Mutation$|Subscription$)(?!\*$)[^.]*$/;
 
-/** The marker a refused key carries out of zod; `parseRules` swaps in the message. */
-export const BAD_KEY = 'bad key';
+/** The keys the rules format accepts under `rest`: anything but a flat one. */
+export const NOT_FLAT_REST_KEY = new RegExp(`^(?!${FLAT_REST_SOURCE})`);
+/** The keys the rules format accepts under `graphql`: anything but a flat one. */
+export const NOT_FLAT_GRAPHQL_KEY = new RegExp(`^(?!${FLAT_GRAPHQL_SOURCE})`);
 
-/** Why a key under `rest` is refused, or `undefined` when it is a flat or nested one. */
-export function restKeyProblem(key: string): string | undefined {
-	return MALFORMED_REST_KEY.test(key)
-		? `\`${key}\` is not a rule key: a flat key is a method (${REST_METHODS.join(', ')} or *), one space, then the path pattern`
-		: undefined;
+/** Splits a flat REST key into its method and its path pattern. */
+export function splitFlatRest(key: string): {
+	method: string;
+	pattern: string;
+} {
+	const space = key.indexOf(' ');
+	return { method: key.slice(0, space), pattern: key.slice(space + 1) };
 }
 
-/** Why a key under `graphql` is refused, or `undefined` when it is a flat or nested one. */
-export function graphqlKeyProblem(key: string): string | undefined {
-	if (!MALFORMED_GRAPHQL_KEY.test(key)) return undefined;
-	return key === '*' || key.startsWith('*.')
-		? 'a wildcard names fields, not types: write Type.* (for example Query.*)'
-		: `\`${key}\` is not a field key: write Type.field (for example Query.me) or Type.*`;
+/** Splits a flat GraphQL key into its type and its field. */
+export function splitFlatGraphql(key: string): {
+	type: string;
+	field: string;
+} {
+	const dot = key.indexOf('.');
+	return { type: key.slice(0, dot), field: key.slice(dot + 1) };
+}
+
+/** Why a flat key is refused in a rules file, and what to write instead. */
+export function flatKeyHint(block: 'rest' | 'graphql', key: string): string {
+	if (block === 'rest') {
+		const { method, pattern } = splitFlatRest(key);
+		return `\`${key}\` is a definePolicy key; in a rules file write "${pattern}": { ${method === '*' ? '"*"' : method}: … }`;
+	}
+	const { type, field } = splitFlatGraphql(key);
+	return `\`${key}\` is a definePolicy key; in a rules file write ${type}: { ${field === '*' ? '"*"' : field}: … }`;
+}
+
+/** The message of a refused flat key under `rest` or `graphql`, or `undefined` for any other key. */
+export function flatKeyProblem(
+	block: 'rest' | 'graphql',
+	key: string,
+): string | undefined {
+	const flat = block === 'rest' ? FLAT_REST_KEY : FLAT_GRAPHQL_KEY;
+	return flat.test(key) ? flatKeyHint(block, key) : undefined;
 }

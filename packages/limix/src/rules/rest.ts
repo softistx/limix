@@ -1,13 +1,7 @@
 import { z } from 'zod';
 import { strict } from './hints';
-import {
-	BAD_KEY,
-	FLAT_REST_KEY,
-	MALFORMED_REST_KEY,
-	NESTED_REST_KEY,
-} from './keys';
+import { flatKeyHint, NOT_FLAT_REST_KEY } from './keys';
 import { entryShape, zRestRelationRung } from './terms';
-import type { Rules } from './types';
 
 export const zRestRule = strict({
 	...entryShape,
@@ -29,7 +23,7 @@ export const zRestRule = strict({
 const RULE_TERM_HINTS = Object.fromEntries(
 	[...Object.keys(entryShape), 'relations'].map((term) => [
 		term,
-		'a term of a rule, not a method: write "GET /x": {...} or nest it under a method',
+		'a term of a rule, not a method: nest it under a method (GET: {...}, or "*" for any)',
 	]),
 );
 
@@ -55,48 +49,24 @@ export const zMethods = strict(
 ).describe('Rules keyed by HTTP method for this path pattern.');
 
 /**
- * Flat keys (`"POST /users/:id": { ... }`) and nested ones (`"/users/:id": {
- * POST: { ... } }`) side by side. A key goes to exactly one of the three
- * records by its shape, and the others let it through unchanged, so the
- * document order survives the intersection.
+ * REST rules: a path pattern, then the rules by method. A flat key
+ * (`"POST /users/:id"`) is a `definePolicy` spelling and is refused here with
+ * the nested one to write.
  */
-// The intersection merges what each side returns, key by key, and relies on
-// every side returning a rule unchanged: a rule schema (here or in `terms.ts`)
-// must never carry a transform, a default or a preprocess, or the merge fails
-// on an unmergeable value. `flat-keys.spec.ts` parses both spellings together,
-// which fails on one.
-// The intersection of records infers a type no document has; the explicit
-// `Rules['rest']` is what the schema accepts, and `types.spec.ts` holds the
-// rule and method shapes to it.
 export const zRestRules = z
-	.intersection(
-		z.intersection(
-			z.looseRecord(
-				z
-					.string()
-					.regex(FLAT_REST_KEY)
-					.describe(
-						'A method (or `*`), one space, then the path pattern: "POST /users/:id".',
-					),
-				zRestRule,
+	.record(
+		z
+			.string()
+			.regex(NOT_FLAT_REST_KEY, {
+				error: (issue) => flatKeyHint('rest', String(issue.input)),
+			})
+			.describe(
+				'Path pattern: `:name` for one segment, `*name` or `*` for the rest, `{...}` optional, e.g. "/users/:id".',
 			),
-			z.looseRecord(
-				z
-					.string()
-					.regex(NESTED_REST_KEY)
-					.describe(
-						'Path pattern: `:name` for one segment, `*name` or `*` for the rest, `{...}` optional, e.g. "/users/:id".',
-					),
-				zMethods,
-			),
-		),
-		z.looseRecord(
-			z.string().regex(MALFORMED_REST_KEY),
-			z.never({ error: BAD_KEY }),
-		),
+		zMethods,
 	)
 	.describe(
-		'REST rules, keyed by `METHOD /pattern` or by path pattern then HTTP ' +
-			'method. The first rule whose pattern matches the request path, in ' +
-			'document order, is used.',
-	) as unknown as z.ZodType<NonNullable<Rules['rest']>>;
+		'REST rules, keyed by path pattern then HTTP method (`*` for any). The ' +
+			'first rule whose pattern matches the request path, in document order, ' +
+			'is used.',
+	);

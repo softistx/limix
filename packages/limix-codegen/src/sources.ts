@@ -1,11 +1,9 @@
-import type { Rules } from '@softistx/limix';
-import { loadRules } from '@softistx/limix/bun';
 import type { GraphqlOperation, RestOperation } from '@softistx/limix/coverage';
 import type { Io } from './cli/io';
 import { CodegenError } from './errors';
 import { openapiOperations } from './openapi';
 
-/** Throws unless running on Bun: the rules and OpenAPI readers use `Bun.file` and `Bun.YAML`. */
+/** Throws unless running on Bun: the OpenAPI reader uses `Bun.YAML`. */
 export function bunOnly(who: string): void {
 	if (typeof globalThis.Bun === 'undefined') {
 		throw new CodegenError(
@@ -84,10 +82,4 @@ export async function readGraphql(
 		}
 		throw error;
 	}
-}
-
-/** The rules file, validated: YAML or JSON, through `loadRules`. */
-export function readRules(path: string): Promise<Rules> {
-	bunOnly('limix-codegen');
-	return loadRules(path);
 }

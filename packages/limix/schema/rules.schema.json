@@ -23,97 +23,24 @@
 			"description": "Settings applied across the whole document."
 		},
 		"rest": {
-			"allOf": [
-				{
-					"type": "object",
-					"patternProperties": {
-						"^(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|CONNECT|TRACE|QUERY|\\*) \\S.*$": {
-							"$ref": "#/definitions/__schema5"
-						}
-					}
-				},
-				{
-					"type": "object",
-					"patternProperties": {
-						"^(?!(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|CONNECT|TRACE|QUERY|\\*) \\S.*$)(?![^/\\s]+\\s+\\/)": {
-							"type": "object",
-							"properties": {
-								"GET": {
-									"$ref": "#/definitions/__schema25"
-								},
-								"POST": {
-									"$ref": "#/definitions/__schema26"
-								},
-								"PUT": {
-									"$ref": "#/definitions/__schema27"
-								},
-								"PATCH": {
-									"$ref": "#/definitions/__schema28"
-								},
-								"DELETE": {
-									"$ref": "#/definitions/__schema29"
-								},
-								"HEAD": {
-									"$ref": "#/definitions/__schema30"
-								},
-								"OPTIONS": {
-									"$ref": "#/definitions/__schema31"
-								},
-								"CONNECT": {
-									"$ref": "#/definitions/__schema32"
-								},
-								"TRACE": {
-									"$ref": "#/definitions/__schema33"
-								},
-								"QUERY": {
-									"$ref": "#/definitions/__schema34"
-								},
-								"*": {
-									"$ref": "#/definitions/__schema35"
-								}
-							},
-							"additionalProperties": false,
-							"description": "Rules keyed by HTTP method for this path pattern."
-						}
-					}
-				},
-				{
-					"$ref": "#/definitions/__schema36"
-				}
-			],
-			"description": "REST rules, keyed by `METHOD /pattern` or by path pattern then HTTP method. The first rule whose pattern matches the request path, in document order, is used."
+			"type": "object",
+			"propertyNames": {
+				"$ref": "#/definitions/__schema4"
+			},
+			"additionalProperties": {
+				"$ref": "#/definitions/__schema5"
+			},
+			"description": "REST rules, keyed by path pattern then HTTP method (`*` for any). The first rule whose pattern matches the request path, in document order, is used."
 		},
 		"graphql": {
-			"allOf": [
-				{
-					"type": "object",
-					"patternProperties": {
-						"^[_A-Za-z]\\w*\\.(?:[_A-Za-z]\\w*|\\*)$": {
-							"$ref": "#/definitions/__schema38"
-						}
-					}
-				},
-				{
-					"type": "object",
-					"patternProperties": {
-						"^(?!Query$|Mutation$|Subscription$)(?!\\*$)[^.]*$": {
-							"$ref": "#/definitions/__schema46"
-						}
-					}
-				},
-				{
-					"type": "object",
-					"patternProperties": {
-						"^(?![_A-Za-z]\\w*\\.(?:[_A-Za-z]\\w*|\\*)$)(?:\\*|[\\s\\S]*\\.[\\s\\S]*)$": {
-							"not": {}
-						}
-					}
-				},
-				{
-					"$ref": "#/definitions/__schema47"
-				}
-			],
-			"description": "GraphQL rules, keyed by \"Type.field\" or \"Type.*\", or by type name then field name. Query, Mutation and Subscription cover root fields; any other type name targets fields on that type wherever it appears."
+			"type": "object",
+			"propertyNames": {
+				"$ref": "#/definitions/__schema37"
+			},
+			"additionalProperties": {
+				"$ref": "#/definitions/__schema38"
+			},
+			"description": "GraphQL rules, keyed by type name then field name (`*` for every other field of the type). Query, Mutation and Subscription cover root fields; any other type name targets fields on that type wherever it appears."
 		}
 	},
 	"required": ["limix", "global"],
@@ -136,98 +63,93 @@
 			"description": "What a REST request, or a GraphQL root field, that no rule names is answered. \"allow\" lets it through; \"deny\" makes the file the exhaustive statement of what the service exposes: an unnamed path is refused, 401 for an anonymous caller and 403 otherwise. Required, so that leaving a door open is a decision written down."
 		},
 		"__schema4": {
-			"allOf": [
-				{
-					"type": "object",
-					"patternProperties": {
-						"^(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|CONNECT|TRACE|QUERY|\\*) \\S.*$": {
-							"$ref": "#/definitions/__schema5"
-						}
-					}
-				},
-				{
-					"type": "object",
-					"patternProperties": {
-						"^(?!(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|CONNECT|TRACE|QUERY|\\*) \\S.*$)(?![^/\\s]+\\s+\\/)": {
-							"type": "object",
-							"properties": {
-								"GET": {
-									"$ref": "#/definitions/__schema25"
-								},
-								"POST": {
-									"$ref": "#/definitions/__schema26"
-								},
-								"PUT": {
-									"$ref": "#/definitions/__schema27"
-								},
-								"PATCH": {
-									"$ref": "#/definitions/__schema28"
-								},
-								"DELETE": {
-									"$ref": "#/definitions/__schema29"
-								},
-								"HEAD": {
-									"$ref": "#/definitions/__schema30"
-								},
-								"OPTIONS": {
-									"$ref": "#/definitions/__schema31"
-								},
-								"CONNECT": {
-									"$ref": "#/definitions/__schema32"
-								},
-								"TRACE": {
-									"$ref": "#/definitions/__schema33"
-								},
-								"QUERY": {
-									"$ref": "#/definitions/__schema34"
-								},
-								"*": {
-									"$ref": "#/definitions/__schema35"
-								}
-							},
-							"additionalProperties": false,
-							"description": "Rules keyed by HTTP method for this path pattern."
-						}
-					}
-				}
-			]
+			"type": "string",
+			"pattern": "^(?!(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|CONNECT|TRACE|QUERY|\\*) \\S.*$)",
+			"description": "Path pattern: `:name` for one segment, `*name` or `*` for the rest, `{...}` optional, e.g. \"/users/:id\"."
 		},
 		"__schema5": {
 			"type": "object",
 			"properties": {
-				"roles": {
+				"GET": {
 					"$ref": "#/definitions/__schema6"
 				},
+				"POST": {
+					"$ref": "#/definitions/__schema27"
+				},
+				"PUT": {
+					"$ref": "#/definitions/__schema28"
+				},
+				"PATCH": {
+					"$ref": "#/definitions/__schema29"
+				},
+				"DELETE": {
+					"$ref": "#/definitions/__schema30"
+				},
+				"HEAD": {
+					"$ref": "#/definitions/__schema31"
+				},
+				"OPTIONS": {
+					"$ref": "#/definitions/__schema32"
+				},
+				"CONNECT": {
+					"$ref": "#/definitions/__schema33"
+				},
+				"TRACE": {
+					"$ref": "#/definitions/__schema34"
+				},
+				"QUERY": {
+					"$ref": "#/definitions/__schema35"
+				},
+				"*": {
+					"$ref": "#/definitions/__schema36"
+				}
+			},
+			"additionalProperties": false,
+			"description": "Rules keyed by HTTP method for this path pattern."
+		},
+		"__schema6": {
+			"allOf": [
+				{
+					"$ref": "#/definitions/__schema7"
+				}
+			]
+		},
+		"__schema7": {
+			"type": "object",
+			"properties": {
+				"roles": {
+					"$ref": "#/definitions/__schema8"
+				},
 				"permissions": {
-					"$ref": "#/definitions/__schema9"
+					"$ref": "#/definitions/__schema11"
 				},
 				"when": {
-					"$ref": "#/definitions/__schema12"
-				},
-				"authenticated": {
 					"$ref": "#/definitions/__schema14"
 				},
-				"public": {
+				"authenticated": {
 					"$ref": "#/definitions/__schema16"
+				},
+				"public": {
+					"$ref": "#/definitions/__schema18"
 				},
 				"relations": {
 					"description": "Per-object relation checks, one rung after the other: the first that fails denies, which is how the 404-then-403 ladder is written.",
 					"allOf": [
 						{
-							"$ref": "#/definitions/__schema18"
+							"$ref": "#/definitions/__schema20"
 						}
 					]
 				}
 			},
 			"additionalProperties": false
 		},
-		"__schema6": {
+		"__schema8": {
 			"anyOf": [
 				{
 					"minItems": 1,
 					"type": "array",
 					"items": {
-						"$ref": "#/definitions/__schema7"
+						"$ref": "#/definitions/__schema9"
 					},
 					"description": "Roles in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"admin\"], [\"editor\", \"reviewer\"]] reads \"admin, or editor and reviewer\". A role holds when it is in claims.roles."
 				},
@@ -236,24 +158,24 @@
 				}
 			]
 		},
-		"__schema7": {
+		"__schema9": {
 			"minItems": 1,
 			"type": "array",
 			"items": {
-				"$ref": "#/definitions/__schema8"
+				"$ref": "#/definitions/__schema10"
 			}
 		},
-		"__schema8": {
+		"__schema10": {
 			"type": "string",
 			"minLength": 1
 		},
-		"__schema9": {
+		"__schema11": {
 			"anyOf": [
 				{
 					"minItems": 1,
 					"type": "array",
 					"items": {
-						"$ref": "#/definitions/__schema10"
+						"$ref": "#/definitions/__schema12"
 					},
 					"description": "Permissions in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[\"a\"], [\"b\", \"c\"]] reads \"a, or b and c\". A permission holds when it is in claims.scope (space separated) and, when the caller carries a claims.permissions list, also in that list."
 				},
@@ -262,24 +184,24 @@
 				}
 			]
 		},
-		"__schema10": {
+		"__schema12": {
 			"minItems": 1,
 			"type": "array",
 			"items": {
-				"$ref": "#/definitions/__schema11"
+				"$ref": "#/definitions/__schema13"
 			}
 		},
-		"__schema11": {
+		"__schema13": {
 			"type": "string",
 			"minLength": 1
 		},
-		"__schema12": {
+		"__schema14": {
 			"anyOf": [
 				{
 					"minItems": 1,
 					"type": "array",
 					"items": {
-						"$ref": "#/definitions/__schema13"
+						"$ref": "#/definitions/__schema15"
 					},
 					"description": "Names of conditions registered in code (compilePolicy({ conditions })). Every named condition must hold. An unknown name fails at compile time."
 				},
@@ -288,23 +210,12 @@
 				}
 			]
 		},
-		"__schema13": {
+		"__schema15": {
 			"type": "string",
 			"minLength": 1
 		},
-		"__schema14": {
-			"description": "Declares that the rule needs a signed-in caller and nothing more. Cannot be combined with `public: true`.",
-			"allOf": [
-				{
-					"$ref": "#/definitions/__schema15"
-				}
-			]
-		},
-		"__schema15": {
-			"type": ["boolean", "null"]
-		},
 		"__schema16": {
-			"description": "Lets anonymous callers reach the rule. Only for routes that carry their own credential. Cannot be combined with `authenticated: true`, `roles`, `permissions`, `when` or `relations`.",
+			"description": "Declares that the rule needs a signed-in caller and nothing more. Cannot be combined with `public: true`.",
 			"allOf": [
 				{
 					"$ref": "#/definitions/__schema17"
@@ -315,42 +226,15 @@
 			"type": ["boolean", "null"]
 		},
 		"__schema18": {
-			"minItems": 1,
-			"type": "array",
-			"items": {
-				"$ref": "#/definitions/__schema19"
-			}
+			"description": "Lets anonymous callers reach the rule. Only for routes that carry their own credential. Cannot be combined with `authenticated: true`, `roles`, `permissions`, `when` or `relations`.",
+			"allOf": [
+				{
+					"$ref": "#/definitions/__schema19"
+				}
+			]
 		},
 		"__schema19": {
-			"type": "object",
-			"properties": {
-				"require": {
-					"minItems": 1,
-					"type": "array",
-					"items": {
-						"$ref": "#/definitions/__schema20"
-					},
-					"description": "Requirement in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[A, B], [C]] reads \"(A and B) or C\"."
-				},
-				"onDeny": {
-					"description": "How a failure of this rung is answered. NOT_FOUND (the default) is the same answer as for an id that never existed; FORBIDDEN is for a second rung on an object the caller can already see.",
-					"allOf": [
-						{
-							"$ref": "#/definitions/__schema23"
-						}
-					]
-				},
-				"code": {
-					"description": "The refusal's code, replacing the default one of the answer. Put it under \"auth.errors.\" for @softistx/alxia-access to read it.",
-					"allOf": [
-						{
-							"$ref": "#/definitions/__schema24"
-						}
-					]
-				}
-			},
-			"required": ["require"],
-			"additionalProperties": false
+			"type": ["boolean", "null"]
 		},
 		"__schema20": {
 			"minItems": 1,
@@ -360,6 +244,44 @@
 			}
 		},
 		"__schema21": {
+			"type": "object",
+			"properties": {
+				"require": {
+					"minItems": 1,
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/__schema22"
+					},
+					"description": "Requirement in disjunctive normal form: the OUTER list is OR, the INNER list is AND, so [[A, B], [C]] reads \"(A and B) or C\"."
+				},
+				"onDeny": {
+					"description": "How a failure of this rung is answered. NOT_FOUND (the default) is the same answer as for an id that never existed; FORBIDDEN is for a second rung on an object the caller can already see.",
+					"allOf": [
+						{
+							"$ref": "#/definitions/__schema25"
+						}
+					]
+				},
+				"code": {
+					"description": "The refusal's code, replacing the default one of the answer. Put it under \"auth.errors.\" for @softistx/alxia-access to read it.",
+					"allOf": [
+						{
+							"$ref": "#/definitions/__schema26"
+						}
+					]
+				}
+			},
+			"required": ["require"],
+			"additionalProperties": false
+		},
+		"__schema22": {
+			"minItems": 1,
+			"type": "array",
+			"items": {
+				"$ref": "#/definitions/__schema23"
+			}
+		},
+		"__schema23": {
 			"type": "object",
 			"properties": {
 				"relation": {
@@ -377,7 +299,7 @@
 					"examples": ["param.id", "query.projectId", "json.bookmarkId"],
 					"allOf": [
 						{
-							"$ref": "#/definitions/__schema22"
+							"$ref": "#/definitions/__schema24"
 						}
 					]
 				}
@@ -385,159 +307,128 @@
 			"required": ["relation", "type"],
 			"additionalProperties": false
 		},
-		"__schema22": {
+		"__schema24": {
 			"type": "string",
 			"pattern": "^(param|query|json)(\\.[A-Za-z0-9_]+)+$"
 		},
-		"__schema23": {
+		"__schema25": {
 			"type": "string",
 			"enum": ["NOT_FOUND", "FORBIDDEN"]
 		},
-		"__schema24": {
-			"type": "string"
-		},
-		"__schema25": {
-			"allOf": [
-				{
-					"$ref": "#/definitions/__schema5"
-				}
-			]
-		},
 		"__schema26": {
-			"allOf": [
-				{
-					"$ref": "#/definitions/__schema5"
-				}
-			]
+			"type": "string"
 		},
 		"__schema27": {
 			"allOf": [
 				{
-					"$ref": "#/definitions/__schema5"
+					"$ref": "#/definitions/__schema7"
 				}
 			]
 		},
 		"__schema28": {
 			"allOf": [
 				{
-					"$ref": "#/definitions/__schema5"
+					"$ref": "#/definitions/__schema7"
 				}
 			]
 		},
 		"__schema29": {
 			"allOf": [
 				{
-					"$ref": "#/definitions/__schema5"
+					"$ref": "#/definitions/__schema7"
 				}
 			]
 		},
 		"__schema30": {
 			"allOf": [
 				{
-					"$ref": "#/definitions/__schema5"
+					"$ref": "#/definitions/__schema7"
 				}
 			]
 		},
 		"__schema31": {
 			"allOf": [
 				{
-					"$ref": "#/definitions/__schema5"
+					"$ref": "#/definitions/__schema7"
 				}
 			]
 		},
 		"__schema32": {
 			"allOf": [
 				{
-					"$ref": "#/definitions/__schema5"
+					"$ref": "#/definitions/__schema7"
 				}
 			]
 		},
 		"__schema33": {
 			"allOf": [
 				{
-					"$ref": "#/definitions/__schema5"
+					"$ref": "#/definitions/__schema7"
 				}
 			]
 		},
 		"__schema34": {
 			"allOf": [
 				{
-					"$ref": "#/definitions/__schema5"
+					"$ref": "#/definitions/__schema7"
 				}
 			]
 		},
 		"__schema35": {
-			"description": "Any method. A method written beside it wins on the same pattern.",
 			"allOf": [
 				{
-					"$ref": "#/definitions/__schema5"
+					"$ref": "#/definitions/__schema7"
 				}
 			]
 		},
 		"__schema36": {
-			"type": "object",
-			"patternProperties": {
-				"^(?!(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|CONNECT|TRACE|QUERY|\\*) \\S.*$)[^/\\s]+\\s+\\/": {
-					"not": {}
-				}
-			}
-		},
-		"__schema37": {
+			"description": "Any method. A method written beside it wins on the same pattern.",
 			"allOf": [
 				{
-					"type": "object",
-					"patternProperties": {
-						"^[_A-Za-z]\\w*\\.(?:[_A-Za-z]\\w*|\\*)$": {
-							"$ref": "#/definitions/__schema38"
-						}
-					}
-				},
-				{
-					"type": "object",
-					"patternProperties": {
-						"^(?!Query$|Mutation$|Subscription$)(?!\\*$)[^.]*$": {
-							"$ref": "#/definitions/__schema46"
-						}
-					}
-				},
-				{
-					"type": "object",
-					"patternProperties": {
-						"^(?![_A-Za-z]\\w*\\.(?:[_A-Za-z]\\w*|\\*)$)(?:\\*|[\\s\\S]*\\.[\\s\\S]*)$": {
-							"not": {}
-						}
-					}
+					"$ref": "#/definitions/__schema7"
 				}
 			]
 		},
+		"__schema37": {
+			"type": "string",
+			"pattern": "^(?![_A-Za-z]\\w*\\.(?:[_A-Za-z]\\w*|\\*)$)",
+			"description": "Type name: Query, Mutation or Subscription for root fields, any other name for fields of that type wherever it appears."
+		},
 		"__schema38": {
 			"type": "object",
-			"properties": {
-				"roles": {
-					"$ref": "#/definitions/__schema6"
-				},
-				"permissions": {
-					"$ref": "#/definitions/__schema9"
-				},
-				"when": {
-					"$ref": "#/definitions/__schema12"
-				},
-				"authenticated": {
-					"$ref": "#/definitions/__schema14"
-				},
-				"public": {
-					"$ref": "#/definitions/__schema16"
-				},
-				"relations": {
-					"description": "Per-object relation checks, one rung after the other. Ids are read from `args.<path>` or `source.<path>`.",
-					"allOf": [
-						{
-							"$ref": "#/definitions/__schema39"
-						}
-					]
-				}
+			"propertyNames": {
+				"type": "string",
+				"description": "Field name on this GraphQL type, e.g. \"createUser\", or `*` for every other field."
 			},
-			"additionalProperties": false
+			"additionalProperties": {
+				"type": "object",
+				"properties": {
+					"roles": {
+						"$ref": "#/definitions/__schema8"
+					},
+					"permissions": {
+						"$ref": "#/definitions/__schema11"
+					},
+					"when": {
+						"$ref": "#/definitions/__schema14"
+					},
+					"authenticated": {
+						"$ref": "#/definitions/__schema16"
+					},
+					"public": {
+						"$ref": "#/definitions/__schema18"
+					},
+					"relations": {
+						"description": "Per-object relation checks, one rung after the other. Ids are read from `args.<path>` or `source.<path>`.",
+						"allOf": [
+							{
+								"$ref": "#/definitions/__schema39"
+							}
+						]
+					}
+				},
+				"additionalProperties": false
+			}
 		},
 		"__schema39": {
 			"minItems": 1,
@@ -620,43 +511,6 @@
 		},
 		"__schema45": {
 			"type": "string"
-		},
-		"__schema46": {
-			"type": "object",
-			"propertyNames": {
-				"type": "string",
-				"description": "Field name on this GraphQL type, e.g. \"createUser\", or `*`."
-			},
-			"additionalProperties": {
-				"$ref": "#/definitions/__schema38"
-			}
-		},
-		"__schema47": {
-			"type": "object",
-			"properties": {
-				"Query": {
-					"allOf": [
-						{
-							"$ref": "#/definitions/__schema46"
-						}
-					]
-				},
-				"Mutation": {
-					"allOf": [
-						{
-							"$ref": "#/definitions/__schema46"
-						}
-					]
-				},
-				"Subscription": {
-					"allOf": [
-						{
-							"$ref": "#/definitions/__schema46"
-						}
-					]
-				}
-			},
-			"additionalProperties": {}
 		}
 	},
 	"patternProperties": {

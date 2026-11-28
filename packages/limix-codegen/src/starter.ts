@@ -1,22 +1,15 @@
-import { compilePolicy, parseRules } from '@softistx/limix';
+import { compilePolicy, definePolicy } from '@softistx/limix';
 import type { Operation } from '@softistx/limix/coverage';
 import { CodegenError } from './errors';
+import { quote } from './module';
 import { compareText, METHODS } from './order';
 
-const YAML_HINT =
-	'# yaml-language-server: $schema=node_modules/@softistx/limix/schema/rules.schema.json';
 const NOTE =
-	'# Written once by limix-codegen init: every operation needs a signed-in caller until you write its rule.';
+	'// Written once by limix-codegen init: every operation needs a signed-in caller until you write its rule.';
 
 type Rule = { authenticated: true };
 /** A section: a key and a rule per method or field (nested), or a rule per flat key. */
 type Section = Record<string, Rule | Record<string, Rule>>;
-type Document = {
-	limix: 1;
-	global: { unmatched: 'deny' };
-	rest?: Section;
-	graphql?: Section;
-};
 
 const RULE: Rule = { authenticated: true };
 
@@ -101,43 +94,43 @@ function flatten(
 	return out;
 }
 
-function yamlOf(document: Document): string {
-	const lines = [YAML_HINT, NOTE, 'limix: 1', 'global:', '  unmatched: deny'];
-	const section = (
-		name: string,
-		entries: Section,
-		memberOf: (key: string) => string,
-	) => {
-		lines.push(`${name}:`);
-		for (const [key, value] of Object.entries(entries)) {
-			lines.push(`  ${JSON.stringify(key)}:`);
-			// A flat key holds the rule itself, a nested one a rule per member.
-			if (value === RULE) lines.push('    authenticated: true');
-			else {
-				for (const member of Object.keys(value)) {
-					lines.push(`    ${memberOf(member)}:`, '      authenticated: true');
-				}
-			}
+const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+const key = (name: string) => (IDENTIFIER.test(name) ? name : quote(name));
+const RULE_TEXT = '{ authenticated: true }';
+
+/** One section of the policy, a key per line, a nested key holding a rule per member. */
+function sectionText(name: string, entries: Section): string[] {
+	const lines = [`\t${name}: {`];
+	for (const [entry, value] of Object.entries(entries)) {
+		if (value === RULE) {
+			lines.push(`\t\t${quote(entry)}: ${RULE_TEXT},`);
+			continue;
 		}
-	};
-	if (document.rest) section('rest', document.rest, (method) => method);
-	if (document.graphql)
-		section('graphql', document.graphql, (field) => JSON.stringify(field));
-	return `${lines.join('\n')}\n`;
+		lines.push(`\t\t${key(entry)}: {`);
+		for (const member of Object.keys(value)) {
+			lines.push(`\t\t\t${key(member)}: ${RULE_TEXT},`);
+		}
+		lines.push('\t\t},');
+	}
+	lines.push('\t},');
+	return lines;
 }
 
 /**
- * A rules file to start from: every REST operation and every GraphQL root
- * field gets `authenticated: true` under `unmatched: deny`. It is validated
- * and compiled before it is returned, so a broken conversion fails here.
+ * A policy to start from, as TypeScript source for a `policy.ts`: every REST
+ * operation and every GraphQL root field gets `authenticated: true` under
+ * `unmatched: 'deny'`, written through `definePolicy`, so the generated types
+ * check it. The document is built, run through `definePolicy` and compiled
+ * before the text is returned, so a broken conversion fails here.
  *
- * `flat` writes one key per operation (`"GET /notes"`, `"Query.me"`) instead of
- * a path or a type holding its methods or fields; the rules are the same.
+ * `types` is the import specifier of the generated file, relative to the file
+ * written (default `./generated/limix`). `flat` writes one key per operation
+ * (`'GET /notes'`, `'Query.me'`) instead of a path or a type holding its
+ * methods or fields; the policy is the same.
  */
-export function starterRules(
+export function starterPolicy(
 	operations: readonly Operation[],
-	format: 'yaml' | 'json',
-	options: { flat?: boolean } = {},
+	options: { flat?: boolean; types?: string } = {},
 ): string {
 	const nestedRest = restDocument(operations);
 	const nestedGraphql = graphqlDocument(operations);
@@ -147,30 +140,30 @@ export function starterRules(
 	const graphql: Section = options.flat
 		? flatten(nestedGraphql, (type, field) => `${type}.${field}`)
 		: nestedGraphql;
-	const document: Document = {
-		limix: 1,
-		global: { unmatched: 'deny' },
+	const document = (rest: Section, graphql: Section) => ({
+		limix: 1 as const,
+		global: { unmatched: 'deny' as const },
 		...(Object.keys(rest).length ? { rest } : {}),
 		...(Object.keys(graphql).length ? { graphql } : {}),
-	};
-	const expected = parseRules(document, 'starter');
-	compilePolicy(expected);
-	if (format === 'json') return `${JSON.stringify(document, null, '\t')}\n`;
-	const text = yamlOf(document);
-	// The read-back needs Bun's YAML reader: on Node the check is skipped.
-	if (typeof globalThis.Bun === 'undefined') return text;
-	try {
-		if (!Bun.deepEquals(parseRules(Bun.YAML.parse(text)), expected)) {
-			throw new CodegenError(
-				'the text differs from the rules it was written from',
-			);
-		}
-	} catch (error) {
-		if (error instanceof CodegenError && error.message.startsWith('starter')) {
-			throw error;
-		}
-		const reason = error instanceof Error ? error.message : String(error);
-		throw new CodegenError(`starter rules did not read back: ${reason}`);
+	});
+	// The flat spelling must make the policy of the nested one.
+	const policy = definePolicy(document(rest, graphql) as never);
+	const expected = definePolicy(document(nestedRest, nestedGraphql) as never);
+	if (JSON.stringify(policy) !== JSON.stringify(expected)) {
+		throw new CodegenError('the flat policy differs from the nested one');
 	}
-	return text;
+	compilePolicy(policy);
+	return [
+		NOTE,
+		`import ${quote(options.types ?? './generated/limix')};`,
+		"import { definePolicy } from '@softistx/limix';",
+		'',
+		'export const rules = definePolicy({',
+		'\tlimix: 1,',
+		"\tglobal: { unmatched: 'deny' },",
+		...(Object.keys(rest).length ? sectionText('rest', rest) : []),
+		...(Object.keys(graphql).length ? sectionText('graphql', graphql) : []),
+		'});',
+		'',
+	].join('\n');
 }

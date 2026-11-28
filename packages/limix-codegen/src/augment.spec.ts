@@ -88,9 +88,9 @@ describe('the generated augmentation, flat keys', () => {
 			rest: {
 				'GET /notes': rule,
 				'DELETE /notes/:id': rule,
+				'/notes/:id': { '*': rule },
 				'* /admin/*': rule,
 				'/files/*path': { GET: rule },
-				'/notes/:id': { '*': rule },
 			},
 			graphql: {
 				'Query.me': rule,
@@ -132,5 +132,69 @@ describe('the generated augmentation, flat keys', () => {
 			// @ts-expect-error `Nope` is not a type
 			graphql: { Nope: { '*': rule } },
 		});
+	});
+});
+
+describe('the generated augmentation, the vocabulary declared by hand', () => {
+	// vocabulary.fixtures.ts declares notes:read, notes:write, admin and workingHours.
+	it('narrows roles, permissions and when in a rule', () => {
+		const rules = definePolicy({
+			limix: 1,
+			global: unmatched,
+			rest: {
+				'GET /notes': { permissions: [['notes:read']] },
+				'/notes/:id': {
+					DELETE: {
+						roles: [['admin']],
+						permissions: [['notes:write']],
+						when: ['workingHours'],
+					},
+				},
+			},
+		});
+		expect(rules.rest?.['/notes/:id']?.DELETE?.when).toEqual(['workingHours']);
+	});
+
+	it('refuses a name nobody declared', () => {
+		const refused = () => {
+			definePolicy({
+				limix: 1,
+				global: unmatched,
+				rest: {
+					// @ts-expect-error `root` is not a declared role
+					'GET /notes': { roles: [['root']] },
+				},
+			});
+			definePolicy({
+				limix: 1,
+				global: unmatched,
+				graphql: {
+					// @ts-expect-error `notes:erase` is not a declared permission
+					'Query.me': { permissions: [['notes:erase']] },
+				},
+			});
+			definePolicy({
+				limix: 1,
+				global: unmatched,
+				rest: {
+					// @ts-expect-error `weekend` is not a declared condition
+					'/notes': { GET: { when: ['weekend'] } },
+				},
+			});
+		};
+		expect(refused).toBeInstanceOf(Function);
+	});
+
+	it('takes the conditions of the compile call as the names of `when`', () => {
+		const conditions = { workingHours: () => true };
+		const rules = definePolicy(
+			{
+				limix: 1,
+				global: unmatched,
+				rest: { 'GET /notes': { when: ['workingHours'] } },
+			},
+			{ conditions },
+		);
+		expect(compilePolicy(rules, { conditions })).toBeDefined();
 	});
 });

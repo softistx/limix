@@ -1,56 +1,105 @@
 # Writing rules
 
-How to write a rules file, or a `definePolicy` call, so that the compiler and CI
-catch what they can. It assumes you know the format: the
-[rules guide](../../limix/docs/rules.md) has the full reference.
+How to write a `definePolicy` call so that the compiler and CI catch what they
+can. It assumes you know the format: the [rules guide](../../limix/docs/rules.md)
+has the full reference. Codegen types a code-first policy; a YAML or JSON rules
+file is not typed by it (check one against the API with
+`@softistx/limix/coverage`).
 
 ## 1. Generate the types
 
 ```sh
-limix-codegen generate --openapi openapi.yaml --graphql schema.graphql --rules rules.yaml
+limix-codegen generate --openapi openapi.yaml --graphql schema.graphql
 ```
 
 This writes `src/generated/limix.ts`, which registers the API's operations in
 `@softistx/limix`. Commit it and keep it inside your tsconfig `include`. More in
-[Codegen](codegen.md).
+[Codegen](codegen.md). Or start from `limix-codegen init`, which writes this
+guide's step 2 for you (`src/policy.ts`).
 
-## 2. Write the rules in code
+## 2. Declare the vocabulary
 
-`definePolicy` checks an inline literal against the registered operations, in
-the nested form and in the flat one:
+The role, permission and condition names a policy may use are declared once, by
+hand, in a `declare module` block. Codegen cannot generate them: it never reads
+the policy.
 
 ```ts
-import { definePolicy } from '@softistx/limix'
-
-export const rules = definePolicy({
-  limix: 1,
-  global: { unmatched: 'deny' },
-  rest: {
-    // flat: one key per operation
-    'GET /notes': { authenticated: true },
-    'DELETE /notes/:id': { roles: [['admin']] },
-    // nested: a path, then its methods
-    '/notes/:id': { GET: { authenticated: true } },
-  },
-  graphql: {
-    'Query.me': { authenticated: true },
-    Note: { body: { authenticated: true } },
-  },
-})
+// src/vocabulary.ts
+declare module '@softistx/limix' {
+  interface Register {
+    role: 'admin' | 'editor'
+    permission: 'notes:read' | 'notes:write'
+    // condition: 'workingHours' // optional, see below
+  }
+}
+export {}
 ```
 
-A key the API does not have fails to compile:
+Once declared, `roles`, `permissions` and `when` are narrowed: a role or a
+permission outside the union fails to compile. The conditions need no
+declaration when you pass them to `definePolicy`, which reads their keys (see
+the next step); declare `condition` only to fix the names for a policy that does
+not pass them. Declare the vocabulary **after** regenerating from 0.3 (see
+[Upgrading from 0.3](codegen.md#upgrading-from-03)), and never inside the
+generated file: `generate` rewrites it.
+
+## 3. Write the policy in code
+
+`definePolicy` checks an inline literal against the registered operations, in
+the nested form and in the flat one, and against the vocabulary:
+
+```ts
+import './generated/limix'
+import './vocabulary'
+import { type ConditionMap, definePolicy } from '@softistx/limix'
+
+const conditions = {
+  workingHours: ({ claims }) => claims['shift'] === 'day',
+} satisfies ConditionMap
+
+export const rules = definePolicy(
+  {
+    limix: 1,
+    global: { unmatched: 'deny' },
+    rest: {
+      // flat: one key per operation
+      'GET /notes': { permissions: [['notes:read']] },
+      'DELETE /notes/:id': { roles: [['admin']], when: ['workingHours'] },
+      // nested: a path, then its methods
+      '/notes/:id': { GET: { authenticated: true } },
+    },
+    graphql: {
+      'Query.me': { authenticated: true },
+      Note: { body: { permissions: [['notes:read']] } },
+    },
+  },
+  { conditions },
+)
+// and, where the policy is compiled:
+//   compilePolicy(rules, { conditions })
+```
+
+`definePolicy` never calls a condition: it reads the keys of
+`options.conditions` to type `when`, and you give the same object to
+`compilePolicy`, which runs it. `definePolicy<typeof conditions>({...})` does
+the same without the second argument. A key the API does not have, or a name
+nobody declared, fails to compile:
 
 ```ts
 definePolicy({
   limix: 1,
   global: { unmatched: 'deny' },
-  // error: 'GET /notez' does not exist in type 'CheckedRestInput<LimixRest>'
+  // error: 'GET /notez' does not exist in type 'CheckedRestInput<...>'
   rest: { 'GET /notez': { authenticated: true } },
 })
 ```
 
-## 3. The patterns
+What `definePolicy` returns is the nested, validated `Rules` (flat keys nested
+in document order); a rule written twice, or a flat key whose move up to an
+earlier path would jump over a rule that could answer the same request, throws a
+`RulesError` ([rules guide](../../limix/docs/rules.md#flat-keys-in-definepolicy)).
+
+## 4. The patterns
 
 | Pattern | Means | Example |
 | --- | --- | --- |
@@ -65,20 +114,21 @@ Each pattern is described, with its edge cases, in the
 [rules guide](../../limix/docs/rules.md). Rules are first-match in document
 order: write the specific rule above the general one.
 
-## 4. What the types check, and what they do not
+## 5. What the types check, and what they do not
 
 - Checked: an exact flat key (`'GET /notes'`, `'Query.me'`), a nested path and
   the methods under it, a type and its fields, `Type.*` on a known type, and the
-  keys of the `conditions` map of `compilePolicy`.
+  names in `roles`, `permissions` and `when` against what you declared (the keys
+  of `conditions` for `when`).
 - Not checked by the types: a key holding `*` or `{` (`'* /notes'`,
-  `'/files/*path'`, `'GET /a{/:b}'`) names several routes. `generate --check`
-  checks them instead: it reports one that reaches no operation of the spec.
-- The bodies are not narrowed: `permissions`, `roles` and `when` stay strings.
+  `'/files/*path'`, `'GET /a{/:b}'`) names several routes. Coverage checks them
+  instead: it reports a rule that reaches no operation of the spec.
 - Only an inline object literal given to `definePolicy` is checked. A variable, a
-  spread or a parsed file is accepted unchecked; for those, `--check` is the
-  net.
+  spread or a parsed file is accepted unchecked; for those, coverage is the net.
+- The lists of `roles` and `permissions` are mutable in the types: a literal
+  written `as const` is refused once names are declared. Write it inline.
 
-## 5. Nested or flat
+## 6. Nested or flat
 
 Both compile to the same policy and may be mixed in one file, in document order.
 
@@ -88,16 +138,17 @@ Both compile to the same policy and may be mixed in one file, in document order.
 | GraphQL | `Query: { me: rule }` | `'Query.me': rule` |
 | Reads well | a few paths with many methods | one rule per operation, a diff per operation |
 
-`limix-codegen init --flat` starts a rules file in the flat form.
+`limix-codegen init --flat` starts a policy in the flat form. The rules format
+(a YAML or JSON file) is nested only: the flat keys exist in `definePolicy`.
 
-## 6. In CI
+## 7. In CI
 
 ```sh
-limix-codegen generate --openapi openapi.yaml --graphql schema.graphql \
-  --rules rules.yaml --check
+limix-codegen generate --openapi openapi.yaml --graphql schema.graphql --check
 ```
 
-Exit 1 when the committed types are out of date, or when a rule reaches no
-operation of the spec (a typo, a removed route, a rule shadowed by an earlier
-one). Without `--check` the same stale rules are warnings and the file is
-written. Each message and its fix: [Troubleshooting](troubleshooting.md).
+Exit 1 when the committed types are missing or out of date. Whether every route
+and root field has a rule, and whether a rule reaches no operation (a typo, a
+removed route, a rule shadowed by an earlier one), is coverage's job: run it in a
+spec, as [the books example](../../../examples/books/src/coverage.spec.ts) does.
+Each message and its fix: [Troubleshooting](troubleshooting.md).

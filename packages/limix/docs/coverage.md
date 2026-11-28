@@ -125,7 +125,7 @@ even beside a `HEAD` rule (the guard refuses it under `deny`).
 
 A wildcard hit is not a spelling to fix, so the CI check below fails on
 `pattern` only. A stale method `*` rule is labelled with its method
-(`* /admin/*`), a flat key as `POST /gone`; an exact rule written after a
+(`* /admin/*`), any other rule as `POST /gone`; an exact rule written after a
 `*` rule on another key is reported with `shadowedBy: { path: '/admin/*', label: '* /admin/*' }`.
 A `Type.*` rule is stale when every operation of its type, in the list, has a
 rule of its own.

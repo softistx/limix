@@ -36,7 +36,7 @@ export const rules = definePolicy({
 | --- | --- |
 | `parseRules(input)` | Validates a value, returns `Rules`, throws a `RulesError` listing every issue with its path |
 | `loadRules(path)` from `@softistx/limix/bun` | Reads a `.yaml`, `.yml` or `.json` file, then `parseRules` |
-| `definePolicy(rules)` | Writes the document in code: the identity at run time, a compile error on a typo |
+| `definePolicy(rules, { conditions })` | Writes the document in code, flat or nested keys: a compile error on a typo, then nests, validates and returns the same `Rules` as `parseRules` ([flat keys](#flat-keys-in-definepolicy)) |
 | `compilePolicy(rules, { conditions })` | Precompiles the route table and the field table into a `CompiledPolicy` |
 
 ```ts
@@ -111,8 +111,7 @@ Invalid rules in rules.yaml: 2 issues
   rest['/documents'].GET.keto: `keto` is removed: use relations
 ```
 
-The path of an issue is the key as you wrote it: `rest['GET /documents']` for a
-flat key, `rest['/documents'].GET` for a nested one.
+The path of an issue is the key as you wrote it: `rest['/documents'].GET`.
 
 `error.issues` holds the same as `{ path, message }` pairs.
 
@@ -126,8 +125,8 @@ of the validation library.
 | --- | --- |
 | `limix` | The format version. Always `1`. Required |
 | `global` | Settings for the whole document. Required |
-| `rest` | Rules by `METHOD /pattern`, or by path pattern then HTTP method |
-| `graphql` | Rules by `Type.field`, or by type name then field name |
+| `rest` | Rules by path pattern, then HTTP method |
+| `graphql` | Rules by type name, then field name |
 | `x-...` | Free keys for YAML anchors; dropped when parsing |
 
 Any other top-level key throws.
@@ -142,23 +141,26 @@ Any other top-level key throws.
 
 ### REST rules
 
-A key under `rest` is written in one of two spellings, and a document may mix
-them freely:
+A key under `rest` is a path pattern; its value is keyed by method. The rules
+format (a YAML or JSON file, and what `parseRules` and `compilePolicy` take) is
+nested only. The flat spelling (`"GET /documents"`) is a `definePolicy` key and
+nothing else: see [Flat keys in `definePolicy`](#flat-keys-in-definepolicy). A
+flat key in a rules file is refused with the nested spelling to write:
 
-- **Flat**: a method, one space, the path pattern. The value is the rule.
-- **Nested**: the path pattern. The value is keyed by method.
+```
+rest['POST /documents']: `POST /documents` is a definePolicy key; in a rules file write "/documents": { POST: … }
+```
 
 ```yaml
 rest:
-  # flat: one rule per key
-  GET /documents:
-    authenticated: true
-  POST /documents/:id:
-    permissions: [[documents:write]]
-  # nested: several methods under one path
+  /documents:
+    GET:
+      authenticated: true
   /documents/:id:
     GET:
       authenticated: true
+    POST:
+      permissions: [[documents:write]]
     DELETE:
       roles: [[admin]]
 ```
@@ -168,46 +170,42 @@ definePolicy({
   limix: 1,
   global: { unmatched: 'deny' },
   rest: {
-    'GET /documents': { authenticated: true },
-    'POST /documents/:id': { permissions: [['documents:write']] },
+    '/documents': { GET: { authenticated: true } },
     '/documents/:id': {
       GET: { authenticated: true },
+      POST: { permissions: [['documents:write']] },
       DELETE: { roles: [['admin']] },
     },
   },
 })
 ```
 
-The two spellings mean the same thing, so choose by what reads best: flat for a
-route with one method, nested to keep the methods of a path together.
-
 The methods are `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`,
-`CONNECT`, `TRACE` and `QUERY`, and `*` for any (below). A flat key is split at
-its first space, so `GET /a b` is the method `GET` on the pattern `/a b`. A key
-that looks flat and is not one (`get /x`, `GET  /x` with two spaces,
-`PROPFIND /x`) is refused with a message, rather than read as a path that holds
-a space.
+`CONNECT`, `TRACE` and `QUERY`, and `*` for any (below). A rule term written
+where a method belongs (`/x: { roles: [[a]] }`) is refused with a hint to nest
+it under a method.
 
-**Document order.** Every rule keeps the place of its key in the document, flat
-and nested alike, and the first rule whose pattern matches, in document order, is
+**Document order.** Every rule keeps the place of its key in the document, and
+the first rule whose pattern matches, in document order, is
 used, for a `route` and a `path` alike: write static patterns before the param or
 wildcard ones that take them. Coverage reports a rule that never applies as stale
 with `shadowedBy`.
 
 ```yaml
 rest:
-  GET /notes/new:        # first: /notes/new is judged here
-    public: true
+  /notes/new:            # first: /notes/new is judged here
+    GET:
+      public: true
   /notes/:id:
     GET:
       authenticated: true
 ```
 
 **No duplicates.** Two keys that name the same rule are a compile error that
-names both, wherever they are and whichever spelling they use:
+names both:
 
 ```
-duplicate rule: rest['POST /users/:id'] and rest['/users/:id'].POST both name POST /users/:id
+duplicate rule: rest['/users/'].POST and rest['/users'].POST both name POST /users
 ```
 
 One trailing `/` does not make a pattern different (`/a/` is `/a`). Different
@@ -233,24 +231,25 @@ A `*` in the middle of a segment (`/a*`) takes the rest of the path from there.
 
 #### Any method: `*`
 
-The method `*` stands for every method. Write it flat (`* /admin/*`) or under a
-path (`/admin/*: { "*": ... }`). The `*` of the path takes one or more
-characters, so `/admin/*` does not take `/admin` itself: write `/admin{/*}` to
-cover both.
+The method `*` stands for every method: `/admin/*: { "*": ... }`. The `*` of the
+path takes one or more characters, so `/admin/*` does not take `/admin` itself:
+write `/admin{/*}` to cover both.
 
 ```yaml
 rest:
-  GET /admin/health:     # another key: the first match in document order wins,
-    public: true         # so it goes before the wildcard that would take it
-  "* /admin/*":
-    roles: [[admin]]
+  /admin/health:         # another key: the first match in document order wins,
+    GET:                 # so it goes before the wildcard that would take it
+      public: true
+  /admin/*:
+    "*":
+      roles: [[admin]]
 ```
 
 - A method has its own rules, and the `*` rules are among them, each in its own
   place in document order: `POST /admin/x` meets the first rule, in document
   order, that is for `POST` or for `*` and whose pattern takes the path.
 - An exact method beats `*` **on the same pattern**, wherever each is written:
-  with `GET /files/:id` and `* /files/:id`, `GET` meets the first and any other
+  with `GET` and `"*"` under `/files/:id`, `GET` meets the first and any other
   method the second. On a different pattern the document order decides, as for
   any two rules.
 - `HEAD` faces its own rules and then the `GET` ones, as always; a `*` rule that
@@ -261,10 +260,11 @@ rest:
 
   ```yaml
   rest:
-    "* /api/*":
-      authenticated: true
-    OPTIONS /api/*:
-      public: true
+    /api/*:
+      "*":
+        authenticated: true
+      OPTIONS:
+        public: true
   ```
 
 - A method outside the list above (WebDAV's `PROPFIND`, for example) is judged by
@@ -272,34 +272,27 @@ rest:
 
 #### Writing the keys in YAML
 
-An unquoted `*` is a YAML alias. Quote a key that starts with it, and a method
-`*` under a path:
+An unquoted `*` is a YAML alias. Quote the method `*` under a path, and a key
+that starts with `*`:
 
 ```yaml
 rest:
-  "* /admin/*":          # quoted: a key starting with *
-    roles: [[admin]]
   /files/*:              # fine: the star is not first
     "*":                 # quoted: the method *
       authenticated: true
 ```
 
-A flat key holds a space and a path, which YAML reads as a plain key when it
-starts with a method (`GET /a: ...`); quote it when you want to be safe.
-
 ### GraphQL rules
 
-A key under `graphql` is written in one of two spellings, which a document may
-mix:
-
-- **Flat**: `Type.field`, or `Type.*` for every field of the type. The value is
-  the rule.
-- **Nested**: the type name. The value is keyed by field name.
+A key under `graphql` is a type name; its value is keyed by field name. As for
+REST, the flat spelling (`Query.me`, `Note.*`) is `definePolicy`'s alone and is
+refused in a rules file with the nested one to write.
 
 ```yaml
 graphql:
-  Query.me:
-    authenticated: true
+  Query:
+    me:
+      authenticated: true
   Mutation:
     publishDocument:
       roles: [[editor], [admin]]
@@ -308,31 +301,29 @@ graphql:
 ```
 
 `Query`, `Mutation` and `Subscription` cover root fields; any other type name
-guards fields of that type. A name that holds a dot is read as flat (a GraphQL
-name never holds one): `Query.a.b` is refused, so is `*.me`, since a wildcard
-names fields and not types.
+guards fields of that type. The field `*` stands for every other field of the
+type (below).
 
-A repeated `Type.field`, in either spelling, is a duplicate rule error naming
-both keys.
+#### Every field: `*`
 
-#### Every field: `Type.*`
-
-`Type.*` is the rule of every field of the type that has no rule of its own; an
-exact field wins, wherever it is written:
+The field `*` is the rule of every field of the type that has no rule of its own;
+an exact field wins, wherever it is written:
 
 ```yaml
 graphql:
-  Note.*:                # every field of Note...
-    authenticated: true
-  Note.id:               # ...but id, which is public
-    public: true
-  Query.*:
-    roles: [[admin]]     # every root query field
+  Note:
+    "*":                 # every field of Note...
+      authenticated: true
+    id:                  # ...but id, which is public
+      public: true
+  Query:
+    "*":
+      roles: [[admin]]   # every root query field
 ```
 
-- Under `Query.*` every query field has a rule, so none falls to
-  `global.unmatched`; `Query.*` is how a file says "the whole root, same rule".
-- A `Note.*` on a non-root type guards every `Note` field wherever a `Note`
+- Under `Query: { "*": ... }` every query field has a rule, so none falls to
+  `global.unmatched`; it is how a file says "the whole root, same rule".
+- A `*` on a non-root type guards every `Note` field wherever a `Note`
   appears, a list of notes included. It is evaluated once for each field the
   request selects, so it costs one evaluation per field and per object.
 - With `@softistx/limix-graxia`, a static policy under `nonNull: 'refuse'`
@@ -456,13 +447,89 @@ admits every caller, so it cannot be combined with `roles`, `permissions`,
 `when` or `relations` either, which would narrow who may reach the rule:
 `compilePolicy` throws, on REST and GraphQL alike.
 
+## Flat keys in `definePolicy`
+
+`definePolicy` alone accepts a second spelling, one key per rule: `"POST
+/users/:id"` (a method or `*`, one space, the path pattern) under `rest`, and
+`"Query.me"` or `"Note.*"` under `graphql`. It reads better for a route with one
+method and diffs by operation. A document may mix both spellings:
+
+```ts
+export const rules = definePolicy({
+  limix: 1,
+  global: { unmatched: 'deny' },
+  rest: {
+    'GET /documents': { authenticated: true },
+    'POST /documents/:id': { permissions: [['documents:write']] },
+    '/documents/:id': {
+      GET: { authenticated: true },
+      DELETE: { roles: [['admin']] },
+    },
+    '* /admin/*': { roles: [['admin']] },
+  },
+  graphql: {
+    'Query.me': { authenticated: true },
+    'Note.*': { authenticated: true },
+    Mutation: { publish: { roles: [['editor']] } },
+  },
+})
+```
+
+`definePolicy` nests the flat keys, in document order, and validates the result as
+`parseRules` does. What it returns is that nested `Rules`: `rules.rest['GET
+/documents']` is `undefined`, `rules.rest['/documents']` holds the `GET`. The
+rules format itself (a YAML or JSON file, `parseRules`, `compilePolicy`,
+`limix-publish`) never sees a flat key.
+
+- A flat key goes under its path. When the path already exists (an earlier flat
+  or nested key), the rule **joins that earlier key**, which is a move up: REST
+  rules are first-match in document order.
+- That move is refused when it would jump over a rule that could answer the
+  same request: a rule of the same method, a rule for `*`, or a `GET`/`HEAD` pair
+  (a `HEAD` request faces the `GET` rules). The check is conservative, with no
+  analysis of whether two patterns overlap. The message says how to fix it:
+
+  ```
+  Invalid rules in definePolicy: 1 issue
+    rest['GET /a']: `GET /a` would move above `GET /b`: nest it under `/a`, or write `/b` after it
+  ```
+
+  Nest the rule under its path, or write the other path after it. (A rule
+  already written nested that joins an earlier flat key gets the same refusal,
+  worded for it: write it with the first rules of the path.)
+- GraphQL rules are not first-match: they are grouped by type, wherever written.
+- A rule written twice, in either spelling, is refused, naming both keys:
+
+  ```
+  duplicate rule: rest['POST /users/:id'] and rest['/users/:id'].POST both name POST /users/:id
+  ```
+
+- A flat key keeps its method case (`GET`, not `get`) and its single space. A
+  key that looks flat and is not (`get /x`, `GET  /x`) is refused with a hint:
+  [`` `get /x` is not a rule key: did you mean `GET /x`? ``](troubleshooting.md#get-x-is-not-a-rule-key-did-you-mean-get-x). It is no flat key
+  for the types (they cannot tell it from a path), so it type-checks and throws
+  at run time.
+- Where issues name a flat-written rule: an error raised by `definePolicy`
+  itself (an invalid body, a refused move, a duplicate) names the key as you
+  wrote it (`rest['POST /users/:id'].roles[0]`). What `definePolicy` returns is
+  nested, so later reports name the nested place: `compilePolicy` issues, the
+  `where` of a compiled route, coverage and `checkModel` paths read
+  `rest['/users/:id'].POST`.
+
+A flat key in a rules file is refused by `parseRules`, with the spelling to write
+instead. The `limix-codegen init --flat` command writes a policy in this form.
+
 ## Typed operations and names
 
-`definePolicy` and `compilePolicy` read a `Register` interface that a generated
-file fills, so a typo in a path, a method, a GraphQL type or field in a
-`definePolicy` literal, or a name in the `conditions` map, fails to compile. [`@softistx/limix-codegen`](../../limix-codegen/docs/codegen.md)
-writes that file from the API's OpenAPI document and GraphQL schema and from the
-rules file:
+`definePolicy` reads a `Register` interface, filled in by module augmentation, so
+a typo in a path, a method, a GraphQL type or field in a `definePolicy` literal,
+or a role, permission or condition name nobody declared, fails to compile. Two
+sources fill it:
+
+- [`@softistx/limix-codegen`](../../limix-codegen/docs/codegen.md) writes the
+  API's operations (`rest`, `graphql`) from its OpenAPI document and GraphQL
+  schema. It never reads the policy.
+- You declare the names the policy uses, once, by hand.
 
 ```ts
 // src/generated/limix.ts (generated)
@@ -470,9 +537,15 @@ declare module '@softistx/limix' {
   interface Register {
     rest: 'GET /notes' | 'GET /notes/:id'
     graphql: 'Query.me'
-    permission: 'notes:read'
+  }
+}
+
+// src/vocabulary.ts (written by hand)
+declare module '@softistx/limix' {
+  interface Register {
     role: 'admin'
-    condition: 'workingHours'
+    permission: 'notes:read' | 'notes:write'
+    condition: 'workingHours' // optional, see below
   }
 }
 ```
@@ -481,44 +554,44 @@ declare module '@softistx/limix' {
 definePolicy({
   limix: 1,
   global: { unmatched: 'deny' },
-  // error: `/notez` is not an operation of the API
-  rest: { '/notez': { GET: { authenticated: true } } },
+  rest: {
+    // error: `/notez` is not an operation of the API
+    '/notez': { GET: { authenticated: true } },
+    // error: 'root' is not a declared role
+    'GET /notes': { roles: [['root']] },
+  },
 })
 ```
 
-`Permission`, `Role`, `ConditionName`, `RestOperationName` and
-`GraphqlOperationName` give the registered unions to your own code, and
-`TypedRulesInput` and `ConditionMap` are what `definePolicy` and the `conditions`
-option of `compilePolicy` take (`TypedRules` is the same narrowing over `Rules`,
-nested keys only; every `TypedRules` value is a `TypedRulesInput`). Nothing is registered by default: until a
-generated file is in your program, every type is what it was (`string`, `Rules`).
-
-`definePolicy` and `compilePolicy` take a `RulesInput`: a `Rules`, or a document
-with flat `graphql` keys (`"Query.me"`); `definePolicy` returns `Rules`. `Rules`
-types every `graphql` value as a field map and every `rest` value as methods and
-rule, so a tool that reads parsed `Rules` must test the key shape: the value of
-a flat key (`"GET /x"`, `"Query.me"`, `"Note.*"`) is a rule, the value of any
-other key is a map of methods or fields.
-
-Flat keys are checked the same way as nested ones:
+`roles`, `permissions` and `when` are narrowed to the declared unions. For `when`,
+pass the conditions to `definePolicy` as well as to `compilePolicy`, and the names
+come from their keys, with no declaration:
 
 ```ts
-definePolicy({
-  limix: 1,
-  global: { unmatched: 'deny' },
-  rest: {
-    'GET /notes': { authenticated: true },
-    // error: `GET /notez` is not an operation of the API
-    'GET /notez': { authenticated: true },
-  },
-  graphql: {
-    'Query.me': { authenticated: true },
-    'Note.*': { authenticated: true }, // a known type: accepted
-    // error: `Query.you` is not a field of the API
-    'Query.you': { authenticated: true },
-  },
-})
+import { compilePolicy, definePolicy, type ConditionMap } from '@softistx/limix'
+
+const conditions = {
+  workingHours: ({ claims }) => claims['shift'] === 'day',
+} satisfies ConditionMap
+
+const rules = definePolicy(
+  { limix: 1, global: { unmatched: 'deny' }, rest: { 'GET /x': { when: ['workingHours'] } } },
+  { conditions }, // read for its keys only: definePolicy never calls a condition
+)
+const policy = compilePolicy(rules, { conditions })
 ```
+
+`definePolicy<typeof conditions>({...})` does the same without the second
+argument. When `Register.condition` is declared by hand, the object's keys are
+checked against it. `ConditionMap<R>` is what the `conditions` option takes.
+
+`Permission`, `Role`, `ConditionName`, `RestOperationName` and
+`GraphqlOperationName` give the registered unions to your own code;
+`TypedRulesInput` (flat and nested keys, what `definePolicy` takes) and
+`TypedRules` (nested keys only, over `Rules`; every `TypedRules` value is a
+`TypedRulesInput`) are the narrowed documents, `DefinePolicyOptions` the options.
+Nothing is registered by default: until something is declared, every type is
+what it was (`string`).
 
 | Key you write | Checked against the registered list? |
 | --- | --- |
@@ -527,31 +600,30 @@ definePolicy({
 | `rest: { '* /notes': rule }`, `'/files/*path'`, `'/x/*'`, `'GET /a{/:b}'` | No: a wildcard or an optional group names several routes |
 | `graphql: { Query: { me } }` (nested) | Yes: the type, and the field; the field `*` is accepted under a known type |
 | `graphql: { 'Query.me': rule }`, `'Note.*'` (flat) | Yes: `Type.field` must be registered, `Type.*` needs a registered type |
+| `roles`, `permissions` | Against `Register.role` and `Register.permission` |
+| `when` | Against the keys of `options.conditions`, else `Register.condition` |
 
 When only `rest` is registered, `graphql` is not checked, and the other way round.
-Writing the rules out and checking them in CI: [Writing rules](../../limix-codegen/docs/writing-rules.md).
+Writing the policy out and checking it in CI: [Writing rules](../../limix-codegen/docs/writing-rules.md).
 
 What is checked, and what is not:
 
 - A refusal holds only in an inline object literal given to `definePolicy`. A
   variable, a spread, an escaped `\*` key or a `{` key is accepted unchecked, and
   so is a key with a wildcard or a `{...}` group, which names several routes.
+- The lists of `roles` and `permissions` are mutable in the types: a body written
+  `as const` is refused once names are declared. Write it inline.
 - A key with a wildcard or an optional group is never checked by the types;
-  `limix-codegen generate --check --rules` reports the ones that reach no
-  operation of the spec.
-- Only the keys of the `conditions` map given to `compilePolicy` are checked,
-  not the `when` names inside the rules. A missing condition is still a
-  `RulesError` at run time.
-- The rule bodies (`permissions`, `roles`, `when`) are not narrowed.
-- A value already typed `Rules`, such as the output of `parseRules`, is passed to
-  `compilePolicy` directly. It does not go through `definePolicy` once graphql
-  is registered.
+  coverage reports a rule that reaches no operation of the spec.
+- A rules file (YAML or JSON) is not typed: it never goes through `definePolicy`.
+  Check it against the API with [coverage](coverage.md).
+- A value already typed `Rules`, such as the output of `parseRules` or
+  `definePolicy`, goes to `compilePolicy` directly.
 
 ## What `compilePolicy` returns
 
 A `CompiledPolicy` is for the limix integrations; of it only `global` and
 `usesRelations` are for hosts, and the rest may change in a minor release.
-Flat and nested keys compile to the same thing:
 
 | Member | Holds |
 | --- | --- |
@@ -560,14 +632,34 @@ Flat and nested keys compile to the same thing:
 | `graphql` | Rules by type, then field; a `Type.*` rule is under the field `*` |
 
 Each `CompiledRestRoute` has `pattern` (with the `basePath`), `method` (`*` for
-any) and `where`, the rule's place as an issue path (`rest['POST /a']` or
-`rest['/a'].POST`). Each `CompiledGraphqlEntry` has `where`
-(`graphql['Query.me']`) and `wildcard`, true for a `Type.*` rule.
+any) and `where`, the rule's place as an issue path (`rest['/a'].POST`). Each
+`CompiledGraphqlEntry` has `where` (`graphql.Query.me`) and `wildcard`, true for
+the field `*` of a type.
 
 ```ts
 const policy = compilePolicy(rules)
 for (const route of policy.restRoutes) console.log(route.method, route.pattern, route.where)
 ```
+
+## Upgrading from 0.6
+
+0.7 takes the flat spelling out of the rules format and gives it to `definePolicy`:
+
+- A flat key in a rules file (YAML or JSON, `parseRules`, `loadRules`,
+  `compilePolicy`) is refused with the nested spelling to write. Nest the file,
+  or write the document with `definePolicy`.
+- `RulesInput` is removed: `compilePolicy` takes a `Rules`, and `Rules['rest']`
+  is `Record<string, RestMethods>` again.
+- `definePolicy` validates at run time and throws a `RulesError` (it returned
+  its argument unchecked); it returns the nested `Rules` `parseRules` returns,
+  so `rules.rest['GET /x']` is `undefined` and `rules.rest['/x'].GET` holds the
+  rule. It refuses a flat rule whose move would jump over a competing rule.
+- A remote token signed with flat keys is refused by 0.7 clients: re-sign it
+  nested first (a 0.6 client reads nested keys), then upgrade the clients. See
+  [Moving from 0.6 flat keys](remote.md#moving-from-06-flat-keys).
+- `roles`, `permissions` and `when` are narrowed to what a program declares in
+  `Register` and to the keys of `definePolicy`'s `conditions`; codegen 0.4 no
+  longer generates those names.
 
 ## What was removed from `@softistx/security` 5
 

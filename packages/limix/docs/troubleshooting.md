@@ -131,6 +131,9 @@ the registered ones. Register it, or fix the name:
 compilePolicy(rules, { conditions: { workingHours } })
 ```
 
+In code, give the same object to `definePolicy(rules, { conditions })` and the
+names of `when` are checked as you type.
+
 ## `authenticated` and `public` are contradictory: a rule either requires a signed-in caller or admits anonymous ones
 
 Keep one of the two.
@@ -152,79 +155,98 @@ A role name contains `$`, the placeholder `@softistx/security` 5 replaced with
 the tenant's domain. limix 1.0 has no per-tenant roles: name the role plainly
 and decide the tenant in a condition (`when: [name]`) or a relation.
 
-## `get /users` is not a rule key: a flat key is a method (GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS, CONNECT, TRACE, QUERY or *), one space, then the path pattern
+## `POST /users` is a definePolicy key; in a rules file write "/users": { POST: … }
 
-**When:** a key under `rest` starts with a word, then spaces, then a `/`, and is
-not a method in capitals followed by exactly one space.
-**Why:** a key written `METHOD /pattern` is a rule (a flat key). One that looks
-like one but has a lower-case or unknown method (`get /x`, `PROPFIND /x`) or two
-spaces (`GET  /x`) is refused rather than read as a path that holds a space.
-**Fix:**
+**When:** a rules file, or a value given to `parseRules`, holds a flat key under
+`rest` (`POST /users`, `* /admin/*`) or `graphql` (`Query.me`, `Note.*`). The
+GraphQL message reads `` `Query.me` is a definePolicy key; in a rules file write
+Query: { me: … } ``.
+**Why:** the rules format (YAML or JSON, `parseRules`, `compilePolicy`,
+`limix-publish`) is nested only: a path pattern keyed by method, a type keyed by
+field. The flat spelling is `definePolicy`'s, which nests it before validating.
+(0.6 accepted flat keys in a rules file; 0.7 does not: see [Upgrading from 0.6](rules.md#upgrading-from-06).)
+**Fix:** nest the rule, or move the document into `definePolicy`:
 
 ```yaml
 rest:
-  GET /users:          # not "get /users", not "GET  /users"
-    authenticated: true
+  /users:               # not "POST /users"
+    POST:
+      authenticated: true
+graphql:
+  Query:                # not "Query.me"
+    me:
+      authenticated: true
 ```
 
-A path that really holds a space starts with `/` (`/a b`) and is a nested key.
+## `get /x` is not a rule key: did you mean `GET /x`?
 
-## `roles` is a term of a rule, not a method: write "GET /x": {...} or nest it under a method
+**When:** `definePolicy` is given a key that looks flat and is not: a lower-case
+method (`get /x`) or two spaces (`GET  /x`).
+**Why:** a flat key is a method in capitals (or `*`), one space, then the path
+pattern. Anything else is read as a path, and a path starts with `/`.
+**Fix:** write the key the message suggests, or nest the rule under its path.
+
+```ts
+rest: { 'GET /x': { public: true } } // not 'get /x', not 'GET  /x'
+```
+
+## `roles` is a term of a rule, not a method: nest it under a method (GET: {...}, or "*" for any)
 
 **When:** a rule term (`roles`, `permissions`, `when`, `authenticated`, `public`,
 `relations`) sits directly under a path pattern.
-**Why:** under a path pattern the keys are methods. A rule on its own needs the
-method in the key.
+**Why:** under a path pattern the keys are methods.
 **Fix:**
 
 ```yaml
 rest:
-  GET /x:              # the method in the key...
-    roles: [[admin]]
-  /y:                  # ...or nested under it
-    GET:
+  /y:
+    GET:                # the method, then the rule
       roles: [[admin]]
 ```
 
-## `/x` is a path pattern, so its value is keyed by method; write "GET /x" for a single rule
+## `/x` is a path pattern, so its value is keyed by method (for example GET: {...})
 
-**When:** `compilePolicy` (and so `definePolicy` output) meets a path pattern
-whose value holds a key that is not a method. `parseRules` catches the same
+**When:** `compilePolicy` meets a path pattern whose value holds a key that is not
+a method (a `Rules` built by hand, a cast value). `parseRules` catches the same
 mistake earlier, with the hint above.
-**Why:** TypeScript cannot tell a path pattern from a flat key, so a rule under
-a pattern type-checks; `compilePolicy` refuses it.
-**Fix:** put the method in the key, or nest under it, as above.
+**Fix:** nest the rule under a method, as above. A type under `graphql` has the
+same message with `` `Note` is a type, so its value is keyed by field name (for
+example me: {...}) ``: write `Note: { title: {...} }`.
 
 ## a rule's keys are rule terms (roles, permissions, relations, when, authenticated, public); `GET` is not one
 
-**When:** `compilePolicy` (and so `definePolicy` output) meets a flat key
-(`"GET /x"`, `"Query.me"`) or a nested rule whose value holds a key that is not
-a rule term. The path reads `rest['GET /x']`, `rest['/x'].GET` or
-`graphql['Query.me']`.
-**Why:** a flat key holds the rule itself, not a method or field map. Such a
-rule would have no requirement and allow everyone, so it is refused.
-TypeScript cannot tell a flat key from a path pattern in a variable or a spread;
-`parseRules` refuses the same mistake earlier.
-**Fix:** write the rule's terms under the flat key, or nest under a path or type.
-
-```yaml
-rest:
-  GET /x:
-    roles: [[admin]]     # not: GET /x: { GET: { roles: [[admin]] } }
-```
+**When:** `compilePolicy` meets a rule whose value holds a key that is not a rule
+term, for example a method map where a rule belongs: `rest['/x'].GET.GET`.
+**Why:** such a rule would have no requirement and allow everyone, so it is
+refused. `parseRules` refuses the same mistake earlier; this is the net for a
+`Rules` built by hand.
+**Fix:** write the rule's terms under the method or the field.
 
 ## Editor: `Object literal may only specify known properties ... 'CheckedRestInput<...>'`
 
-**When:** a flat key of `definePolicy` (`'GET /notez'`, `'Query.you'`) is
-underlined once a generated file registers the API's operations.
+**When:** a key of `definePolicy` (`'GET /notez'`, `'Query.you'`) is underlined
+once a generated file registers the API's operations.
 **Why:** the registered list does not hold it.
 **Fix:** see [`@softistx/limix-codegen`'s troubleshooting](../../limix-codegen/docs/troubleshooting.md#in-your-editor).
 
-## duplicate rule: rest['POST /users/:id'] and rest['/users/:id'].POST both name POST /users/:id
+## Editor: `Type '"x"' is not assignable to type '"admin" | "editor"'` in `roles`, `permissions` or `when`
 
-**When:** two keys give a rule to the same method and pattern, in the same
-spelling or one flat and one nested. The same for GraphQL:
-`graphql['Query.me'] and graphql.Query.me both name Query.me`.
+**When:** a rule written in `definePolicy` names a role, a permission or a
+condition that nobody declared.
+**Why:** a program declares `Register.role` and `Register.permission` by hand
+(see [Typed operations and names](rules.md#typed-operations-and-names)), and
+`when` is narrowed to the keys of the `conditions` passed as `definePolicy`'s
+second argument (or `Register.condition`). A body typed `as const` is refused as
+well, since its lists are readonly.
+**Fix:** correct the name or declare it; write the body inline.
+
+## duplicate rule: rest['/users/:id'].POST and rest['/users/:id/'].POST both name POST /users/:id
+
+**When:** two keys give a rule to the same method and pattern: `/a` and `/a/`.
+In `definePolicy`, also a flat key and a nested one (`'POST /users/:id'` and
+`'/users/:id': { POST }`, as `duplicate rule: rest['POST /users/:id'] and
+rest['/users/:id'].POST both name POST /users/:id`), or two flat ones, and for
+GraphQL `graphql['Query.me'] and graphql.Query.me both name Query.me`.
 **Why:** which of the two applies would depend on their order, which is not
 what anyone meant. One trailing `/` does not make a pattern different. (Two
 patterns that differ only in a parameter name, `/a/:id` and `/a/:uid`, are not
@@ -232,50 +254,40 @@ a duplicate: the first takes every path of the second, and coverage reports the
 second as stale.)
 **Fix:** keep one, or give them different patterns.
 
-```yaml
-rest:
-  POST /users/:id:
-    roles: [[admin]]
-  # /users/:id: { POST: ... }   <- remove, it names the same rule
+## `GET /a` would move above `GET /b`: nest it under `/a`, or write `/b` after it
+
+**When:** `definePolicy` is given a flat key whose path was written earlier, with
+other rules after it (`Invalid rules in definePolicy`).
+**Why:** a flat key joins the earlier key of its path, which moves the rule up,
+and REST rules are first-match in document order. Moving it above a rule that
+could answer the same request (the same method, a `*` rule on either side, or a
+`GET` against a `HEAD`) could change which rule applies, so it is refused. The
+check does not analyse whether the patterns overlap.
+**Fix:** nest the rule under its path, where the path was first written, or write
+the other path after it:
+
+```ts
+definePolicy({
+  limix: 1,
+  global: { unmatched: 'deny' },
+  rest: {
+    'POST /a': { authenticated: true },
+    'GET /b': { public: true },
+    'GET /a': { public: true }, // refused: GET /a would move above GET /b
+  },
+})
+// fix: '/a': { POST: ..., GET: ... } first, or 'GET /b' after 'GET /a'
 ```
-
-## a wildcard names fields, not types: write Type.* (for example Query.*)
-
-**When:** a `graphql` key is `*` or `*.field`.
-**Why:** `Type.*` is the rule of every field of one type; there is no rule for
-every field of every type.
-**Fix:** name the type: `Query.*`, `Note.*`.
-
-## `Query.a.b` is not a field key: write Type.field (for example Query.me) or Type.*
-
-**When:** a `graphql` key holds a dot and is not `Type.field` or `Type.*`.
-**Why:** a GraphQL name never holds a dot, so a dotted key is read as a flat
-rule; `Query.a.b`, `.me` and `Query.` are not one.
-**Fix:** write the type and the field name, or nest the fields under the type:
-
-```yaml
-graphql:
-  Query.me:
-    authenticated: true
-```
-
-## `Note` is a type, so its value is keyed by field name; write "Note.field" for a single rule
-
-**When:** `compilePolicy` meets a type name under `graphql` whose value is not a
-map of field rules (a rule written straight under the type).
-**Fix:** `Note.title: { ... }`, or `Note: { title: { ... } }`.
 
 ## YAML Parse error: Unexpected character, or Unresolved alias, at a key starting with `*`
 
-**When:** a rules file holds `* /admin/*:` or `*:` unquoted.
-**Why:** in YAML a `*` at the start of a value is an alias. The method `*`, and
-a flat key that starts with it, must be quoted.
+**When:** a rules file holds `*:` unquoted, the method `*` under a path.
+**Why:** in YAML a `*` at the start of a value is an alias. The method `*` must be
+quoted.
 **Fix:**
 
 ```yaml
 rest:
-  "* /admin/*":
-    roles: [[admin]]
   /files/*:
     "*":
       authenticated: true
@@ -804,6 +816,18 @@ publisher served an older document, or its `ver` went down. Publish a higher
 rules" whichever step refused. A `when` naming a condition the service did not
 register arrives here as `unknown condition <name>`: add it to the `conditions`
 option.
+
+## A flat key in a pulled or stored token: `` `POST /x` is a definePolicy key ``
+
+**When:** after upgrading a client to 0.7, a pull fails with `RULES_REFUSED`
+(`Invalid rules in the pulled rules`), or a restart fails with `STORE` (`the
+stored policy was not used: Invalid rules ...`), the issue being `` `POST /x` is
+a definePolicy key; in a rules file write "/x": { POST: … } ``.
+**Why:** the token was signed on 0.6 with flat keys, which 0.7 refuses. A running
+client keeps its held copy; a restarted one has no policy until a nested token is
+published, and fails closed.
+**Fix:** re-sign the rules nested and publish them, then upgrade the clients (see
+[Moving from 0.6 flat keys](remote.md#moving-from-06-flat-keys)).
 
 ## the stored policy was not used: <reason>
 

@@ -1,6 +1,10 @@
 // Frozen at 0f5a782 (before TypedRulesInput): the cases of register.spec.ts as they
 // were, run through TypedRulesInput. Never edit a case, only add: a program that
 // type-checked then must type-check now, and a refusal must still refuse.
+// Owner-sanctioned exception (softistx/limix#60): `RulesInput` is gone (the rules
+// format is nested only), so the two cases that named it are written against
+// `Rules` and against the open shape, and the refused FETCH call of `keeps definePolicy accepting and refusing` is
+// wrapped in `refused` (definePolicy validates at run time now), as comments below say.
 import { describe, expect, it } from 'bun:test';
 import type { Condition } from './compile/types';
 import { definePolicy } from './define';
@@ -11,7 +15,6 @@ import type {
 	TypedRulesInput,
 } from './register';
 import type { Rules } from './schema';
-import type { RulesInput } from './types';
 
 type Reg = {
 	rest: 'GET /notes' | 'GET /notes/:id' | 'DELETE /notes/:id';
@@ -148,17 +151,21 @@ describe('TypedRulesInput widens TypedRules, never narrows it', () => {
 		const both: TypedRules<Reg> = { limix: 1, global: unmatched };
 		const input: TypedRulesInput<Reg> = both;
 		const rules: Rules = both;
-		const asInput: RulesInput = both;
+		// #60: was `const asInput: RulesInput = both;`
+		const asInput: TypedRulesInput<object> = both;
 		expect([input, rules, asInput]).toHaveLength(3);
 	});
 
-	it('is exactly RulesInput when nothing is registered', () => {
-		type Same<A, B> =
-			(<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
-				? true
-				: false;
-		const same: Same<TypedRulesInput<object>, RulesInput> = true;
-		expect(same).toBe(true);
+	it('is open when nothing is registered', () => {
+		// #60: was `Same<TypedRulesInput<object>, RulesInput>`, and now that the
+		// open shape is unexported, it holds a flat and a nested spelling.
+		const open: TypedRulesInput<object> = {
+			limix: 1,
+			global: unmatched,
+			rest: { 'GET /a': { public: true }, '/b': { GET: { public: true } } },
+			graphql: { 'Query.me': { public: true }, Note: { id: { public: true } } },
+		};
+		expect(open.limix).toBe(1);
 	});
 
 	it('keeps definePolicy accepting and refusing what it did', () => {
@@ -169,11 +176,15 @@ describe('TypedRulesInput widens TypedRules, never narrows it', () => {
 				rest: { '/notes': { GET: { authenticated: true } } },
 			}).rest,
 		).toBeDefined();
-		definePolicy({
-			limix: 1,
-			global: unmatched,
-			// @ts-expect-error a method the rule does not know is still refused
-			rest: { '/notes': { FETCH: { authenticated: true } } },
-		});
+		// #60: definePolicy validates at run time now, so the refused call is
+		// only type-checked (it was run before, as the identity).
+		const refused = () =>
+			definePolicy({
+				limix: 1,
+				global: unmatched,
+				// @ts-expect-error a method the rule does not know is still refused
+				rest: { '/notes': { FETCH: { authenticated: true } } },
+			});
+		expect(refused).toThrow('unknown key `FETCH`');
 	});
 });

@@ -1,11 +1,11 @@
 # @softistx/limix-codegen
 
-Build-time types for [`@softistx/limix`](https://github.com/softistx/limix/blob/develop/packages/limix/README.md)
-rules. It reads the API's operations (OpenAPI, GraphQL SDL) and the rules file,
-and writes one TypeScript file that registers them, so `definePolicy` refuses a
-path, a method, a GraphQL type or field the API does not have, and
-`compilePolicy` a condition the rules file does not name. It also writes a
-starter rules file. A CLI and a graphql-codegen plugin; it runs on Bun.
+Build-time types for a code-first [`@softistx/limix`](https://github.com/softistx/limix/blob/develop/packages/limix/README.md)
+policy. It reads the API's operations (OpenAPI, GraphQL SDL) and writes one
+TypeScript file that registers them, so `definePolicy` refuses a path, a method,
+a GraphQL type or field the API does not have. That is its only job: it never
+reads a policy (a YAML or JSON rules file included). It also writes a starter
+`policy.ts`. A CLI and a graphql-codegen plugin; it runs on Bun.
 
 ## Install
 
@@ -32,16 +32,19 @@ the generated file must be inside its `include`.
 ## The CLI
 
 ```sh
-# write src/generated/limix.ts
-limix-codegen generate --openapi openapi.yaml --graphql schema.graphql --rules rules.yaml
+# write src/generated/limix.ts (--out <file> picks another)
+limix-codegen generate --openapi openapi.yaml --graphql schema.graphql
 
-# CI: exit 1 when the committed file is out of date or a rule is stale, write nothing
-limix-codegen generate --openapi openapi.yaml --graphql schema.graphql --rules rules.yaml --check
+# the same, written elsewhere
+limix-codegen generate --openapi openapi.yaml --out src/types/limix.ts
 
-# a starter rules file, once: authenticated: true on every operation, unmatched: deny
+# CI: exit 1 when the committed file is missing or out of date, write nothing
+limix-codegen generate --openapi openapi.yaml --graphql schema.graphql --check
+
+# a starter policy, once: src/policy.ts, authenticated: true on every operation
 limix-codegen init --openapi openapi.yaml --graphql schema.graphql
 
-# the same, one key per operation ("GET /notes", "Query.me")
+# the same, one key per operation ('GET /notes', 'Query.me')
 limix-codegen init --openapi openapi.yaml --graphql schema.graphql --flat
 ```
 
@@ -50,8 +53,8 @@ As package.json scripts:
 ```json
 {
   "scripts": {
-    "limix:gen": "limix-codegen generate --openapi openapi.yaml --graphql schema.graphql --rules rules.yaml",
-    "limix:check": "limix-codegen generate --openapi openapi.yaml --graphql schema.graphql --rules rules.yaml --check"
+    "limix:gen": "limix-codegen generate --openapi openapi.yaml --graphql schema.graphql",
+    "limix:check": "limix-codegen generate --openapi openapi.yaml --graphql schema.graphql --check"
   }
 }
 ```
@@ -59,35 +62,50 @@ As package.json scripts:
 A key is registered only when its input is given: without `--graphql`, GraphQL
 rules stay unchecked. The output is sorted and byte-stable (LF, no date, no
 version), so `--check` is a plain comparison. Exit codes: 0 done, 1 refused (or
-`--check` found a stale file or a stale rule), 2 wrong command line.
+`--check` found the file missing or out of date), 2 wrong command line.
 
-With `--rules` and an input to judge them against, `generate` also reports the
-rules that reach no operation (a typo, a removed route, a rule shadowed by an
-earlier one, an unknown type or field): a warning on stderr, and a failure under
-`--check`, which on 0.2 judged no rules. Fix the rule, remove it, or add the
-operation to the spec. A rules file that does not compile is reported and fails
-`--check` too.
+## Writing the policy
 
-## Writing rules
-
-Once the file is generated, `definePolicy` refuses a flat key
-(`"GET /notes"`, `"Query.me"`, `"Note.*"`) the API does not have, as it does a
-nested one, and `generate --check` catches the rest in CI:
+Once the file is generated, `definePolicy` refuses a path, method, type or field
+the API does not have, in the nested spelling and in the flat one (`'GET /notes'`,
+`'Query.me'`, `'Note.*'`, which only `definePolicy` reads). Declare the names the
+policy uses once, by hand: codegen does not read the policy, so it cannot
+generate them.
 
 ```ts
-import { definePolicy } from '@softistx/limix'
-
-export const rules = definePolicy({
-  limix: 1,
-  global: { unmatched: 'deny' },
-  rest: { 'GET /notes': { authenticated: true } },
-  graphql: { 'Query.me': { authenticated: true } },
-})
+// src/vocabulary.ts
+declare module '@softistx/limix' {
+  interface Register {
+    role: 'admin' | 'editor'
+    permission: 'notes:read' | 'notes:write'
+  }
+}
+export {}
 ```
 
-The [Writing rules guide](docs/writing-rules.md) has the patterns table, what
-the types check and do not, and nested against flat. The rules format itself is
-in [`@softistx/limix`](../limix/docs/rules.md#typed-operations-and-names).
+```ts
+// src/policy.ts
+import './generated/limix'
+import './vocabulary'
+import { definePolicy } from '@softistx/limix'
+
+const conditions = { workingHours: () => true } // `satisfies ConditionMap`
+
+export const rules = definePolicy(
+  {
+    limix: 1,
+    global: { unmatched: 'deny' },
+    rest: { 'GET /notes': { permissions: [['notes:read']] } },
+    graphql: { 'Query.me': { roles: [['admin'], ['editor']], when: ['workingHours'] } },
+  },
+  { conditions },
+)
+```
+
+`roles`, `permissions` and `when` are narrowed to the declared names. The
+[Writing rules guide](docs/writing-rules.md) has the patterns table, what the
+types check and do not, and nested against flat. The rules format itself is in
+[`@softistx/limix`](../limix/docs/rules.md#typed-operations-and-names).
 
 ## The graphql-codegen plugin
 
@@ -98,21 +116,21 @@ export default {
   generates: {
     'src/generated/limix.ts': {
       plugins: ['@softistx/limix-codegen/graphql-codegen'],
-      config: { rules: 'rules.yaml', openapi: 'openapi.yaml' },
+      config: { openapi: 'openapi.yaml' },
     },
   },
 }
 ```
 
-Run it with `bun --bun graphql-codegen` when `rules` or `openapi` is given: the
-plugin reads those files through Bun. Keys other than `rules` and `openapi`
-(graphql-codegen adds its own) are ignored.
+Run it with `bun --bun graphql-codegen` when `openapi` is given: the plugin
+reads those files through Bun. Keys other than `openapi` (graphql-codegen adds
+its own) are ignored; there is no `rules` option on 0.4.
 
 ## Subpaths
 
 | Subpath | What it holds |
 | --- | --- |
-| `@softistx/limix-codegen` | `generateModule`, `openapiOperations`, `starterRules`, `CodegenError` |
+| `@softistx/limix-codegen` | `generateModule`, `openapiOperations`, `starterPolicy`, `CodegenError` |
 | `@softistx/limix-codegen/graphql-codegen` | `plugin`, the graphql-codegen plugin |
 | `limix-codegen` (bin) | `generate` and `init` |
 | `@softistx/limix-codegen/package.json` | The package manifest |
@@ -127,7 +145,7 @@ section.
 
 ## Docs
 
-- [Writing rules](docs/writing-rules.md): generate, typed `definePolicy` flat and nested, the patterns, what is checked, CI
-- [Codegen](docs/codegen.md): what each registered key checks, what stays unchecked, the OpenAPI conversion, `init`, the plugin
+- [Writing rules](docs/writing-rules.md): generate, declare the vocabulary, typed `definePolicy` flat and nested, the patterns, what is checked, CI
+- [Codegen](docs/codegen.md): what each registered key checks, what stays unchecked, the OpenAPI conversion, `init`, the plugin, and what 0.4 removed
 - [Troubleshooting](docs/troubleshooting.md)
 - [Roadmap](docs/roadmap.md)

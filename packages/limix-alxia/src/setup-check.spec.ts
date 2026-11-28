@@ -15,11 +15,9 @@ const rest = (
 			rest: rules as never,
 		}),
 	);
-const rung = (code: string) => ({
+const rung = (code: string, from = 'param.id') => ({
 	authenticated: true,
-	relations: [
-		{ code, require: [[{ relation: 'v', type: 'note', from: 'param.id' }]] },
-	],
+	relations: [{ code, require: [[{ relation: 'v', type: 'note', from }]] }],
 });
 
 describe('policyProblems', () => {
@@ -95,7 +93,9 @@ describe('policyProblems', () => {
 				limix: 1,
 				global: { unmatched: 'deny' },
 				rest: { '/notes/:id': { GET: rung('app.errors.nope') as never } },
-				graphql: { Query: { note: rung('app.errors.also') as never } },
+				graphql: {
+					Query: { note: rung('app.errors.also', 'args.id') as never },
+				},
 			}),
 		);
 		const problems = rungCodeProblems(bad);
@@ -138,7 +138,7 @@ describe('checkRoutes', () => {
 });
 
 describe('policyProblems with a rule for any method', () => {
-	test('a `*` rule is reached when a route of any method takes it, and named by its flat key otherwise', () => {
+	test('a `*` rule is reached when a route of any method takes it, and named by its label otherwise', () => {
 		const rules = compilePolicy(
 			definePolicy({
 				limix: 1,
@@ -154,7 +154,7 @@ describe('policyProblems with a rule for any method', () => {
 		expect(problems[0]).toStartWith('* /gone/*: no route of the app takes');
 	});
 
-	test('a rung code outside auth.errors. is named with the flat key of a wildcard rule', () => {
+	test('a rung code outside auth.errors. is named with the label of a wildcard rule', () => {
 		const rules = rest({ '/files/:id': { '*': rung('nope') } });
 		expect(rungCodeProblems(rules)[0]).toStartWith('* /files/:id:');
 	});

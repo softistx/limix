@@ -9,7 +9,7 @@ your message. `<...>` stands for the part that varies.
 
 ## In your editor
 
-### `Object literal may only specify known properties, and ''/notez'' does not exist in type 'CheckedRestInput<LimixRest>'`
+### `Object literal may only specify known properties, and ''/notez'' does not exist in type 'CheckedRestInput<LimixRest, Body<Register, string>>'`
 
 **When:** a key of `definePolicy`'s `rest` or `graphql` is not an operation of
 the API. A flat key (`'GET /notez'`, `'Query.you'`) is refused the same way,
@@ -29,93 +29,45 @@ literal given to `definePolicy`: a variable, a spread or an escaped `\*` key is
 not checked.
 **Fix:** include `src/generated`, and pass every input in the script.
 
+### `Type '"x"' is not assignable to type '"admin" | "editor"'` in `roles`, `permissions` or `when`
+
+**When:** a rule names a role, a permission or a condition nobody declared.
+**Why:** `Register` declares `role` and `permission` (your `declare module`
+block), and `when` is narrowed to the keys of the `conditions` you pass to
+`definePolicy` (or to `Register.condition`). The name is a typo, or new.
+**Fix:** correct the name, or add it to the declaration. A literal written
+`as const` is also refused once names are declared (its lists are readonly):
+write the body inline.
+
+### `Subsequent property declarations must have the same type` on `role`
+
+**When:** after upgrading from 0.3, `Register` reports a duplicate `role`,
+`permission` or `condition`.
+**Why:** the file 0.3 generated still declares those keys, and so does your
+hand-written block, with a different type.
+**Fix:** run `limix-codegen generate` again (0.4 no longer writes them), then
+keep your declaration. Regenerate **before** adding the block.
+
 ### An unknown condition in `compilePolicy` options
 
 **When:** `compilePolicy(rules, { conditions: { other: ... } })` fails with
 `Object literal may only specify known properties`.
-**Why:** `other` is not named by `when` in the rules file you generated from.
-**Fix:** add the condition to the rules file and regenerate, or fix the name.
+**Why:** `Register.condition` is declared by hand and `other` is not in it.
+**Fix:** add the name to the declaration, or drop the declaration and let
+`definePolicy(rules, { conditions })` infer the names from the object.
 
 ## The CLI
-
-### `<rules>: <where> applies to no operation of <openapi> (no <METHOD> route matches <path>)`
-
-**When:** `generate` prints it (a warning) or `generate --check` exits 1 with
-`<n> stale rule(s)`. `<where>` is how the rule is written: `rest['GET /x']` (flat)
-or `rest['/x'].GET` (nested). A method `*` rule prints `(no route matches <path>)`
-without a method.
-**Why:** no operation of the OpenAPI spec reaches that rule: a typo, a route that
-was removed or renamed, a `global.basePath` written into the key, or a wildcard
-pattern no operation falls under. A `HEAD` rule is reached by a `GET` operation.
-**Fix:** correct the key, remove the rule, or add the operation to the spec. A
-route the server serves but the spec leaves out: add it to the spec, or pass
-every spec with a repeated `--openapi`; the rule is judged against the
-operations you give.
-
-```yaml
-rest:
-  "GET /notes":      # was "GET /notez": it reaches no operation
-    authenticated: true
-```
-
-### `<rules>: <where> is shadowed by <METHOD> <path> above it: it never applies`
-
-**When:** the same run, for a rule an earlier rule always takes first.
-`<where>` is `rest['GET /x']` or `rest['/x'].GET`.
-**Why:** rules are first-match in document order, and the earlier pattern
-(`/notes/:id`) matches every path of the later one (`/notes/new`).
-**Fix:** move the specific rule above the general one.
-
-```yaml
-rest:
-  "GET /notes/new":   # first
-    public: true
-  "GET /notes/:id":
-    authenticated: true
-```
-
-### `<rules>: <where> names no type of <schema>`
-
-**When:** the same run, for a GraphQL rule whose type is not in the SDL.
-`<where>` is `graphql['Nope.*']` (a flat key) or `graphql.Nope.field` (nested).
-**Why:** a typo (`Nope.*`), a type that was renamed or removed, or an SDL file
-missing from the `--graphql` flags (give every file).
-**Fix:** correct the type, remove the rule, or pass the file that declares it.
-
-### `<rules>: <where> names no field of <Type> in <schema>`
-
-**When:** the same run, for a rule whose type exists but has no such field.
-`<where>` is `graphql['Query.you']` (flat) or `graphql.Query.you` (nested).
-**Fix:** correct the field or remove the rule. A `Type.*` rule on a type of the
-schema is never reported.
-
-### `<rules> does not compile, its rules were not judged: <why>`
-
-**When:** `generate` prints it in both modes; with `--check` it exits 1.
-**Why:** the rules file fails `compilePolicy` (a contradictory rule, a rule
-named twice), so nothing could be judged against the operations. Without
-`--check` the types file is still written.
-**Fix:** fix what `<why>` says; the [core troubleshooting](../../limix/docs/troubleshooting.md)
-has each message.
-
-### `<n> stale rule(s): fix or remove them, or add the operation to the spec`
-
-**When:** the last line of `generate --check` when any of the four stale
-messages above was printed (exit 1).
-**Fix:** act on each line above it. Without `--check` the same lines are
-warnings and the exit code stays 0. REST rules are judged only with `--openapi`
-and GraphQL rules only with `--graphql`: leave an input out to leave its rules
-unjudged.
 
 ### `<out> is out of date: run limix-codegen generate with the same flags and commit it` and `<out> is missing: ...`
 
 **When:** `generate --check` exits 1.
-**Why:** an input changed, or the file was never committed.
+**Why:** an input changed, or the file was never committed. It checks only the
+file: coverage judges the rules.
 **Fix:** run the same command without `--check` and commit the result.
 
 ### `--out <file> is also an input: it would be overwritten`
 
-**When:** `--out` resolves to a `--graphql`, `--openapi` or `--rules` path (exit 2).
+**When:** `--out` resolves to a `--graphql` or `--openapi` path (exit 2).
 **Fix:** write the types to their own file.
 
 ### `--check` fails right after `generate`
@@ -123,6 +75,35 @@ unjudged.
 **Why:** a formatter rewrote the generated file (a different quote style or
 indentation), so the bytes differ from the output.
 **Fix:** exclude `src/generated` from the formatter and the linter.
+
+### `Unknown option '--rules'`
+
+**When:** a 0.3 script still passes `--rules` to `generate` or `init` (exit 2, with
+the command's usage).
+**Why:** 0.4 never reads a policy.
+**Fix:** drop the flag (see [Upgrading from 0.3](codegen.md#upgrading-from-03)).
+
+### ``the limix plugin never reads a policy: drop `rules` and declare role and permission by hand``
+
+**When:** the graphql-codegen config still has `rules: 'rules.yaml'` for the plugin.
+**Fix:** drop the option and declare the names by hand (see
+[Upgrading from 0.3](codegen.md#upgrading-from-03)).
+
+### `give at least one of --graphql, --openapi`
+
+**When:** `generate` or `init` runs with neither input (exit 2, with the usage).
+**Fix:** pass `--openapi <file>`, `--graphql <file>` or both.
+
+### `nothing to generate: no OpenAPI or GraphQL`
+
+**When:** `generateModule` (the API, not the CLI) is called with neither `rest`
+nor `graphql`.
+**Fix:** give it the operations of at least one transport.
+
+### `<policy>: the policy is TypeScript, use a .ts file`
+
+**When:** `init --out` names a file that is not `.ts` (exit 2).
+**Fix:** `init` writes a `definePolicy` call: pick a `.ts` path, default `src/policy.ts`.
 
 ### `--graphql needs @softistx/limix-graxia and graphql: bun add -d @softistx/limix-graxia graphql`
 
@@ -152,7 +133,7 @@ between them in the spec, or write its rule by hand.
 
 ### `<file>: path <path> cannot be a limix pattern: <reason>`
 
-**When:** the converted path does not compile as a rules-file pattern.
+**When:** the converted path does not compile as a path pattern.
 **Fix:** correct the path in the spec; the reason is the compiler's.
 
 ### `<file>: use .yaml, .yml or .json` and `<file>: not an OpenAPI document: `paths` must be an object`
@@ -166,7 +147,7 @@ document must hold a `paths` object.
 ### `the limix graphql-codegen plugin runs on Bun: start it with bun --bun graphql-codegen`
 
 **When:** graphql-codegen runs on Node.
-**Fix:** `bun --bun graphql-codegen` (needed only when `rules` or `openapi` is given).
+**Fix:** `bun --bun graphql-codegen` (needed only when `openapi` is given).
 
 ### `two copies of graphql: ...`
 

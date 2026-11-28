@@ -107,8 +107,8 @@ describe('checkModel', () => {
 	});
 });
 
-describe('checkModel, the path of a flat or wildcard key', () => {
-	test('is the key as the rules file spells it', () => {
+describe('checkModel, the path of a wildcard rule', () => {
+	test('is the place in the rules file, as definePolicy nests it', () => {
 		const bad = compilePolicy(
 			definePolicy({
 				limix: 1,
@@ -125,11 +125,11 @@ describe('checkModel, the path of a flat or wildcard key', () => {
 			}),
 		);
 		expect(checkModel(bad, model).map((issue) => issue.path)).toEqual([
-			"rest['GET /files/:id'].relations[0].require[0][0]",
-			"rest['* /docs/:id'].relations[0].require[0][0]",
+			"rest['/files/:id'].GET.relations[0].require[0][0]",
+			"rest['/docs/:id']['*'].relations[0].require[0][0]",
 			"rest['/notes/:id']['*'].relations[0].require[0][0]",
-			"graphql['Query.file'].relations[0].require[0][0]",
-			"graphql['Note.*'].relations[0].require[0][0]",
+			'graphql.Query.file.relations[0].require[0][0]',
+			"graphql.Note['*'].relations[0].require[0][0]",
 		]);
 	});
 });

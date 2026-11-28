@@ -1,17 +1,12 @@
 import { describe, expect, it } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { RulesError } from '@softistx/limix';
 import type { RestOperation } from '@softistx/limix/coverage';
 import {
 	FIXTURE_OPENAPI,
 	FIXTURE_OPENAPI_YAML,
-	FIXTURE_RULES_YAML,
 	FIXTURE_SDL,
 } from './codegen.fixtures';
 import { CodegenError } from './errors';
-import { bunOnly, readGraphql, readOpenapi, readRules } from './sources';
+import { bunOnly, readGraphql, readOpenapi } from './sources';
 
 const files = (map: Record<string, string>) => ({
 	readFile: async (path: string) => {
@@ -81,21 +76,7 @@ describe('readGraphql', () => {
 	});
 });
 
-describe('readRules and bunOnly', () => {
-	it('loads a rules file and refuses an invalid one', async () => {
-		const dir = await mkdtemp(join(tmpdir(), 'limix-codegen-'));
-		try {
-			const good = join(dir, 'rules.yaml');
-			await Bun.write(good, FIXTURE_RULES_YAML);
-			expect((await readRules(good)).limix).toBe(1);
-			const bad = join(dir, 'bad.yaml');
-			await Bun.write(bad, 'limix: 2\n');
-			await expect(readRules(bad)).rejects.toBeInstanceOf(RulesError);
-		} finally {
-			await rm(dir, { recursive: true });
-		}
-	});
-
+describe('bunOnly', () => {
 	it('passes on Bun', () => {
 		expect(() => bunOnly('x')).not.toThrow();
 		expect(CodegenError.name).toBe('CodegenError');

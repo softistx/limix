@@ -40,7 +40,7 @@ declarations import without extensions, so `nodenext` is not supported.
 | --- | --- |
 | `parseRules(input, source?)` | Validates a value (an object, or a YAML or JSON text you parsed), returns `Rules` |
 | `loadRules(path)` from `@softistx/limix/bun` | Reads a `.yaml`, `.yml` or `.json` file, then `parseRules`; refuses a repeated key and several YAML documents |
-| `definePolicy(rules)` | Writes the document in code (it takes a `TypedRulesInput<R>`, `RulesInput` until a generated file registers an `R`); a typo fails to compile, and once a generated file registers the API's operations ([`Register`](docs/rules.md#typed-operations-and-names)) so does an operation the API does not have, flat keys (`"GET /notes"`, `"Query.me"`) included. Generate the file and write the rules with [`@softistx/limix-codegen`](../limix-codegen/docs/writing-rules.md) |
+| `definePolicy(rules, { conditions })` | Writes the document in code (it takes a `TypedRulesInput`): flat and nested keys, nested in document order, validated as `parseRules` does, returning the nested `Rules`. A typo fails to compile; once the API's operations are registered ([`Register`](docs/rules.md#typed-operations-and-names)) so does an operation the API does not have, and a role, permission or condition nobody declared. Generate the operations with [`@softistx/limix-codegen`](../limix-codegen/docs/writing-rules.md) |
 | `compilePolicy(rules, { conditions })` | Precompiles the route and field tables into a `CompiledPolicy` |
 | `evaluateRest(policy, input)` | Decides a REST request, the first rule in document order whose pattern is the `route` or whose matcher takes the `path` (or the `route`) (`method`, `route` or `path`, `claims`, `request`, `relations`, `info`): `{ allow: true }` or `{ allow: false, refusal }` |
 | `evaluateField(policy, input)` | The same for one GraphQL field (`type`, `field`, `claims`, `args`, `source`, `relations`, `info`, `root`) |
@@ -51,7 +51,7 @@ declarations import without extensions, so `nodenext` is not supported.
 | `CODE_UNAUTHENTICATED`, `CODE_FORBIDDEN`, `CODE_NOT_FOUND`, `CODE_UNAVAILABLE` | The refusal codes: `auth.errors.unauthenticated`, `auth.errors.forbidden`, `auth.errors.not-found`, `limix.errors.unavailable` |
 | `RulesError` | Thrown for invalid rules; `error.issues` lists every issue |
 | `LIMIX_FORMAT_VERSION` | The format version, `1` |
-| types `RulesInput` (what `definePolicy` and `compilePolicy` take: a `Rules`, or a document with flat `graphql` keys), `Claims`, `Subject`, `Decision`, `Refusal`, `RelationChecker`, `RelationQuery`, `PolicyInput`, `PolicySource`, `MutableSource`, `Explanation`, `Step`, `StepKind`, `TermStep`, `RestInput`, `RestRequest`, `FieldInput`, `Rules`, `RulesIssue`, `CompileOptions`, `Condition`, `ConditionContext`, `CompiledPolicy`, `CompiledRestRoute`, `CompiledGraphqlEntry` | The shapes the functions take and return |
+| types `DefinePolicyOptions`, `Claims`, `Subject`, `Decision`, `Refusal`, `RelationChecker`, `RelationQuery`, `PolicyInput`, `PolicySource`, `MutableSource`, `Explanation`, `Step`, `StepKind`, `TermStep`, `RestInput`, `RestRequest`, `FieldInput`, `Rules`, `RulesIssue`, `CompileOptions`, `Condition`, `ConditionContext`, `CompiledPolicy`, `CompiledRestRoute`, `CompiledGraphqlEntry` | The shapes the functions take and return |
 | `remotePolicy(options)` from `@softistx/limix/remote` | A `PolicySource` that pulls rules signed as a JWS, verifies them against the publisher's JWKS (`jwksUri`, or the issuer's discovery), hot-swaps them and keeps the last good copy through an outage (`ready`, `refresh()`, which answers `{ changed, error? }`, `stop()`, `age()`, `version()`) |
 | `verifyRules(jws, jwks, options)` from `@softistx/limix/remote` | Verifies a token you hold against a key set with the checks a pull makes (what `limix-publish check` runs); `audience` is required; returns `VerifiedRules` (`{ ver, iat, exp, expired, schema, policy }`), throws `RemotePolicyError` |
 | `RemotePolicyError`, `RemotePolicyConfigError`, `DEFAULT_TYP`, `ALGORITHMS` from `@softistx/limix/remote` | The failure of a pull (`code`: `FETCH_FAILED`, `HTTP_STATUS`, `SIGNATURE`, `CLAIMS`, `STALE_VERSION`, `RULES_REFUSED`, `STORE`, `EXPIRED`, `TOO_LARGE`), a refused option, the default `typ` `limix-rules+jwt` and the four accepted algorithms |
@@ -111,24 +111,43 @@ try {
 }
 ```
 
-A rule may also be written on one line, with its method in the key (a flat key),
-beside the nested form; both can sit in one file, and the order of the keys is
-the order the rules are tried in:
+A rules file is nested only: a path pattern, then its methods; a type, then its
+fields. The order of the keys is the order the rules are tried in. In code,
+`definePolicy` also takes one-line **flat keys** (`'GET /documents'`,
+`'Query.me'`, `'Note.*'`, `'* /admin/*'`) and nests them, in document order, into
+the same `Rules`; see [Flat keys in `definePolicy`](docs/rules.md#flat-keys-in-definepolicy).
 
 ```yaml
 rest:
-  GET /documents:                # flat: METHOD /pattern
-    authenticated: true
-  /documents/:id:                # nested: pattern, then method
+  /documents:
+    GET:
+      authenticated: true
+  /documents/:id:
     DELETE:
       roles: [[admin]]
-  "* /admin/*":                  # any method, any path below /admin (quote the *)
-    roles: [[admin]]
+  /admin/*:                      # any method, any path below /admin
+    "*":
+      roles: [[admin]]
 graphql:
-  Query.me:                      # flat: Type.field
-    authenticated: true
-  Note.*:                        # every Note field with no rule of its own
-    authenticated: true
+  Query:
+    me:
+      authenticated: true
+  Note:
+    "*":                         # every Note field with no rule of its own
+      authenticated: true
+```
+
+```ts
+definePolicy({
+  limix: 1,
+  global: { unmatched: 'deny' },
+  rest: {
+    'GET /documents': { authenticated: true },     // flat
+    '/documents/:id': { DELETE: { roles: [['admin']] } }, // nested
+    '* /admin/*': { roles: [['admin']] },
+  },
+  graphql: { 'Query.me': { authenticated: true }, 'Note.*': { authenticated: true } },
+})
 ```
 
 A path pattern is:
@@ -401,5 +420,5 @@ See [docs/](docs/README.md): the [migration guide from `@softistx/security`](doc
 [coverage](docs/coverage.md), [remote rules](docs/remote.md), the
 [roadmap](docs/roadmap.md) and [troubleshooting](docs/troubleshooting.md).
 
-A complete, runnable example (REST and GraphQL behind one rules file, typed rules, specs):
+A complete, runnable example (REST and GraphQL behind one code-first policy, typed rules, specs):
 [books and authors](https://github.com/softistx/limix/blob/develop/examples/books/README.md).

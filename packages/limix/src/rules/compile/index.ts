@@ -1,7 +1,6 @@
 import { formatPath, RulesError, type RulesIssue } from '../error';
-import { FLAT_GRAPHQL_KEY, graphqlKeyProblem, REST_METHODS } from '../keys';
+import { REST_METHODS } from '../keys';
 import type { Rules } from '../schema';
-import type { RulesInput } from '../types';
 import {
 	checkContradictions,
 	checkParams,
@@ -33,10 +32,9 @@ export type {
  * name, or a contradictory rule, throws a `RulesError` listing every one.
  */
 export function compilePolicy(
-	input: RulesInput,
+	rules: Rules,
 	options: CompileOptions = {},
 ): CompiledPolicy {
-	const rules = input as Rules;
 	const registry = options.conditions ?? {};
 	const issues: RulesIssue[] = [];
 
@@ -57,7 +55,7 @@ export function compilePolicy(
 	};
 }
 
-/** One compiled route per rule, in document order, flat and nested keys alike. */
+/** One compiled route per rule, in document order. */
 function compileRest(
 	rules: Rules,
 	registry: Readonly<Record<string, Condition>>,
@@ -146,12 +144,8 @@ function compileGraphql(
 	if (!rules.graphql) return undefined;
 	// A type is in the table in the order it first appears, even with no rule yet.
 	const types = new Map<string, Map<string, CompiledGraphqlEntry>>();
-	for (const key of Object.keys(rules.graphql)) {
-		if (graphqlKeyProblem(key)) continue;
-		const type = FLAT_GRAPHQL_KEY.test(key)
-			? key.slice(0, key.indexOf('.'))
-			: key;
-		if (!types.has(type)) types.set(type, new Map());
+	for (const type of Object.keys(rules.graphql)) {
+		types.set(type, new Map());
 	}
 	for (const entry of graphqlEntries(rules, issues)) {
 		const where = formatPath(entry.where);
