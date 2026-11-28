@@ -178,6 +178,18 @@ graphql:
       authenticated: true
 ```
 
+## `get /x` is not a rule key: did you mean `GET /x`?
+
+**When:** `definePolicy` is given a key that looks flat and is not: a lower-case
+method (`get /x`) or two spaces (`GET  /x`).
+**Why:** a flat key is a method in capitals (or `*`), one space, then the path
+pattern. Anything else is read as a path, and a path starts with `/`.
+**Fix:** write the key the message suggests, or nest the rule under its path.
+
+```ts
+rest: { 'GET /x': { public: true } } // not 'get /x', not 'GET  /x'
+```
+
 ## `roles` is a term of a rule, not a method: nest it under a method (GET: {...}, or "*" for any)
 
 **When:** a rule term (`roles`, `permissions`, `when`, `authenticated`, `public`,

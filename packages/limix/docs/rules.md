@@ -506,7 +506,7 @@ rules format itself (a YAML or JSON file, `parseRules`, `compilePolicy`,
 
 - A flat key keeps its method case (`GET`, not `get`) and its single space. A
   key that looks flat and is not (`get /x`, `GET  /x`) is refused with a hint:
-  `` `get /x` is not a rule key: did you mean `GET /x`? ``. It is no flat key
+  [`` `get /x` is not a rule key: did you mean `GET /x`? ``](troubleshooting.md#get-x-is-not-a-rule-key-did-you-mean-get-x). It is no flat key
   for the types (they cannot tell it from a path), so it type-checks and throws
   at run time.
 - Where issues name a flat-written rule: an error raised by `definePolicy`

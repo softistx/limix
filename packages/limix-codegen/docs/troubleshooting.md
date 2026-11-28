@@ -83,7 +83,7 @@ the command's usage).
 **Why:** 0.4 never reads a policy.
 **Fix:** drop the flag (see [Upgrading from 0.3](codegen.md#upgrading-from-03)).
 
-### `the limix plugin never reads a policy: drop `rules` and declare role and permission by hand`
+### ``the limix plugin never reads a policy: drop `rules` and declare role and permission by hand``
 
 **When:** the graphql-codegen config still has `rules: 'rules.yaml'` for the plugin.
 **Fix:** drop the option and declare the names by hand (see
