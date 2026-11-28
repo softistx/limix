@@ -10,7 +10,8 @@ The rules format is nested only again, and `definePolicy` is where flat keys and
 
 Migration:
 
-- A rules file with flat keys (written for 0.6): nest them, or move the document into `definePolicy`. A remote document signed on 0.6 with flat keys is refused by 0.7 clients (the client keeps its last good copy): re-sign it nested, with `limix-publish` 0.7 and a nested source.
+- A rules file with flat keys (written for 0.6): nest them, or move the document into `definePolicy`. A remote token signed on 0.6 with flat keys: re-sign it **nested first** (a 0.6 client accepts nested keys), then upgrade the clients. A 0.7 client refuses a flat token (`RULES_REFUSED`) and keeps serving its held copy, but a client that restarts re-verifies its stored 0.6 copy, refuses it (`STORE`) and has no policy until a nested token is published: it fails closed.
 - Code that read `rules.rest[...]` or `rules.graphql[...]` of a `definePolicy` result by a flat key: read the nested key. Code that named `RulesInput`: use `Rules`, or `TypedRulesInput` for what `definePolicy` takes.
+- Issue paths and `where` (`CompiledRestRoute.where`, coverage and `checkModel` paths) of a flat-written rule name its nested place once `definePolicy` has run (`rest['/a'].POST`). Errors raised by `definePolicy` itself name the key as written (`rest['POST /a'].roles[0]`).
 - A test that called `definePolicy` with an invalid document and relied on it returning the argument: it throws now.
 - `limix-codegen` 0.4 no longer generates `permission`, `role` and `condition` in `Register`: declare them by hand (see the typed operations section of the rules guide).

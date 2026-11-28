@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import { RulesError } from './error';
-import { toNested } from './nest';
+import { nestWithOrigins, toNested, writtenPath } from './nest';
 import { parseRules } from './parse';
 
 const base = { limix: 1 as const, global: { unmatched: 'deny' as const } };
@@ -131,7 +131,7 @@ describe('toNested: REST', () => {
 				rest: { 'POST /a': pub, 'GET /b': pub, '/a': { GET: auth } },
 			}).map((i) => i.message),
 		).toEqual([
-			'`GET /a` would move above `GET /b`: nest it under `/a`, or write `/b` after it',
+			'`GET /a` would move above `GET /b`: write it with the first `/a` rules, or write `/b` after it',
 		]);
 	});
 
@@ -231,5 +231,53 @@ describe('toNested: the result', () => {
 	it('keeps the other keys of the document', () => {
 		const out = nested({ rest: { 'GET /a': pub }, 'x-note': 1 });
 		expect(out).toMatchObject({ limix: 1, 'x-note': 1 });
+	});
+});
+
+describe('toNested: duplicates and malformed keys', () => {
+	it('reads one trailing slash as the same pattern', () => {
+		expect(
+			issuesOf({ rest: { 'GET /a/': pub, '/a': { GET: auth } } }).map(
+				(i) => i.message,
+			),
+		).toEqual([
+			"duplicate rule: rest['GET /a/'] and rest['/a'].GET both name GET /a",
+		]);
+	});
+
+	it('suggests the flat key a malformed one was meant to be', () => {
+		expect(issuesOf({ rest: { 'get /a': pub, 'GET  /b': pub } })).toEqual([
+			{
+				path: "rest['get /a']",
+				message:
+					'`get /a` is not a rule key: did you mean `GET /a`? A flat key is a method (GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS, CONNECT, TRACE, QUERY or *), one space, then the path pattern',
+			},
+			{
+				path: "rest['GET  /b']",
+				message:
+					'`GET  /b` is not a rule key: did you mean `GET /b`? A flat key is a method (GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS, CONNECT, TRACE, QUERY or *), one space, then the path pattern',
+			},
+		]);
+	});
+});
+
+describe('nestWithOrigins', () => {
+	it('maps the nested place of a flat-written rule to the key written', () => {
+		const { origins } = nestWithOrigins({
+			...base,
+			rest: { '/a': { GET: pub }, 'POST /a': auth },
+			graphql: { 'Query.me': pub, Note: { id: pub } },
+		} as never);
+		expect(origins).toEqual([
+			["rest['/a'].POST", "rest['POST /a']"],
+			['graphql.Query.me', "graphql['Query.me']"],
+		]);
+		expect(writtenPath("rest['/a'].POST.roles[0]", origins)).toBe(
+			"rest['POST /a'].roles[0]",
+		);
+		expect(writtenPath("rest['/a'].GET.roles", origins)).toBe(
+			"rest['/a'].GET.roles",
+		);
+		expect(writtenPath("rest['/a'].POSTX", origins)).toBe("rest['/a'].POSTX");
 	});
 });

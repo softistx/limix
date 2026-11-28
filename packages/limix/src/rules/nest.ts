@@ -1,7 +1,9 @@
+import { normalisePattern } from './compile/entries';
 import { formatPath, RulesError, type RulesIssue } from './error';
 import {
 	FLAT_GRAPHQL_KEY,
 	FLAT_REST_KEY,
+	REST_METHODS,
 	splitFlatGraphql,
 	splitFlatRest,
 } from './keys';
@@ -56,14 +58,52 @@ const duplicate = (
  * Throws a `RulesError` listing every problem.
  */
 export function toNested(input: PolicyDocument): Rules {
+	return nestWithOrigins(input).rules;
+}
+
+/** A nested place and the flat key it was written as: `rest['/a'].GET` and `rest['GET /a']`. */
+export type Origin = readonly [nested: string, written: string];
+
+/**
+ * `toNested`, and where each flat-written rule went, so that an issue found in
+ * the nested document can name the key its author wrote.
+ */
+export function nestWithOrigins(input: PolicyDocument): {
+	rules: Rules;
+	origins: Origin[];
+} {
 	const issues: RulesIssue[] = [];
+	const origins: Origin[] = [];
 	const out: Record<string, unknown> = { ...input };
-	if (isObject(input.rest)) out['rest'] = nestRest(input.rest, issues);
+	if (isObject(input.rest)) {
+		out['rest'] = nestRest(input.rest, issues, origins);
+	}
 	if (isObject(input.graphql)) {
-		out['graphql'] = nestGraphql(input.graphql, issues);
+		out['graphql'] = nestGraphql(input.graphql, issues, origins);
 	}
 	if (issues.length) throw new RulesError(issues, 'definePolicy');
-	return out as Rules;
+	return { rules: out as Rules, origins };
+}
+
+/** An issue path rewritten to the flat key it was written as, when it was. */
+export function writtenPath(path: string, origins: readonly Origin[]): string {
+	for (const [nested, written] of origins) {
+		if (!path.startsWith(nested)) continue;
+		const next = path[nested.length];
+		if (next === undefined || next === '.' || next === '[') {
+			return written + path.slice(nested.length);
+		}
+	}
+	return path;
+}
+
+/** A key that looks flat and is not (`get /a`, `GET  /a`): what was probably meant. */
+function looksFlat(key: string): string | undefined {
+	if (!/^[^/\s]+\s+[/*]/.test(key)) return undefined;
+	return key.replace(
+		/^(\S+)\s+/,
+		(_, method: string) => `${method.toUpperCase()} `,
+	);
 }
 
 /** One group of the output: a path with the rules it holds by method, and where each was written. */
@@ -72,7 +112,12 @@ type Group = {
 	written: Map<string, PropertyKey[]>;
 };
 
-function nestRest(rest: Record<string, unknown>, issues: RulesIssue[]) {
+function nestRest(
+	rest: Record<string, unknown>,
+	issues: RulesIssue[],
+	origins: Origin[],
+) {
+	const seen = new Map<string, PropertyKey[]>();
 	const groups = new Map<string, Group>();
 	const passed = new Map<string, unknown>();
 	const place = (
@@ -82,16 +127,31 @@ function nestRest(rest: Record<string, unknown>, issues: RulesIssue[]) {
 		where: PropertyKey[],
 	) => {
 		const existing = groups.get(pattern);
+		const name = `${method} ${normalisePattern(pattern)}`;
+		const record = () => {
+			seen.set(name, where);
+			if (where.length === 2) {
+				origins.push([
+					formatPath(['rest', pattern, method]),
+					formatPath(where),
+				]);
+			}
+		};
 		if (!existing) {
+			if (seen.has(name)) {
+				issues.push(duplicate(seen.get(name) ?? where, where, name));
+				return;
+			}
+			record();
 			groups.set(pattern, {
 				rules: new Map([[method, rule]]),
 				written: new Map([[method, where]]),
 			});
 			return;
 		}
-		const first = existing.written.get(method);
+		const first = seen.get(name);
 		if (first) {
-			issues.push(duplicate(first, where, `${method} ${pattern}`));
+			issues.push(duplicate(first, where, name));
 			return;
 		}
 		const keys = [...groups.keys()];
@@ -106,16 +166,27 @@ function nestRest(rest: Record<string, unknown>, issues: RulesIssue[]) {
 		if (jumped) {
 			issues.push({
 				path: formatPath(where),
-				message: `\`${method} ${pattern}\` would move above \`${jumped[1]} ${jumped[0]}\`: nest it under \`${pattern}\`, or write \`${jumped[0]}\` after it`,
+				message: `\`${method} ${pattern}\` would move above \`${jumped[1]} ${jumped[0]}\`: ${
+					where.length === 2
+						? `nest it under \`${pattern}\``
+						: `write it with the first \`${pattern}\` rules`
+				}, or write \`${jumped[0]}\` after it`,
 			});
 			return;
 		}
+		record();
 		existing.rules.set(method, rule);
 		existing.written.set(method, where);
 	};
 	for (const [key, value] of Object.entries(rest)) {
 		if (value === undefined) continue;
-		if (FLAT_REST_KEY.test(key)) {
+		const meant = FLAT_REST_KEY.test(key) ? undefined : looksFlat(key);
+		if (meant !== undefined) {
+			issues.push({
+				path: formatPath(['rest', key]),
+				message: `\`${key}\` is not a rule key: did you mean \`${meant}\`? A flat key is a method (${REST_METHODS.join(', ')} or *), one space, then the path pattern`,
+			});
+		} else if (FLAT_REST_KEY.test(key)) {
 			const { method, pattern } = splitFlatRest(key);
 			place(pattern, method, value, ['rest', key]);
 		} else if (isObject(value)) {
@@ -138,7 +209,11 @@ function nestRest(rest: Record<string, unknown>, issues: RulesIssue[]) {
 	]);
 }
 
-function nestGraphql(graphql: Record<string, unknown>, issues: RulesIssue[]) {
+function nestGraphql(
+	graphql: Record<string, unknown>,
+	issues: RulesIssue[],
+	origins: Origin[],
+) {
 	const types = new Map<string, Map<string, unknown>>();
 	const written = new Map<string, PropertyKey[]>();
 	const passed = new Map<string, unknown>();
@@ -157,6 +232,9 @@ function nestGraphql(graphql: Record<string, unknown>, issues: RulesIssue[]) {
 			return;
 		}
 		written.set(name, where);
+		if (where.length === 2) {
+			origins.push([formatPath(['graphql', type, field]), formatPath(where)]);
+		}
 		fields.set(field, rule);
 	};
 	for (const [key, value] of Object.entries(graphql)) {

@@ -9,7 +9,7 @@ your message. `<...>` stands for the part that varies.
 
 ## In your editor
 
-### `Object literal may only specify known properties, and ''/notez'' does not exist in type 'CheckedRestInput<LimixRest>'`
+### `Object literal may only specify known properties, and ''/notez'' does not exist in type 'CheckedRestInput<LimixRest, Body<Register, string>>'`
 
 **When:** a key of `definePolicy`'s `rest` or `graphql` is not an operation of
 the API. A flat key (`'GET /notez'`, `'Query.you'`) is refused the same way,
@@ -82,6 +82,23 @@ indentation), so the bytes differ from the output.
 the command's usage).
 **Why:** 0.4 never reads a policy.
 **Fix:** drop the flag (see [Upgrading from 0.3](codegen.md#upgrading-from-03)).
+
+### `the limix plugin never reads a policy: drop `rules` and declare role and permission by hand`
+
+**When:** the graphql-codegen config still has `rules: 'rules.yaml'` for the plugin.
+**Fix:** drop the option and declare the names by hand (see
+[Upgrading from 0.3](codegen.md#upgrading-from-03)).
+
+### `give at least one of --graphql, --openapi`
+
+**When:** `generate` or `init` runs with neither input (exit 2, with the usage).
+**Fix:** pass `--openapi <file>`, `--graphql <file>` or both.
+
+### `nothing to generate: no OpenAPI or GraphQL`
+
+**When:** `generateModule` (the API, not the CLI) is called with neither `rest`
+nor `graphql`.
+**Fix:** give it the operations of at least one transport.
 
 ### `<policy>: the policy is TypeScript, use a .ts file`
 

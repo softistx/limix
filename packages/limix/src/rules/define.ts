@@ -1,4 +1,5 @@
-import { type PolicyDocument, toNested } from './nest';
+import { RulesError } from './error';
+import { nestWithOrigins, type PolicyDocument, writtenPath } from './nest';
 import { parseRules } from './parse';
 import type {
 	ConditionMap,
@@ -47,8 +48,20 @@ export function definePolicy<const C extends ConditionMap = never>(
 	// Types only: the argument is never read.
 	_options?: DefinePolicyOptions<C>,
 ): Rules {
-	return parseRules(
-		toNested(rules as unknown as PolicyDocument),
-		'definePolicy',
+	const { rules: nested, origins } = nestWithOrigins(
+		rules as unknown as PolicyDocument,
 	);
+	try {
+		return parseRules(nested, 'definePolicy');
+	} catch (error) {
+		if (!(error instanceof RulesError) || origins.length === 0) throw error;
+		// Name the key the author wrote (`rest['GET /a'].roles`), not its nested place.
+		throw new RulesError(
+			error.issues.map((issue) => ({
+				...issue,
+				path: writtenPath(issue.path, origins),
+			})),
+			'definePolicy',
+		);
+	}
 }

@@ -51,9 +51,11 @@ the nested form and in the flat one, and against the vocabulary:
 ```ts
 import './generated/limix'
 import './vocabulary'
-import { definePolicy } from '@softistx/limix'
+import { type ConditionMap, definePolicy } from '@softistx/limix'
 
-const conditions = { workingHours: ({ claims }) => claims['shift'] === 'day' }
+const conditions = {
+  workingHours: ({ claims }) => claims['shift'] === 'day',
+} satisfies ConditionMap
 
 export const rules = definePolicy(
   {

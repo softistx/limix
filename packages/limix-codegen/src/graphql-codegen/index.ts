@@ -44,6 +44,11 @@ export const plugin = async (
 			"two copies of graphql: the schema is not an instance of this package's graphql; keep one copy (bun pm ls graphql, then dedupe it in the lockfile)",
 		);
 	}
+	if (config?.['rules'] !== undefined) {
+		throw new CodegenError(
+			'the limix plugin never reads a policy: drop `rules` and declare role and permission by hand (see the 0.4 migration)',
+		);
+	}
 	const openapi = openapiFiles(config?.openapi);
 	if (openapi.length) bunOnly('the limix graphql-codegen plugin');
 	const rest = (

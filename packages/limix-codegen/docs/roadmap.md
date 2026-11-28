@@ -32,5 +32,5 @@ Nothing yet.
   (a warning, and a failure under `--check`), `init --flat` writes one key per
   operation, the types check flat keys, and a guide to writing rules.
 - **0.1.0** — a CLI (`generate`, `init`) and a graphql-codegen
-  plugin that register the API's operations and the rules file's names in
+  plugin that register the API's operations and the rules file's names (reverted in 0.4) in
   `@softistx/limix`'s `Register`.

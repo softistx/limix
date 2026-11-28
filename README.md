@@ -16,7 +16,7 @@ Moving from `@softistx/security`? See the [migration guide](packages/limix/docs/
 | [`@softistx/limix-publish`](packages/limix-publish/README.md) | The emitter: signs rules as a JWS, serves them and their JWKS (API and CLI) |
 | [`@softistx/limix`](packages/limix/README.md) | The core: rules format, evaluation, relations port, coverage, remote client |
 
-Want to see it running? [`examples/books`](examples/books/README.md) guards a books and authors API over REST and GraphQL with one rules file.
+Want to see it running? [`examples/books`](examples/books/README.md) guards a books and authors API over REST and GraphQL with one code-first policy.
 
 See the [package page](packages/limix/README.md) and its
 [roadmap](packages/limix/docs/roadmap.md).

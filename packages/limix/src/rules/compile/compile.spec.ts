@@ -307,3 +307,20 @@ describe('a compiled rule is deep-readonly', () => {
 		if (route?.rule.relations?.[0]) route.rule.relations[0].code = 'x';
 	});
 });
+
+describe('compilePolicy: a flat key', () => {
+	it('is refused with the nested spelling to write', () => {
+		const rules = {
+			limix: 1,
+			global: { unmatched: 'deny' },
+			rest: { 'POST /a': { public: true } },
+			graphql: { 'Query.me': { public: true } },
+		};
+		expect(() => compilePolicy(rules as never)).toThrow(
+			'`POST /a` is a definePolicy key; in a rules file write "/a": { POST: … }',
+		);
+		expect(() => compilePolicy(rules as never)).toThrow(
+			'`Query.me` is a definePolicy key; in a rules file write Query: { me: … }',
+		);
+	});
+});

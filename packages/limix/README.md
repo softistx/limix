@@ -420,5 +420,5 @@ See [docs/](docs/README.md): the [migration guide from `@softistx/security`](doc
 [coverage](docs/coverage.md), [remote rules](docs/remote.md), the
 [roadmap](docs/roadmap.md) and [troubleshooting](docs/troubleshooting.md).
 
-A complete, runnable example (REST and GraphQL behind one rules file, typed rules, specs):
+A complete, runnable example (REST and GraphQL behind one code-first policy, typed rules, specs):
 [books and authors](https://github.com/softistx/limix/blob/develop/examples/books/README.md).

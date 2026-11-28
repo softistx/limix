@@ -211,3 +211,40 @@ describe('definePolicy: conditions', () => {
 		expect(rules.rest?.['/a']?.GET?.when).toEqual(['anything']);
 	});
 });
+
+describe('definePolicy: issue paths', () => {
+	const unmatched = { unmatched: 'deny' } as const;
+	const paths = (run: () => unknown) => {
+		try {
+			run();
+		} catch (error) {
+			return (error as { issues: { path: string }[] }).issues.map(
+				(i) => i.path,
+			);
+		}
+		return [];
+	};
+
+	it('names the key a flat-written rule was written as', () => {
+		expect(
+			paths(() =>
+				definePolicy({
+					limix: 1,
+					global: unmatched,
+					rest: {
+						'/a': { GET: { public: true } },
+						'POST /a': { roles: [[]] },
+					},
+					graphql: {
+						'Query.me': { roles: [[]] },
+						Note: { id: { roles: [[]] } },
+					},
+				}),
+			),
+		).toEqual([
+			"rest['POST /a'].roles[0]",
+			"graphql['Query.me'].roles[0]",
+			'graphql.Note.id.roles[0]',
+		]);
+	});
+});

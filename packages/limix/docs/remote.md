@@ -173,6 +173,16 @@ const held = await Promise.race([
 if (!held) throw new Error('no policy within 15 s')
 ```
 
+## Moving from 0.6 flat keys
+
+0.6 accepted flat rule keys (`"POST /x"`) in a rules document; 0.7 refuses them
+(see [Upgrading from 0.6](rules.md#upgrading-from-06)). Roll out in this order:
+re-sign the rules **nested first** (a 0.6 client reads nested keys), then
+upgrade the clients. A 0.7 client that pulls a flat token refuses it
+(`RULES_REFUSED`) and keeps its held copy, but one that restarts re-verifies its
+stored 0.6 copy, refuses that too (`STORE`) and holds no policy until a nested
+token is published: it fails closed.
+
 ## Surviving a restart
 
 ```ts

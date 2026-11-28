@@ -32,8 +32,11 @@ the generated file must be inside its `include`.
 ## The CLI
 
 ```sh
-# write src/generated/limix.ts
+# write src/generated/limix.ts (--out <file> picks another)
 limix-codegen generate --openapi openapi.yaml --graphql schema.graphql
+
+# the same, written elsewhere
+limix-codegen generate --openapi openapi.yaml --out src/types/limix.ts
 
 # CI: exit 1 when the committed file is missing or out of date, write nothing
 limix-codegen generate --openapi openapi.yaml --graphql schema.graphql --check

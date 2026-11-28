@@ -1,5 +1,5 @@
 import { formatPath, type RulesIssue } from '../error';
-import { REST_METHODS } from '../keys';
+import { flatKeyProblem, REST_METHODS } from '../keys';
 import type { Rules } from '../schema';
 import type { GraphqlRule, RestMethodName, RestRule } from '../types';
 
@@ -84,6 +84,11 @@ export function restEntries(rules: Rules, issues: RulesIssue[]): RestEntry[] {
 	const entries: RestEntry[] = [];
 	const duplicate = duplicates(issues);
 	for (const [pattern, value] of Object.entries(rules.rest ?? {})) {
+		const flat = flatKeyProblem('rest', pattern);
+		if (flat) {
+			issues.push({ path: formatPath(['rest', pattern]), message: flat });
+			continue;
+		}
 		if (
 			!isObject(value) ||
 			Object.keys(value).some((method) => !METHODS.has(method))
@@ -121,6 +126,11 @@ export function graphqlEntries(
 	const entries: GraphqlEntry[] = [];
 	for (const [type, value] of Object.entries(rules.graphql ?? {})) {
 		if (value === undefined) continue;
+		const flat = flatKeyProblem('graphql', type);
+		if (flat) {
+			issues.push({ path: formatPath(['graphql', type]), message: flat });
+			continue;
+		}
 		if (!isObject(value) || !Object.values(value).every(isObject)) {
 			issues.push({
 				path: formatPath(['graphql', type]),

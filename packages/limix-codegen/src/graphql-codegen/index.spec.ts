@@ -61,12 +61,10 @@ describe('the graphql-codegen plugin', () => {
 		).rejects.toThrow('`openapi` must be a file or a list of files');
 	});
 
-	it('takes no rules option: the plugin never reads a policy', async () => {
-		const output = await api.plugin(buildSchema(FIXTURE_SDL), [], {
-			rules: 'rules.yaml',
-		});
-		expect(output).not.toContain('rules.yaml');
-		expect(output).not.toContain('permission:');
+	it('refuses a rules option: the plugin never reads a policy', async () => {
+		await expect(
+			api.plugin(buildSchema(FIXTURE_SDL), [], { rules: 'rules.yaml' }),
+		).rejects.toThrow('the limix plugin never reads a policy: drop `rules`');
 	});
 
 	it('names two copies of graphql', async () => {

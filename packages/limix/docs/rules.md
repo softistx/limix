@@ -494,7 +494,9 @@ rules format itself (a YAML or JSON file, `parseRules`, `compilePolicy`,
     rest['GET /a']: `GET /a` would move above `GET /b`: nest it under `/a`, or write `/b` after it
   ```
 
-  Nest the rule under its path, or write the other path after it.
+  Nest the rule under its path, or write the other path after it. (A rule
+  already written nested that joins an earlier flat key gets the same refusal,
+  worded for it: write it with the first rules of the path.)
 - GraphQL rules are not first-match: they are grouped by type, wherever written.
 - A rule written twice, in either spelling, is refused, naming both keys:
 
@@ -502,9 +504,17 @@ rules format itself (a YAML or JSON file, `parseRules`, `compilePolicy`,
   duplicate rule: rest['POST /users/:id'] and rest['/users/:id'].POST both name POST /users/:id
   ```
 
-- A flat key keeps its method case (`GET`, not `get`) and its single space; a
-  key that is neither flat nor a path (`get /x`) is read as a path pattern and
-  fails to compile.
+- A flat key keeps its method case (`GET`, not `get`) and its single space. A
+  key that looks flat and is not (`get /x`, `GET  /x`) is refused with a hint:
+  `` `get /x` is not a rule key: did you mean `GET /x`? ``. It is no flat key
+  for the types (they cannot tell it from a path), so it type-checks and throws
+  at run time.
+- Where issues name a flat-written rule: an error raised by `definePolicy`
+  itself (an invalid body, a refused move, a duplicate) names the key as you
+  wrote it (`rest['POST /users/:id'].roles[0]`). What `definePolicy` returns is
+  nested, so later reports name the nested place: `compilePolicy` issues, the
+  `where` of a compiled route, coverage and `checkModel` paths read
+  `rest['/users/:id'].POST`.
 
 A flat key in a rules file is refused by `parseRules`, with the spelling to write
 instead. The `limix-codegen init --flat` command writes a policy in this form.
@@ -558,7 +568,11 @@ pass the conditions to `definePolicy` as well as to `compilePolicy`, and the nam
 come from their keys, with no declaration:
 
 ```ts
-const conditions = { workingHours: ({ claims }) => claims['shift'] === 'day' } // satisfies ConditionMap
+import { compilePolicy, definePolicy, type ConditionMap } from '@softistx/limix'
+
+const conditions = {
+  workingHours: ({ claims }) => claims['shift'] === 'day',
+} satisfies ConditionMap
 
 const rules = definePolicy(
   { limix: 1, global: { unmatched: 'deny' }, rest: { 'GET /x': { when: ['workingHours'] } } },
@@ -626,6 +640,26 @@ the field `*` of a type.
 const policy = compilePolicy(rules)
 for (const route of policy.restRoutes) console.log(route.method, route.pattern, route.where)
 ```
+
+## Upgrading from 0.6
+
+0.7 takes the flat spelling out of the rules format and gives it to `definePolicy`:
+
+- A flat key in a rules file (YAML or JSON, `parseRules`, `loadRules`,
+  `compilePolicy`) is refused with the nested spelling to write. Nest the file,
+  or write the document with `definePolicy`.
+- `RulesInput` is removed: `compilePolicy` takes a `Rules`, and `Rules['rest']`
+  is `Record<string, RestMethods>` again.
+- `definePolicy` validates at run time and throws a `RulesError` (it returned
+  its argument unchecked); it returns the nested `Rules` `parseRules` returns,
+  so `rules.rest['GET /x']` is `undefined` and `rules.rest['/x'].GET` holds the
+  rule. It refuses a flat rule whose move would jump over a competing rule.
+- A remote token signed with flat keys is refused by 0.7 clients: re-sign it
+  nested first (a 0.6 client reads nested keys), then upgrade the clients. See
+  [Moving from 0.6 flat keys](remote.md#moving-from-06-flat-keys).
+- `roles`, `permissions` and `when` are narrowed to what a program declares in
+  `Register` and to the keys of `definePolicy`'s `conditions`; codegen 0.4 no
+  longer generates those names.
 
 ## What was removed from `@softistx/security` 5
 

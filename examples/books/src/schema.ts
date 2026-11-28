@@ -15,7 +15,7 @@ interface Ctx {
 /**
  * The resolvers know nothing about limix: the rules in front of each field
  * decide whether they run. `Author.email` returns the email unconditionally;
- * `Author.email` in rules.yaml is what keeps it from non-admins.
+ * `Author.email` in src/policy.ts is what keeps it from non-admins.
  */
 export function buildSchema(store: Store) {
 	const ownerOf = (ctx: Ctx) =>

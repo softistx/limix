@@ -164,7 +164,7 @@ Query: { me: … } ``.
 **Why:** the rules format (YAML or JSON, `parseRules`, `compilePolicy`,
 `limix-publish`) is nested only: a path pattern keyed by method, a type keyed by
 field. The flat spelling is `definePolicy`'s, which nests it before validating.
-(0.6 accepted flat keys in a rules file; 0.7 does not, see the changelog.)
+(0.6 accepted flat keys in a rules file; 0.7 does not: see [Upgrading from 0.6](rules.md#upgrading-from-06).)
 **Fix:** nest the rule, or move the document into `definePolicy`:
 
 ```yaml
@@ -804,6 +804,18 @@ publisher served an older document, or its `ver` went down. Publish a higher
 rules" whichever step refused. A `when` naming a condition the service did not
 register arrives here as `unknown condition <name>`: add it to the `conditions`
 option.
+
+## A flat key in a pulled or stored token: `` `POST /x` is a definePolicy key ``
+
+**When:** after upgrading a client to 0.7, a pull fails with `RULES_REFUSED`
+(`Invalid rules in the pulled rules`), or a restart fails with `STORE` (`the
+stored policy was not used: Invalid rules ...`), the issue being `` `POST /x` is
+a definePolicy key; in a rules file write "/x": { POST: … } ``.
+**Why:** the token was signed on 0.6 with flat keys, which 0.7 refuses. A running
+client keeps its held copy; a restarted one has no policy until a nested token is
+published, and fails closed.
+**Fix:** re-sign the rules nested and publish them, then upgrade the clients (see
+[Moving from 0.6 flat keys](remote.md#moving-from-06-flat-keys)).
 
 ## the stored policy was not used: <reason>
 
