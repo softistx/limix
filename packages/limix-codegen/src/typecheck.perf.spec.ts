@@ -56,7 +56,7 @@ async function instantiations(source: string): Promise<number> {
 	}
 }
 
-// Measured at the time of writing, 2000 operations: nested 713k (the same as
+// Measured at the time of writing, 2000 operations: nested 715k (the same as
 // before flat keys; the nested lookup is quadratic), flat 12k. The budgets
 // leave room for a TypeScript release and catch a blow-up, not a drift.
 describe('definePolicy over a registered API of 2000 operations', () => {

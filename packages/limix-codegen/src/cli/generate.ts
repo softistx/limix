@@ -1,6 +1,5 @@
 import { resolve } from 'node:path';
 import { generateModule } from '../module';
-import { staleRules } from '../stale';
 import { GENERATE_HELP } from './help';
 import { loadInputs, parseInputs } from './inputs';
 import { type Io, UsageError } from './io';
@@ -21,13 +20,12 @@ export async function generateCommand(
 		io.stdout(GENERATE_HELP);
 		return 0;
 	}
-	if (!values.graphql?.length && !values.openapi?.length && !values.rules) {
-		throw new UsageError('give at least one of --graphql, --openapi, --rules');
+	if (!values.graphql?.length && !values.openapi?.length) {
+		throw new UsageError('give at least one of --graphql, --openapi');
 	}
 	const out = values.out ?? DEFAULT_OUT;
 	const target = resolve(out);
 	const inputs = [...(values.graphql ?? []), ...(values.openapi ?? [])];
-	if (values.rules) inputs.push(values.rules);
 	if (inputs.some((input) => resolve(input) === target)) {
 		throw new UsageError(
 			`--out ${out} is also an input: it would be overwritten`,
@@ -35,22 +33,6 @@ export async function generateCommand(
 	}
 	const loaded = await loadInputs(values, io);
 	const wanted = generateModule(loaded);
-	// Rules are judged against the operations given, so both must be there.
-	const stale =
-		loaded.rules && (loaded.rest || loaded.graphql)
-			? staleRules(loaded.rules, {
-					rest: loaded.rest,
-					graphql: loaded.graphql,
-					sources: {
-						rules: values.rules ?? '',
-						openapi: (values.openapi ?? []).join(', '),
-						graphql: (values.graphql ?? []).join(', '),
-					},
-				})
-			: [];
-	const report = () => {
-		for (const issue of stale) io.stderr(`${issue.message}\n`);
-	};
 	const present = await io.exists(out);
 	const current = present ? lf(await io.readFile(out)) : undefined;
 	const same = current === lf(wanted);
@@ -60,22 +42,13 @@ export async function generateCommand(
 			io.stderr(
 				`${out} ${why}: run limix-codegen generate with the same flags and commit it\n`,
 			);
-		}
-		report();
-		const rules = stale.filter((issue) => issue.kind !== 'compile').length;
-		if (rules > 0) {
-			io.stderr(
-				`${rules} stale rule(s): fix or remove them, or add the operation to the spec\n`,
-			);
-		}
-		if (same && stale.length === 0) io.stdout(`${out} is up to date\n`);
-		return same && stale.length === 0 ? 0 : 1;
+		} else io.stdout(`${out} is up to date\n`);
+		return same ? 0 : 1;
 	}
 	if (same) io.stdout(`${out} is up to date\n`);
 	else {
 		await io.writeFile(out, wanted);
 		io.stdout(`wrote ${out}\n`);
 	}
-	report();
 	return 0;
 }

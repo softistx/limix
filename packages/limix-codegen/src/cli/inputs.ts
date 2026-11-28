@@ -1,12 +1,11 @@
 import { parseArgs } from 'node:util';
 import { type ModuleInput, sourceNames } from '../module';
-import { readGraphql, readOpenapi, readRules } from '../sources';
+import { readGraphql, readOpenapi } from '../sources';
 import type { Io } from './io';
 
 const BASE = {
 	graphql: { type: 'string', multiple: true },
 	openapi: { type: 'string', multiple: true },
-	rules: { type: 'string' },
 	help: { type: 'boolean', short: 'h' },
 } as const;
 
@@ -24,14 +23,12 @@ export function parseInputs<
 export interface InputFlags {
 	graphql?: string[] | undefined;
 	openapi?: string[] | undefined;
-	rules?: string | undefined;
 }
 
-/** What the inputs hold; `sources` names them in the order graphql, openapi, rules. */
+/** What the inputs hold; `sources` names them. */
 export async function loadInputs(
 	flags: InputFlags,
 	io: Io,
-	options: { rules: boolean } = { rules: true },
 ): Promise<ModuleInput> {
 	const sources: string[] = [];
 	const input: { -readonly [K in keyof ModuleInput]: ModuleInput[K] } = {
@@ -47,10 +44,6 @@ export async function loadInputs(
 		);
 		input.rest = lists.flat();
 		sources.push(...flags.openapi);
-	}
-	if (options.rules && flags.rules !== undefined) {
-		input.rules = await readRules(flags.rules);
-		sources.push(flags.rules);
 	}
 	input.sources = sourceNames(sources);
 	return input;
