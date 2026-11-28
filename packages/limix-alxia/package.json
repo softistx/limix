@@ -66,7 +66,7 @@
 	"peerDependencies": {
 		"@softistx/alxia": ">=0.28.0 <1.0.0",
 		"@softistx/alxia-graphql": ">=0.20.2 <1.0.0",
-		"@softistx/graxia": ">=0.20.1 <1.0.0",
+		"@softistx/graxia": ">=0.18.0 <1.0.0",
 		"@softistx/limix": "workspace:^",
 		"@softistx/limix-graxia": "workspace:^",
 		"graphql": "^17.1.0",

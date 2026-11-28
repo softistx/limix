@@ -62,7 +62,7 @@
       "peerDependencies": {
         "@softistx/alxia": ">=0.28.0 <1.0.0",
         "@softistx/alxia-graphql": ">=0.20.2 <1.0.0",
-        "@softistx/graxia": ">=0.20.1 <1.0.0",
+        "@softistx/graxia": ">=0.18.0 <1.0.0",
         "@softistx/limix": "workspace:^",
         "@softistx/limix-graxia": "workspace:^",
         "graphql": "^17.1.0",
@@ -108,7 +108,7 @@
         "graphql": "^17.1.0",
       },
       "peerDependencies": {
-        "@softistx/graxia": ">=0.20.1 <1.0.0",
+        "@softistx/graxia": ">=0.18.0 <1.0.0",
         "@softistx/limix": "workspace:^",
         "graphql": "^17.1.0",
         "typescript": "^6.0.3 || ^7.0.0",
@@ -123,7 +123,7 @@
         "@types/bun": "^1.4.5",
       },
       "peerDependencies": {
-        "@softistx/janus": ">=0.85.0 <1.0.0",
+        "@softistx/janus": ">=0.84.0 <1.0.0",
         "@softistx/limix": "workspace:^",
         "typescript": "^6.0.3 || ^7.0.0",
       },
