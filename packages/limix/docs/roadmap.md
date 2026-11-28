@@ -29,6 +29,13 @@ Nothing yet.
 
 ## Shipped
 
+- **0.7.0** — the rules format is nested only again: a flat key in a rules file
+  is refused with the nested spelling to write (`RulesInput` is removed), and the
+  flat spelling lives in `definePolicy`, which nests it in document order,
+  validates (as `parseRules` does) and returns the nested `Rules`. Rule bodies
+  are typed: `roles`, `permissions` and `when` are narrowed to the names a
+  program declares in `Register`, and `when` to the keys of `definePolicy`'s
+  `conditions` option. See the changelog for the migration.
 - **0.6.0** — flat rule keys (`"POST /users/:id"`, `"Query.me"`) beside the
   nested form, mixed in one file in document order; a bare `*` in a path, the
   method `*` and `Type.*`; coverage's `match: 'wildcard'` and

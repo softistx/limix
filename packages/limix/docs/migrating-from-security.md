@@ -993,12 +993,14 @@ context before it, from your own authentication.
 ## 20. Types for the rules (new, optional)
 
 [`@softistx/limix-codegen`](https://github.com/softistx/limix/blob/develop/packages/limix-codegen/README.md)
-registers your API's operations and the names in your rules file, so `definePolicy`
-refuses a path, a method, a GraphQL field or a condition the API does not have. It
-is a build-time tool, for CI:
+registers your API's operations, so `definePolicy` refuses a path, a method or a
+GraphQL field the API does not have; the role, permission and condition names are
+declared by hand. It types a policy written in code and never reads a rules file
+(check a YAML file against the API with `@softistx/limix/coverage`). It is a
+build-time tool, for CI:
 
 ```sh
-limix-codegen generate --openapi openapi.yaml --graphql schema.graphql --rules rules.yaml --check
+limix-codegen generate --openapi openapi.yaml --graphql schema.graphql --check
 ```
 
 ## 21. Not in limix yet
