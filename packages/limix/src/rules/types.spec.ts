@@ -17,16 +17,17 @@ export const _rest: Mutual<RestRule, z.infer<typeof zRestRule>> = true;
 export const _methods: Mutual<RestMethods, z.infer<typeof zMethods>> = true;
 export const _graphql: Mutual<GraphqlRule, z.infer<typeof zGraphqlRule>> = true;
 
-// A rule is read through a flat key and a nested one (`GraphqlRule` is held to
-// its schema above; flat GraphQL keys are typed by `RulesInput`).
+// A rule is read under a path pattern and a method, nested only.
 type RestEntries = NonNullable<Rules['rest']>;
-export const _flatRest: Mutual<RestEntries['GET /x'], RestRule> = true;
 export const _nestedRest: Mutual<RestMethods['GET'], RestRule | undefined> =
 	true;
+export const _pattern: Mutual<RestEntries[string], RestMethods> = true;
 
 // A type alias, not an interface, so a `Rules` value assigns to a record.
 export const _record: Record<string, unknown> = {} as Rules;
 
 test('the explicit Rules type matches the schema', () => {
-	expect(_rules && _rest && _methods && _graphql).toBe(true);
+	expect(
+		_rules && _rest && _methods && _graphql && _pattern && _nestedRest,
+	).toBe(true);
 });

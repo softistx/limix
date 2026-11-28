@@ -1,5 +1,4 @@
 import { formatPath, RulesError, type RulesIssue } from './error';
-import { BAD_KEY, graphqlKeyProblem, restKeyProblem } from './keys';
 import { type Rules, RulesSchema } from './schema';
 
 /**
@@ -32,16 +31,13 @@ function keyMessage(message: string, key: string): string {
 	return own ?? message;
 }
 
-/** What zod said, except for a refused key of `rest` or `graphql`, which it only marks. */
+/** What zod said; for a refused key of a record, the message of its key schema. */
 function messageOf(issue: {
-	path: readonly PropertyKey[];
+	code: string;
 	message: string;
+	issues?: readonly { message: string }[];
 }): string {
-	if (issue.message !== BAD_KEY) return issue.message;
-	const [block, key] = issue.path;
-	if (typeof key !== 'string') return issue.message;
-	return (
-		(block === 'rest' ? restKeyProblem(key) : graphqlKeyProblem(key)) ??
-		issue.message
-	);
+	return issue.code === 'invalid_key'
+		? (issue.issues?.[0]?.message ?? issue.message)
+		: issue.message;
 }

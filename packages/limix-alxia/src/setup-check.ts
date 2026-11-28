@@ -14,7 +14,7 @@ export type RouteIssueKind =
 	| 'separated-guards';
 
 /**
- * What a check found wrong. `path` is the rule key (`GET /files/*path`,
+ * What a check found wrong. `path` is the rule label (`GET /files/*path`,
  * `Query.me`) or the route label (`GET /admin`), not a place in the rules file
  * as `NeedsIssue.path` is.
  */

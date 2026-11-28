@@ -52,8 +52,8 @@ const isFromField = (
 
 /**
  * Every `[where, rule]` of the policy, REST then GraphQL, each in document
- * order. `where` is the path of the rule as the rules file spells it, flat key
- * or nested, without `global.basePath`, as core's `RulesIssue` paths are.
+ * order. `where` is the path of the rule as the rules file spells it
+ * (nested), without `global.basePath`, as core's `RulesIssue` paths are.
  */
 function* rulesOf(policy: CompiledPolicy): Generator<[string, RuleLike]> {
 	for (const route of policy.restRoutes) yield [route.where, route.rule];

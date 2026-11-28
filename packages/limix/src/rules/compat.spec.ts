@@ -47,10 +47,13 @@ test('reads keep their develop types', () => {
 });
 
 test('a typo under a path is still a type error', () => {
-	definePolicy({
-		limix: 1,
-		global,
-		// @ts-expect-error GTE is not a method
-		rest: { '/x': { GTE: { public: true } } },
-	});
+	// #60: definePolicy validates at run time now, so the refused call throws.
+	const refused = () =>
+		definePolicy({
+			limix: 1,
+			global,
+			// @ts-expect-error GTE is not a method
+			rest: { '/x': { GTE: { public: true } } },
+		});
+	expect(refused).toThrow('unknown key `GTE`');
 });

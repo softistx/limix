@@ -1,11 +1,6 @@
 import { z } from 'zod';
 import { strict } from './hints';
-import {
-	BAD_KEY,
-	FLAT_GRAPHQL_KEY,
-	MALFORMED_GRAPHQL_KEY,
-	NESTED_GRAPHQL_KEY,
-} from './keys';
+import { flatKeyHint, NOT_FLAT_GRAPHQL_KEY } from './keys';
 import { entryShape, zGraphqlRelationRung } from './terms';
 import type { Rules } from './types';
 
@@ -24,52 +19,34 @@ export const zGraphqlRule = strict({
 const zFields = z.record(
 	z
 		.string()
-		.describe('Field name on this GraphQL type, e.g. "createUser", or `*`.'),
+		.describe(
+			'Field name on this GraphQL type, e.g. "createUser", or `*` for every other field.',
+		),
 	zGraphqlRule,
 );
 
 /**
- * GraphQL rules, keyed by `Type.field` / `Type.*` or by type name then field
- * name, side by side. The three root types are explicit properties so editors
- * suggest them; any other type name is accepted, to guard fields of returned
- * types. A key goes to one record by its shape and the others let it through
- * unchanged, so the document order survives the intersection (the records
- * come first: the object lists its own keys first).
+ * GraphQL rules: a type name, then the rules by field name (`*` for every
+ * other field). Any type name is accepted, the root types `Query`, `Mutation`
+ * and `Subscription` included, to guard fields of returned types. A flat key
+ * (`Query.me`) is a `definePolicy` spelling and is refused here with the
+ * nested one to write.
  */
-// The intersection merges what each side returns, key by key, and relies on
-// every side returning a rule unchanged: a rule schema (here or in `terms.ts`)
-// must never carry a transform, a default or a preprocess, or the merge fails
-// on an unmergeable value. `flat-keys.spec.ts` parses both spellings together,
-// which fails on one.
-// Typed as `Rules['graphql']`: see `zRestRules`.
 export const zGraphqlRules = z
-	.intersection(
-		z.intersection(
-			z.intersection(
-				z.looseRecord(
-					z
-						.string()
-						.regex(FLAT_GRAPHQL_KEY)
-						.describe(
-							'A field of a type: "Query.me", or all of them: "Note.*".',
-						),
-					zGraphqlRule,
-				),
-				z.looseRecord(z.string().regex(NESTED_GRAPHQL_KEY), zFields),
+	.record(
+		z
+			.string()
+			.regex(NOT_FLAT_GRAPHQL_KEY, {
+				error: (issue) => flatKeyHint('graphql', String(issue.input)),
+			})
+			.describe(
+				'Type name: Query, Mutation or Subscription for root fields, any other name for fields of that type wherever it appears.',
 			),
-			z.looseRecord(
-				z.string().regex(MALFORMED_GRAPHQL_KEY),
-				z.never({ error: BAD_KEY }),
-			),
-		),
-		z.looseObject({
-			Query: zFields.optional(),
-			Mutation: zFields.optional(),
-			Subscription: zFields.optional(),
-		}),
+		zFields,
 	)
 	.describe(
-		'GraphQL rules, keyed by "Type.field" or "Type.*", or by type name then ' +
-			'field name. Query, Mutation and Subscription cover root fields; any ' +
-			'other type name targets fields on that type wherever it appears.',
+		'GraphQL rules, keyed by type name then field name (`*` for every other ' +
+			'field of the type). Query, Mutation and Subscription cover root ' +
+			'fields; any other type name targets fields on that type wherever it ' +
+			'appears.',
 	) as unknown as z.ZodType<NonNullable<Rules['graphql']>>;

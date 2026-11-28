@@ -23,23 +23,29 @@ describe('schema/rules.schema.json', () => {
 		expect(schema.patternProperties).toEqual({ '^x-': {} });
 	});
 
-	it('describes flat, nested and refused keys with patternProperties', () => {
-		const text = rulesJsonSchemaText();
-		const schema = rulesJsonSchema() as {
-			properties: {
-				rest: { allOf: { patternProperties?: object }[] };
-				graphql: { allOf: { patternProperties?: object }[] };
-			};
+	it('refuses the flat keys with a key pattern, which a nested key never matches', () => {
+		const patterns: string[] = [];
+		const walk = (node: unknown) => {
+			if (Array.isArray(node)) node.forEach(walk);
+			else if (typeof node === 'object' && node !== null) {
+				const { pattern } = node as { pattern?: unknown };
+				if (typeof pattern === 'string') patterns.push(pattern);
+				Object.values(node).forEach(walk);
+			}
 		};
-		const patterns = (block: 'rest' | 'graphql') =>
-			schema.properties[block].allOf.flatMap((part) =>
-				Object.keys(part.patternProperties ?? {}),
-			);
-		// flat, nested and refused keys, each a pattern of its own
-		expect(patterns('rest').length).toBeGreaterThanOrEqual(2);
-		expect(patterns('rest')[0]).toContain('GET|POST');
-		expect(patterns('graphql').length).toBeGreaterThanOrEqual(3);
-		expect(text).toContain('"*"');
+		walk(rulesJsonSchema());
+		const keys = patterns.map((pattern) => new RegExp(pattern));
+		const accepts = (key: string) => keys.some((regex) => regex.test(key));
+		const refuses = (key: string) =>
+			keys.some((regex) => !regex.test(key) && regex.source.startsWith('^(?!'));
+		for (const flat of ['POST /a', '* /a', 'Query.me', 'Note.*']) {
+			expect(refuses(flat)).toBe(true);
+		}
+		for (const nested of ['/a', '/a b', 'Query', 'Note']) {
+			expect(refuses(nested)).toBe(false);
+		}
+		expect(accepts('/a')).toBe(true);
+		expect(rulesJsonSchemaText()).toContain('"*"');
 	});
 
 	it('mentions no removed key', () => {

@@ -252,3 +252,112 @@ describe('TypedRulesInput: flat keys', () => {
 		expect(rules.rest).toBeDefined();
 	});
 });
+
+describe('TypedRulesInput and TypedRules: the terms of a rule are narrowed', () => {
+	const typedInput = input<Reg>();
+	const typedNested = typed<Reg>();
+
+	it('accepts the declared roles, permissions and conditions', () => {
+		const flat = typedInput({
+			limix: 1,
+			global: unmatched,
+			rest: {
+				'GET /notes': {
+					roles: [['admin']],
+					permissions: [['notes:read']],
+					when: ['workingHours'],
+				},
+			},
+			graphql: { 'Query.me': { roles: [['admin']] } },
+		});
+		const nested = typedNested({
+			limix: 1,
+			global: unmatched,
+			rest: { '/notes': { GET: { permissions: [['notes:read']] } } },
+			graphql: { Query: { me: { when: ['workingHours'] } } },
+		});
+		const rules: Rules = nested;
+		expect([flat, rules]).toHaveLength(2);
+	});
+
+	it('refuses a role, a permission or a condition that is not declared', () => {
+		const check = typedInput;
+		check({
+			limix: 1,
+			global: unmatched,
+			rest: {
+				// @ts-expect-error `root` is not a declared role
+				'GET /notes': { roles: [['root']] },
+			},
+		});
+		check({
+			limix: 1,
+			global: unmatched,
+			rest: {
+				// @ts-expect-error `notes:erase` is not a declared permission
+				'/notes': { GET: { permissions: [['notes:erase']] } },
+			},
+		});
+		check({
+			limix: 1,
+			global: unmatched,
+			rest: {
+				// @ts-expect-error `weekend` is not a declared condition
+				'GET /notes': { when: ['weekend'] },
+			},
+		});
+		check({
+			limix: 1,
+			global: unmatched,
+			graphql: {
+				// @ts-expect-error `root` is not a declared role
+				Query: { me: { roles: [['root']] } },
+			},
+		});
+		typedNested({
+			limix: 1,
+			global: unmatched,
+			rest: {
+				// @ts-expect-error `root` is not a declared role
+				'/notes': { GET: { roles: [['root']] } },
+			},
+		});
+	});
+
+	it('narrows by what is declared, whatever else is registered', () => {
+		const onlyRole = input<{ role: 'admin' }>();
+		onlyRole({
+			limix: 1,
+			global: unmatched,
+			rest: { 'GET /any': { roles: [['admin']], permissions: [['free']] } },
+		});
+		onlyRole({
+			limix: 1,
+			global: unmatched,
+			rest: {
+				// @ts-expect-error `root` is not a declared role
+				'GET /any': { roles: [['root']] },
+			},
+		});
+	});
+
+	it('takes the condition names as a parameter', () => {
+		const withNames =
+			<W extends string>() =>
+			(rules: TypedRulesInput<object, W>) =>
+				rules;
+		withNames<'a' | 'b'>()({
+			limix: 1,
+			global: unmatched,
+			rest: { 'GET /x': { when: ['a', 'b'] } },
+		});
+		withNames<'a'>()({
+			limix: 1,
+			global: unmatched,
+			rest: {
+				// @ts-expect-error `b` is not a condition of this policy
+				'GET /x': { when: ['b'] },
+			},
+		});
+	});
+});
