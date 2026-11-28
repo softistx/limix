@@ -2,7 +2,9 @@ import { describe, expect, it } from 'bun:test';
 import type { Condition } from './compile/types';
 import type {
 	ConditionMap,
+	GraphqlRulesInput,
 	Permission,
+	RestRulesInput,
 	TypedRules,
 	TypedRulesInput,
 } from './register';
@@ -359,5 +361,45 @@ describe('TypedRulesInput and TypedRules: the terms of a rule are narrowed', () 
 				'GET /x': { when: ['b'] },
 			},
 		});
+	});
+});
+
+describe('RestRulesInput and GraphqlRulesInput: a block checked on its own', () => {
+	type Named = Reg;
+	it('accepts a valid block, flat or nested', () => {
+		const rest = {
+			'GET /notes': { roles: [['admin']] },
+			'/notes/:id': { DELETE: { permissions: [['notes:read']] } },
+		} satisfies RestRulesInput<Named>;
+		const graphql = {
+			'Query.me': { when: ['workingHours'] },
+			Note: { body: { authenticated: true } },
+		} satisfies GraphqlRulesInput<Named>;
+		expect(Object.keys(rest)).toHaveLength(2);
+		expect(Object.keys(graphql)).toHaveLength(2);
+	});
+
+	it('refuses an unknown flat key, nested path, field or role', () => {
+		const flat = {
+			// @ts-expect-error `GET /notez` is not registered
+			'GET /notez': { public: true },
+		} satisfies RestRulesInput<Named>;
+		const nested = {
+			// @ts-expect-error `/notez` is not a registered path
+			'/notez': { GET: { public: true } },
+		} satisfies RestRulesInput<Named>;
+		const role = {
+			// @ts-expect-error `root` is not a declared role
+			'GET /notes': { roles: [['root']] },
+		} satisfies RestRulesInput<Named>;
+		const field = {
+			// @ts-expect-error `Query.you` is not registered
+			'Query.you': { public: true },
+		} satisfies GraphqlRulesInput<Named>;
+		const condition = {
+			// @ts-expect-error `weekend` is not a declared condition
+			'Query.me': { when: ['weekend'] },
+		} satisfies GraphqlRulesInput<Named>;
+		expect([flat, nested, role, field, condition]).toHaveLength(5);
 	});
 });

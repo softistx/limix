@@ -115,17 +115,29 @@ export type TypedRulesInput<
 	R = Register,
 	W extends string = ConditionName<R>,
 > = Omit<RulesDocument, 'rest' | 'graphql'> & {
-	rest?:
-		| (R extends Record<'rest', infer O extends string>
-				? CheckedRestInput<O, Body<R, W>>
-				: Record<string, MethodsOf<Body<R, W>> & Body<R, W>>)
-		| undefined;
-	graphql?:
-		| (R extends Record<'graphql', infer O extends string>
-				? CheckedGraphqlInput<O, Body<R, W>>
-				: Record<string, FieldsOf<Body<R, W>> | Body<R, W>>)
-		| undefined;
+	rest?: RestRulesInput<R, W> | undefined;
+	graphql?: GraphqlRulesInput<R, W> | undefined;
 };
+
+/**
+ * The `rest` block of a `TypedRulesInput`, on its own: write it in a file and
+ * check it there with `satisfies RestRulesInput`, then give it to
+ * `definePolicy({ rest: [a, b] })`. A path, method, role, permission or
+ * condition the registration does not hold is refused, as in an inline `rest`.
+ */
+export type RestRulesInput<R = Register, W extends string = ConditionName<R>> =
+	R extends Record<'rest', infer O extends string>
+		? CheckedRestInput<O, Body<R, W>>
+		: Record<string, MethodsOf<Body<R, W>> & Body<R, W>>;
+
+/** The `graphql` block of a `TypedRulesInput`, on its own: see `RestRulesInput`. */
+export type GraphqlRulesInput<
+	R = Register,
+	W extends string = ConditionName<R>,
+> =
+	R extends Record<'graphql', infer O extends string>
+		? CheckedGraphqlInput<O, Body<R, W>>
+		: Record<string, FieldsOf<Body<R, W>> | Body<R, W>>;
 
 /**
  * The predicates `compilePolicy` takes: any name when nothing is registered,

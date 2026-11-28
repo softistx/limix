@@ -5,6 +5,8 @@ dates here, and the version something shipped in is the only number.
 
 ## Now
 
+- **Rules split across files** — `RestRulesInput` and `GraphqlRulesInput` to check
+  a block of rules in its own file, and `definePolicy` taking a list of blocks.
 - **1.0 API freeze** — the breaks found by the API review.
 
 ## Next
