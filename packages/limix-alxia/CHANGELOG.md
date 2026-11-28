@@ -1,5 +1,13 @@
 # @softistx/limix-alxia
 
+## 0.3.3
+
+### Patch Changes
+
+- Updated dependencies [[`53b7ca5`](https://github.com/softistx/limix/commit/53b7ca51804ca357c033eec94a8356d7a64141f7)]:
+  - @softistx/limix@0.8.0
+  - @softistx/limix-graxia@0.3.2
+
 ## 0.3.2
 
 ### Patch Changes
