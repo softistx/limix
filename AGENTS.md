@@ -95,6 +95,13 @@ committed generated types (`bun run generate`, `check:limix`) and specs. The roo
 and `ci.yml` run it (not `build`: a break there must not block a publish); `affected.ts`, `verify-artifacts` and `check-changesets` read
 `packages/*` only, so they skip it.
 
+Typecheck needs no build: every `exports` entry of a package starts with the custom condition
+`"@softistx/source"` (pointing at `src/*.ts`) and `tsconfig.base.json` sets
+`customConditions: ["@softistx/source"]`, so a sibling import resolves to source on a fresh clone. The
+condition is custom on purpose: never `bun` or `source`, which a consumer's runtime or bundler would
+resolve to `src`, which is not published. It changes neither `dist` nor the published `.d.ts`. A new
+entry point gets the condition first in its `exports` entry.
+
 Declared divergences from janus:
 
 - No database services in `ci.yml` and the setup action (PostgreSQL, MongoDB,
