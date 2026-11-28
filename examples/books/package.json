@@ -14,7 +14,7 @@
 	"dependencies": {
 		"@softistx/alxia": "^0.28.0",
 		"@softistx/alxia-graphql": "^0.20.2",
-		"@softistx/graxia": "^0.18.0",
+		"@softistx/graxia": "^0.20.1",
 		"@softistx/limix": "workspace:^",
 		"@softistx/limix-alxia": "workspace:^",
 		"@softistx/limix-graxia": "workspace:^",
