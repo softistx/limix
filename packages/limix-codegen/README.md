@@ -59,6 +59,10 @@ As package.json scripts:
 }
 ```
 
+The file also exports `RestRules` and `GraphqlRules`, so a block of rules kept
+in its own file is checked with `satisfies RestRules<'ownsBook'>` (see
+[writing rules](docs/writing-rules.md#7-splitting-the-policy-across-files)).
+
 A key is registered only when its input is given: without `--graphql`, GraphQL
 rules stay unchecked. The output is sorted and byte-stable (LF, no date, no
 version), so `--check` is a plain comparison. Exit codes: 0 done, 1 refused (or

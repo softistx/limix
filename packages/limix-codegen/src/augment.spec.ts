@@ -6,7 +6,7 @@ import {
 	type Permission,
 	type Role,
 } from '@softistx/limix';
-import type { LimixRest } from './generated.fixtures';
+import type { GraphqlRules, LimixRest, RestRules } from './generated.fixtures';
 
 const unmatched = { unmatched: 'deny' } as const;
 const rule = { authenticated: true } as const;
@@ -196,5 +196,50 @@ describe('the generated augmentation, the vocabulary declared by hand', () => {
 			{ conditions },
 		);
 		expect(compilePolicy(rules, { conditions })).toBeDefined();
+	});
+});
+
+describe('the generated RestRules and GraphqlRules aliases', () => {
+	it('accepts a valid block and splits a policy across blocks', () => {
+		const reads = {
+			'GET /notes': { permissions: [['notes:read']] },
+		} satisfies RestRules<'workingHours'>;
+		const writes = {
+			'/notes/:id': {
+				DELETE: { roles: [['admin']], when: ['workingHours'] },
+			},
+		} satisfies RestRules<'workingHours'>;
+		const fields = {
+			'Query.me': rule,
+		} satisfies GraphqlRules<'workingHours'>;
+		const rules = definePolicy({
+			limix: 1,
+			global: unmatched,
+			rest: [reads, writes],
+			graphql: fields,
+		});
+		expect(rules.rest?.['/notes']?.GET).toBeDefined();
+		expect(rules.rest?.['/notes/:id']?.DELETE).toBeDefined();
+	});
+
+	it('refuses an unknown path, role or condition in a block', () => {
+		const refused = () => {
+			// @ts-expect-error `/notez` is not an operation of the API
+			const path = { 'GET /notez': rule } satisfies RestRules<'workingHours'>;
+			const role = {
+				// @ts-expect-error `root` is not a declared role
+				'GET /notes': { roles: [['root']] },
+			} satisfies RestRules<'workingHours'>;
+			const condition = {
+				// @ts-expect-error `weekend` is not among the condition names given
+				'GET /notes': { when: ['weekend'] },
+			} satisfies RestRules<'workingHours'>;
+			const field = {
+				// @ts-expect-error `Query.you` is not a field
+				'Query.you': rule,
+			} satisfies GraphqlRules<'workingHours'>;
+			return [path, role, condition, field];
+		};
+		expect(refused).toBeInstanceOf(Function);
 	});
 });

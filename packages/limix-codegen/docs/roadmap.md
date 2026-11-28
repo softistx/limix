@@ -22,6 +22,10 @@ Nothing yet.
 
 ## Shipped
 
+- **0.5.0** — rules split across files: the generated file also exports
+  `RestRules` and `GraphqlRules`, so a block of rules in its own file is checked
+  with `satisfies RestRules<'ownsBook'>` against the API's operations and the
+  declared names.
 - **0.4.0** — codegen is types only: it never reads a policy. 0.3's `--rules`,
   the stale-rule report and the rules-file `init` are reverted: `generate`
   registers the API's operations (`rest`, `graphql`) and `init` writes a
