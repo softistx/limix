@@ -570,7 +570,8 @@ export const rules = definePolicy({
   group), nested or flat.
 - A mistake inside an inline list is reported by TypeScript on the `rest:` key
   (`No overload matches this call`), not on the block that holds it. Write each
-  block `satisfies RestRulesInput`, so the error shows where it lives
+  block in its own constant or file, `satisfies RestRulesInput`, so the error
+  shows where it lives (`satisfies` inside the list does not move it)
   ([`Index signature for type …`](troubleshooting.md#index-signature-for-type-stringstring-is-missing-in-type-)).
 
 ## Typed operations and names
