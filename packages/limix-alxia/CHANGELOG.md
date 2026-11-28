@@ -1,5 +1,15 @@
 # @softistx/limix-alxia
 
+## 0.3.4
+
+### Patch Changes
+
+- [#72](https://github.com/softistx/limix/pull/72) [`d5aee5b`](https://github.com/softistx/limix/commit/d5aee5bca556381db227c54ab0b788db8f144f91) Thanks [@SteveGT96](https://github.com/SteveGT96)! - Tested against graxia 0.20 and janus 0.85; peer ranges unchanged.
+
+- [#76](https://github.com/softistx/limix/pull/76) [`0ee9d4d`](https://github.com/softistx/limix/commit/0ee9d4da66560dbac64c7009cb8639de4cd34484) Thanks [@SteveGT96](https://github.com/SteveGT96)! - A guarded plugin's `limixGraphql` endpoint, mounted under a host prefix (a host `prefix`, a prefixed group, or twice), is left to its field guard again instead of answering 403: the host guard tells the plugin guard which definition it matched, and the plugin guard accepts it only for a mounted copy of its own endpoint. A host without a guard still refuses it. Fixes [#44](https://github.com/softistx/limix/issues/44).
+- Updated dependencies [[`d5aee5b`](https://github.com/softistx/limix/commit/d5aee5bca556381db227c54ab0b788db8f144f91)]:
+  - @softistx/limix-graxia@0.3.3
+
 ## 0.3.3
 
 ### Patch Changes
