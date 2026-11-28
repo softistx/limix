@@ -8,3 +8,5 @@ declare module '@softistx/limix' {
 		condition: 'workingHours';
 	}
 }
+
+export {};

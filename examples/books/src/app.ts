@@ -2,7 +2,7 @@ import { alxia } from '@softistx/alxia';
 import { type LimixAlxiaOptions, limixGuard } from '@softistx/limix-alxia';
 import { limixGraphql } from '@softistx/limix-alxia/graphql';
 import { demoClaims } from './demo-claims';
-import { loadPolicy } from './policy';
+import { policyFor } from './policy';
 import { buildSchema } from './schema';
 import { createStore, type Store } from './store';
 
@@ -29,7 +29,7 @@ async function bodyOf(request: Request): Promise<BookBody> {
  */
 export async function buildApp(store: Store = createStore()) {
 	const app = alxia();
-	const policy = await loadPolicy(store);
+	const policy = policyFor(store);
 	const limix: LimixAlxiaOptions<{ request: Request }> = {
 		policy,
 		claims: demoClaims,
