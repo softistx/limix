@@ -167,28 +167,113 @@ export function judgedElsewhere(
 }
 
 /**
+ * The definition the outermost guard matched for a request, by the request's
+ * context (alxia hands the same object to every hook of the chain): a plugin
+ * mounted under a prefix holds its routes under its own paths, so its guard
+ * cannot find the copy the host router matched, and learns it from here.
+ */
+const placed = new WeakMap<object, { route: string; definition: Definition }>();
+
+/**
+ * The prefix a mount put before `own` to make `full` (the exact inverse of
+ * alxia's `joinPath`): `''` when they are equal, else a valid alxia prefix
+ * (starts with `/`, does not end with `/`, no `//`), or `undefined`.
+ */
+export function prefixOf(full: string, own: string): string | undefined {
+	if (full === own) return '';
+	const prefix =
+		own === '/'
+			? full
+			: full.endsWith(own)
+				? full.slice(0, full.length - own.length)
+				: undefined;
+	return prefix !== undefined &&
+		/^\/.*[^/]$/.test(prefix) &&
+		!prefix.includes('//')
+		? prefix
+		: undefined;
+}
+
+/**
+ * Whether the guard `self` of `app` (a plugin) leaves a request to the field
+ * guard because the outer guard matched a `limixGraphql` endpoint that is a
+ * mounted copy of one of `app`'s own. Every check must hold, else `self` judges
+ * (fail closed): the router's declared route is the one the outer guard matched
+ * and that definition is an endpoint; the method is exactly its own (no HEAD to
+ * GET, no `all`, no socket fallback); `app` declares an endpoint of the same
+ * handler, kind and schema; the copy's chain holds the very `self` hook of that
+ * endpoint, with no `when`; and the copy's path is the plugin's own path under a
+ * valid prefix.
+ */
+export function placedEndpoint(
+	app: RoutesOf,
+	self: unknown,
+	method: string,
+	route: string,
+	upgrade: boolean,
+	placement: { route: string; definition: Definition } | undefined,
+): boolean {
+	if (placement === undefined || placement.route !== route) return false;
+	const copy = placement.definition;
+	if (!isEndpoint(copy)) return false;
+	if ('handler' in copy ? copy.method !== method : !upgrade) return false;
+	return [...app.routes, ...(app.sockets ?? [])].some((own) => {
+		if (
+			!isEndpoint(own) ||
+			handlerOf(own) !== handlerOf(copy) ||
+			!sameKind(own, copy) ||
+			own.schema !== copy.schema
+		) {
+			return false;
+		}
+		const hook = own.derive.find(
+			(candidate) =>
+				candidate.kind === 'middleware' &&
+				(candidate.run as unknown) === self &&
+				candidate.when === undefined,
+		);
+		return (
+			hook !== undefined &&
+			copy.derive.includes(hook) &&
+			prefixOf(copy.path, own.path) !== undefined
+		);
+	});
+}
+
+/**
  * Whether a request is not judged by this guard: left to a field guard
  * (`isEndpoint` of the definition that answers it) or to the guard of a group
  * or plugin that owns the route (`judgedLater`). A definition `definitionOf`
- * cannot find is judged: fail closed. The answer is kept per method, route and
- * upgrade for the standard methods only, so a client inventing methods cannot
- * grow it.
+ * cannot find is judged, unless an outer guard matched a `limixGraphql`
+ * endpoint that this app's own endpoint was mounted as (`placedEndpoint`): fail
+ * closed. The definition is kept per method, route and upgrade for the standard
+ * methods only, so a client inventing methods cannot grow it; the placement is
+ * per request, never kept.
  */
 export function skipTest(
 	app: RoutesOf,
 	self: () => unknown,
-): (method: string, route: string, upgrade: boolean) => boolean {
-	const kept = new Map<string, boolean>();
-	return (method, route, upgrade) => {
+): (method: string, route: string, upgrade: boolean, ctx: object) => boolean {
+	const kept = new Map<string, Definition | undefined>();
+	return (method, route, upgrade, ctx) => {
 		const key = `${method} ${route} ${upgrade}`;
-		const known = kept.get(key);
-		if (known !== undefined) return known;
-		const definition = definitionOf(app, method, route, upgrade);
-		const found =
-			definition !== undefined &&
-			(isEndpoint(definition) || judgedLater(definition, self()));
-		if (KNOWN.has(method)) kept.set(key, found);
-		return found;
+		const definition = kept.has(key)
+			? kept.get(key)
+			: definitionOf(app, method, route, upgrade);
+		if (KNOWN.has(method)) kept.set(key, definition);
+		if (definition === undefined) {
+			return placedEndpoint(
+				app,
+				self(),
+				method,
+				route,
+				upgrade,
+				placed.get(ctx),
+			);
+		}
+		// The first guard to match the request is the outermost: its match stands.
+		if (!placed.has(ctx)) placed.set(ctx, { route, definition });
+		return isEndpoint(definition) || judgedLater(definition, self());
 	};
 }
 

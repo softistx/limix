@@ -189,19 +189,23 @@ to the group's file.
   on the routes the path reaches, with no `when`, so the group's guard takes those
   routes (and answers 503 if it does not fit the group's other routes); the other
   routes never run it and the outer rules judge them.
-- A guarded plugin is placed by its exact path. Mounted under a prefix it does
-  not know (inside a prefixed group, under a host prefix, or twice), the path of
-  the route differs from the plugin's own, so both guards judge it. Mount a
-  guarded plugin at the top level of the app, with a prefix of its own
-  (`alxia({ prefix: '/console' })`), or use a group.
+- A guarded plugin mounted under a prefix it does not know (inside a prefixed
+  group, under a host prefix, or twice) holds its routes under its own paths, so
+  its guard cannot find the copy the host router matched. Its `limixGraphql`
+  endpoint is still left to the field guard when the host has a `limixGuard`: the
+  host guard tells the plugin guard which definition it matched, and the plugin
+  guard accepts it only for a mounted copy of its own endpoint (same handler and
+  schema, same guard hook, its own path under a valid prefix, exactly the same
+  method). A host without a guard places nothing, so the endpoint is refused
+  (403, closed). The plugin's REST routes are still judged by both guards: write
+  their rules with `global.basePath`, mount the plugin at the top level with a
+  prefix of its own (`alxia({ prefix: '/console' })`), or use a group.
 - A plugin without a prefix gives its chain, its guard included, to the host
   routes declared after it, so that guard judges them too. They are never left
   to it: the outer guard judges them, whatever handler or options they share
   (the route must be the plugin's own, mounted copy; a host route never takes
   its place).
-- Under a host prefix, rules for a plugin's own guard use `global.basePath`.
-  Its `limixGraphql` endpoint is then refused (403), because the guard cannot
-  find the prefixed definition; use a group there.
+- Under a host prefix, rules for a plugin's own REST routes use `global.basePath`.
 
 ### Forks
 
