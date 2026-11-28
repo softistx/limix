@@ -188,19 +188,26 @@ for (const unmatched of ['deny', 'allow'] as const) {
 	});
 }
 
-describe('a plugin with its own guard under a host prefix', () => {
-	test('its endpoint is refused (closed): the guard cannot find the prefixed definition', async () => {
-		const app = outerApp('deny', '/api');
-		const plugin = alxia();
-		const limix = optionsOf(consoleRules, plugin);
-		plugin.use(limixGuard(limix));
-		limixGraphql(plugin, {
-			schema: consoleSchema(),
-			limix,
-			path: '/console/graphql',
+for (const unmatched of ['deny', 'allow'] as const) {
+	describe(`a plugin with its own guard under a host prefix, outer unmatched: ${unmatched}`, () => {
+		test('its endpoint is judged by its own field rules', async () => {
+			const app = outerApp(unmatched, '/api');
+			const plugin = alxia();
+			const limix = optionsOf(consoleRules, plugin);
+			plugin.use(limixGuard(limix));
+			limixGraphql(plugin, {
+				schema: consoleSchema(),
+				limix,
+				path: '/console/graphql',
+			});
+			app.plugin(plugin);
+			expect(
+				(await post(app, '/api/console/graphql', '{ stats }')).status,
+			).toBe(401);
+			expect(
+				(await post(app, '/api/console/graphql', '{ stats }', 'admin')).status,
+			).toBe(200);
+			expect((await post(app, '/api/graphql', '{ me }')).status).toBe(200);
 		});
-		app.plugin(plugin);
-		const res = await post(app, '/api/console/graphql', '{ stats }', 'admin');
-		expect(res.status).toBe(403);
 	});
-});
+}

@@ -167,29 +167,153 @@ export function judgedElsewhere(
 }
 
 /**
+ * The definition the outermost guard matched for a request, by the request
+ * (one `Request` object for the whole chain; the context may be cloned on the
+ * way): a plugin mounted under a prefix holds its routes under its own paths, so
+ * its guard cannot find the copy the host router matched, and learns it from
+ * here. Recorded and accepted only when the route agrees with the request's own
+ * URL (`agrees`), since a middleware can rewrite `ctx.route`; and cleared by the
+ * guard that set it once its `next()` settles (`release`), so the same `Request`
+ * sent to another app finds nothing. `by` is the setting guard's own cache.
+ */
+const placed = new WeakMap<
+	object,
+	{ route: string; definition: Definition; by: object }
+>();
+
+/** The pathname of a request URL with one trailing slash removed (not from `/`). */
+const pathnameOf = (request: object): string | undefined => {
+	const { url } = request as { url?: unknown };
+	if (typeof url !== 'string') return undefined;
+	try {
+		const { pathname } = new URL(url);
+		return pathname.length > 1 && pathname.endsWith('/')
+			? pathname.slice(0, -1)
+			: pathname;
+	} catch {
+		return undefined;
+	}
+};
+
+/** Whether the declared route is the very path the request asked for (endpoints have no params). */
+const agrees = (request: object, route: string): boolean =>
+	pathnameOf(request) === route;
+
+/**
+ * The prefix a mount put before `own` to make `full` (the exact inverse of
+ * alxia's `joinPath`): `''` when they are equal, else a valid alxia prefix
+ * (starts with `/`, does not end with `/`, no `//`), or `undefined`.
+ */
+export function prefixOf(full: string, own: string): string | undefined {
+	if (full === own) return '';
+	const prefix =
+		own === '/'
+			? full
+			: full.endsWith(own)
+				? full.slice(0, full.length - own.length)
+				: undefined;
+	return prefix !== undefined &&
+		/^\/.*[^/]$/.test(prefix) &&
+		!prefix.includes('//')
+		? prefix
+		: undefined;
+}
+
+/**
+ * Whether the guard `self` of `app` (a plugin) leaves a request to the field
+ * guard because the outer guard matched a `limixGraphql` endpoint that is a
+ * mounted copy of one of `app`'s own. Every check must hold, else `self` judges
+ * (fail closed): `route` is the one the outer guard recorded (a middleware may rewrite ctx.route, so `skipTest` also requires it to equal the request URL's path)
+ * and that definition is an endpoint; the method is exactly its own (no HEAD to
+ * GET, no `all`, no socket fallback); `app` declares an endpoint of the same
+ * handler, kind and schema; the copy's chain holds the very `self` hook of that
+ * endpoint, with no `when`; and the copy's path is the plugin's own path under a
+ * valid prefix.
+ */
+export function placedEndpoint(
+	app: RoutesOf,
+	self: unknown,
+	method: string,
+	route: string,
+	upgrade: boolean,
+	placement: { route: string; definition: Definition } | undefined,
+): boolean {
+	if (placement === undefined || placement.route !== route) return false;
+	const copy = placement.definition;
+	if (!isEndpoint(copy)) return false;
+	if ('handler' in copy ? copy.method !== method : !upgrade) return false;
+	return [...app.routes, ...(app.sockets ?? [])].some((own) => {
+		if (
+			!isEndpoint(own) ||
+			handlerOf(own) !== handlerOf(copy) ||
+			!sameKind(own, copy) ||
+			own.schema !== copy.schema
+		) {
+			return false;
+		}
+		const hook = own.derive.find(
+			(candidate) =>
+				candidate.kind === 'middleware' &&
+				(candidate.run as unknown) === self &&
+				candidate.when === undefined,
+		);
+		return (
+			hook !== undefined &&
+			copy.derive.includes(hook) &&
+			prefixOf(copy.path, own.path) !== undefined
+		);
+	});
+}
+
+/**
  * Whether a request is not judged by this guard: left to a field guard
  * (`isEndpoint` of the definition that answers it) or to the guard of a group
  * or plugin that owns the route (`judgedLater`). A definition `definitionOf`
- * cannot find is judged: fail closed. The answer is kept per method, route and
- * upgrade for the standard methods only, so a client inventing methods cannot
- * grow it.
+ * cannot find is judged, unless an outer guard matched a `limixGraphql`
+ * endpoint that this app's own endpoint was mounted as (`placedEndpoint`): fail
+ * closed. The definition is kept per method, route and upgrade for the standard
+ * methods only, so a client inventing methods cannot grow it; the placement is
+ * per request, never kept.
  */
 export function skipTest(
 	app: RoutesOf,
 	self: () => unknown,
-): (method: string, route: string, upgrade: boolean) => boolean {
-	const kept = new Map<string, boolean>();
-	return (method, route, upgrade) => {
+): ((
+	method: string,
+	route: string,
+	upgrade: boolean,
+	request: object,
+) => boolean) & { release(request: object): void } {
+	const kept = new Map<string, Definition | undefined>();
+	const leaves = (
+		method: string,
+		route: string,
+		upgrade: boolean,
+		request: object,
+	): boolean => {
 		const key = `${method} ${route} ${upgrade}`;
-		const known = kept.get(key);
-		if (known !== undefined) return known;
-		const definition = definitionOf(app, method, route, upgrade);
-		const found =
-			definition !== undefined &&
-			(isEndpoint(definition) || judgedLater(definition, self()));
-		if (KNOWN.has(method)) kept.set(key, found);
-		return found;
+		const definition = kept.has(key)
+			? kept.get(key)
+			: definitionOf(app, method, route, upgrade);
+		if (KNOWN.has(method)) kept.set(key, definition);
+		if (definition === undefined) {
+			return (
+				agrees(request, route) &&
+				placedEndpoint(app, self(), method, route, upgrade, placed.get(request))
+			);
+		}
+		// The first guard to match the request is the outermost: its match stands.
+		if (!placed.has(request) && agrees(request, route)) {
+			placed.set(request, { route, definition, by: kept });
+		}
+		return isEndpoint(definition) || judgedLater(definition, self());
 	};
+	return Object.assign(leaves, {
+		/** Clears the placement this guard set for `request`, none another guard set. */
+		release(request: object): void {
+			if (placed.get(request)?.by === kept) placed.delete(request);
+		},
+	});
 }
 
 /** What `app` already declares that is not a `limixGraphql` endpoint: `METHOD path`, `WS path`. */

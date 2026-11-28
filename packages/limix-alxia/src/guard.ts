@@ -60,33 +60,41 @@ export function limixGuard<Ctx extends object = Empty>(
 	const leaves = skipTest(app, () => middleware);
 	const held = makeHeld(options as LimixAlxiaOptions<never>, () => middleware);
 	const middleware = defineMiddleware<Ctx>()(async (ctx, next) => {
-		const { route } = ctx;
-		if (route === undefined) return next();
-		const upgrade =
-			ctx.request.headers.get('upgrade')?.toLowerCase() === 'websocket';
-		if (leaves(ctx.request.method, route, upgrade)) return next();
-		const rules = held.snapshot();
-		if (isLimixRefusal(rules)) return answer(ctx, rules, mapRefusal);
+		// The placement this guard recorded lives while the chain below it runs
+		// (`await`: released once `next()` settles, never before).
 		try {
-			const { claims, relations } = await who(
-				options,
-				ctx,
-				rules.usesRelations,
-			);
-			const call = await restCall(ctx, route, rules);
-			const decision = await evaluateRest(rules, {
-				...call,
-				claims,
-				relations,
-				info: ctx,
-			});
-			if (!decision.allow) return answer(ctx, decision.refusal, mapRefusal);
-		} catch (error) {
-			const refusal = refusalOfError(error);
-			if (!refusal) throw error;
-			return answer(ctx, refusal, mapRefusal);
+			const { route } = ctx;
+			if (route === undefined) return await next();
+			const upgrade =
+				ctx.request.headers.get('upgrade')?.toLowerCase() === 'websocket';
+			if (leaves(ctx.request.method, route, upgrade, ctx.request)) {
+				return await next();
+			}
+			const rules = held.snapshot();
+			if (isLimixRefusal(rules)) return answer(ctx, rules, mapRefusal);
+			try {
+				const { claims, relations } = await who(
+					options,
+					ctx,
+					rules.usesRelations,
+				);
+				const call = await restCall(ctx, route, rules);
+				const decision = await evaluateRest(rules, {
+					...call,
+					claims,
+					relations,
+					info: ctx,
+				});
+				if (!decision.allow) return answer(ctx, decision.refusal, mapRefusal);
+			} catch (error) {
+				const refusal = refusalOfError(error);
+				if (!refusal) throw error;
+				return answer(ctx, refusal, mapRefusal);
+			}
+			return await next();
+		} finally {
+			leaves.release(ctx.request);
 		}
-		return next();
 	});
 	registerGuard(app, middleware);
 	// An app started through `listen` stops at once, and says why, when a route

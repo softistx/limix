@@ -131,6 +131,18 @@ outer rules.
 group as `app`; give a plugin that carries a guard a prefix of its own. See
 [several rules files on one app](alxia.md#several-rules-files-on-one-app).
 
+### A plugin's GraphQL endpoint answers 403 under a host prefix
+
+**When:** a plugin with its own `limixGuard` and `limixGraphql` is mounted under
+a host prefix (or inside a prefixed group) and its endpoint answers 403, even to
+a caller the field rules allow.
+**Why:** the plugin's guard finds the endpoint only through the host guard, which
+tells it which definition it matched. A host with no `limixGuard` places nothing,
+so the plugin guard judges the endpoint as a REST route and refuses it (closed).
+**Fix:** put a `limixGuard` on the host (declared before the plugin); a group does
+not help without one. See
+[several rules files on one app](alxia.md#several-rules-files-on-one-app).
+
 ### `checkGuard(): <METHOD path>: a hook stands between this guard and the group's guard, so both judge it; put the group's guard first in the group and limixGuard last among the app's own middlewares`
 
 **When:** `checkGuard(guard, app)` returns a `separated-guards` issue (also thrown at start) for a route a group's or
@@ -275,6 +287,8 @@ have no `relations`.
 ```ts
 limixGuard({ policy: source, claims, app, relations: janusRelations(/* ... */) })
 ```
+
+See also: [a plugin's GraphQL endpoint answers 403 under a host prefix](#a-plugins-graphql-endpoint-answers-403-under-a-host-prefix) when the guard sits on a plugin.
 
 ### GraphQL answered by the REST guard
 
