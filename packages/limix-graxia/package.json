@@ -54,7 +54,7 @@
 		]
 	},
 	"devDependencies": {
-		"@softistx/graxia": "^0.18.0",
+		"@softistx/graxia": "^0.20.1",
 		"@softistx/limix": "workspace:^",
 		"@types/bun": "^1.4.5",
 		"graphql": "^17.1.0"
