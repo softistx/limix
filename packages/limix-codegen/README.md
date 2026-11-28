@@ -16,7 +16,9 @@ token that can read the `@softistx` scope.
 bun add -d @softistx/limix-codegen @softistx/limix
 ```
 
-`@softistx/limix` and `typescript` (6 or 7) are required peers.
+`@softistx/limix` and `typescript` (6 or 7) are required peers. A file generated
+by codegen 0.5 or later imports `RestRulesInput` and `GraphqlRulesInput`, so it
+needs `@softistx/limix` 0.8 or later.
 `@softistx/limix-graxia` and `graphql` are optional peers, needed only for
 `--graphql` and the plugin. Installing `limix-graxia` brings `@softistx/graxia`
 in as its own peer, but codegen never imports graxia: it reads
@@ -58,6 +60,10 @@ As package.json scripts:
   }
 }
 ```
+
+The file also exports `RestRules` and `GraphqlRules`, so a block of rules kept
+in its own file is checked with `satisfies RestRules<'ownsBook'>` (see
+[writing rules](docs/writing-rules.md#7-splitting-the-policy-across-files)).
 
 A key is registered only when its input is given: without `--graphql`, GraphQL
 rules stay unchecked. The output is sorted and byte-stable (LF, no date, no

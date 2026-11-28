@@ -557,6 +557,12 @@ export const rules = definePolicy({
   overwritten silently. A list refuses it instead: a rule written twice across
   blocks, in either spelling, throws a `RulesError` naming both places
   ([`duplicate rule: rest[0]['/books'].GET and rest[1]['GET /books'] both name GET /books`](troubleshooting.md#duplicate-rule-rest0booksget-and-rest1get-books-both-name-get-books)).
+- A value typed `Rest | readonly Rest[]` matches no `definePolicy` overload:
+  narrow it first (`Array.isArray`), or give the call a block or a list.
+- With `@softistx/limix-codegen`, the generated file exports `RestRules` and
+  `GraphqlRules`, so a block is written `satisfies RestRules<'ownsBook'>` without
+  naming `Register` (see
+  [writing rules](../../limix-codegen/docs/writing-rules.md#7-splitting-the-policy-across-files)).
 - Rules of one path in two blocks join: `'/books': { GET }` in one and
   `'POST /books'` in the other are one group, at the first block's place.
 

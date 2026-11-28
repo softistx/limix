@@ -31,6 +31,7 @@ From the repository root:
 ```sh
 bun install
 bun run build          # the packages: the example imports their dist
+bun install            # again, to link the limix-codegen bin `generate` needs
 cd examples/books
 bun run start          # http://localhost:3000, PORT=8080 to change it
 bun run test           # generated-file check, then the specs
@@ -96,7 +97,8 @@ A refused top-level field answers with its HTTP status; a refused nested field
 
 | File | What it holds |
 | --- | --- |
-| [`src/policy.ts`](src/policy.ts) | The policy, for REST and GraphQL, and the `ownsBook` condition |
+| [`src/policy.ts`](src/policy.ts) | The policy: the blocks below combined by `definePolicy`, then compiled |
+| [`src/policy/`](src/policy) | One file per block (`books.rest.ts`, `books.graphql.ts`, `admin.ts`), each `satisfies RestRules` or `GraphqlRules`, and `conditions.ts` with `ownsBook` |
 | [`src/vocabulary.ts`](src/vocabulary.ts) | The role and permission names, declared by hand |
 | [`openapi.yaml`](openapi.yaml), [`schema.graphql`](schema.graphql) | The API's two contracts; codegen and coverage read them |
 | [`src/app.ts`](src/app.ts) | The alxia app: guard, REST routes, GraphQL endpoint |
@@ -105,7 +107,7 @@ A refused top-level field answers with its HTTP status; a refused nested field
 | [`src/generated/limix.ts`](src/generated/limix.ts) | Generated: the operations of the API |
 | `src/*.spec.ts` | REST statuses per user, GraphQL refusals, coverage |
 
-## Reading `src/policy.ts`
+## Reading the policy
 
 The format is described in [rules.md](../../packages/limix/docs/rules.md); the
 way to write and type a policy in [writing-rules.md](../../packages/limix-codegen/docs/writing-rules.md).
@@ -119,7 +121,8 @@ order.
 2. **Public reads.** `public: true` lets anonymous callers through.
    Rules apply in document order, first match wins: `GET /admin/health` is
    public and written before the `* /admin/*` wildcard, which would otherwise
-   take it and ask for an admin. (`/health` is a path of its own, no wildcard
+   take it and ask for an admin. Blocks keep their order in the list:
+   `admin.ts` comes last, so its wildcard sees only what the others left. (`/health` is a path of its own, no wildcard
    reaches it.)
 3. **Nested and flat REST keys.** `'/books': { GET }` with its methods under
    it, and `'POST /books'` as one key, mean the same thing and mix freely;
@@ -158,6 +161,6 @@ bun run check:limix  # the CI check, also the first step of `bun run test`
 ```
 
 `check:limix` fails when the committed types are out of date. Add a route: put
-it in `openapi.yaml`, run `generate`, write its rule in `src/policy.ts`; the
+it in `openapi.yaml`, run `generate`, write its rule in the block of `src/policy/` it belongs to; the
 coverage spec stays green only if the rule exists, and fails on a rule that
 reaches no operation (a typo, a removed route, a shadowed rule).
