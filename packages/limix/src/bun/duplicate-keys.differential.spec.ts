@@ -198,14 +198,29 @@ describe('scanYaml cost', () => {
 				{ length: lines },
 				(_, i) => `k${i}: { a: 1, b: [x, y] }`,
 			).join('\n');
-		const time = (text: string) => {
-			scanYaml(text);
+		// Wall-clock cost cannot be counted exactly without test-only API, and a
+		// loaded machine adds noise to any single measurement. Noise only ever
+		// adds time, so the fastest of several interleaved samples is the
+		// steadiest estimate of the real cost. A quadratic scan would cost about
+		// 10000 times more on 100 times more lines, far past the 300 bound.
+		const once = (text: string) => {
 			const began = performance.now();
-			for (let i = 0; i < 5; i++) scanYaml(text);
+			scanYaml(text);
 			return performance.now() - began;
 		};
-		const small = time(doc(100));
-		const large = time(doc(10000));
+		const smallText = doc(100);
+		const largeText = doc(10000);
+		once(smallText);
+		once(largeText);
+		let small = Number.POSITIVE_INFINITY;
+		let large = Number.POSITIVE_INFINITY;
+		for (let i = 0; i < 9; i++) {
+			// Many repeats of the small text so its sample is not timer-resolution bound.
+			const began = performance.now();
+			for (let j = 0; j < 20; j++) scanYaml(smallText);
+			small = Math.min(small, (performance.now() - began) / 20);
+			large = Math.min(large, once(largeText));
+		}
 		expect(large).toBeLessThan(small * 100 * 3);
 	});
 });
