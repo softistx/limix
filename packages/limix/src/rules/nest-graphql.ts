@@ -1,10 +1,11 @@
 import { formatPath, type RulesIssue } from './error';
 import { FLAT_GRAPHQL_KEY, splitFlatGraphql } from './keys';
-import { duplicate, isObject, type Origin } from './nest-shared';
+import { duplicate, isObject, notAGroup, type Origin } from './nest-shared';
 
 /** Nests the flat keys of a `graphql` block by type; GraphQL rules are not first-match. */
 export function nestGraphql(
-	graphql: Record<string, unknown>,
+	blocks: readonly unknown[],
+	listed: boolean,
 	issues: RulesIssue[],
 	origins: Origin[],
 ) {
@@ -16,6 +17,7 @@ export function nestGraphql(
 		field: string,
 		rule: unknown,
 		where: PropertyKey[],
+		flat: boolean,
 	) => {
 		const fields = types.get(type) ?? new Map<string, unknown>();
 		types.set(type, fields);
@@ -26,26 +28,41 @@ export function nestGraphql(
 			return;
 		}
 		written.set(name, where);
-		if (where.length === 2) {
+		if (flat || listed) {
 			origins.push([formatPath(['graphql', type, field]), formatPath(where)]);
 		}
 		fields.set(field, rule);
 	};
-	for (const [key, value] of Object.entries(graphql)) {
-		if (value === undefined) continue;
-		if (FLAT_GRAPHQL_KEY.test(key)) {
-			const { type, field } = splitFlatGraphql(key);
-			place(type, field, value, ['graphql', key]);
-		} else if (isObject(value)) {
-			if (!types.has(key)) types.set(key, new Map());
-			for (const [field, rule] of Object.entries(value)) {
-				if (rule !== undefined)
-					place(key, field, rule, ['graphql', key, field]);
+	blocks.forEach((graphql, index) => {
+		if (!isObject(graphql)) {
+			if (listed) {
+				issues.push({
+					path: formatPath(['graphql', index]),
+					message: 'a rules block must be an object',
+				});
 			}
-		} else {
-			passed.set(key, value);
+			return;
 		}
-	}
+		const base: PropertyKey[] = listed ? ['graphql', index] : ['graphql'];
+		for (const [key, value] of Object.entries(graphql)) {
+			if (value === undefined) continue;
+			if (FLAT_GRAPHQL_KEY.test(key)) {
+				const { type, field } = splitFlatGraphql(key);
+				place(type, field, value, [...base, key], true);
+			} else if (isObject(value)) {
+				if (!types.has(key)) types.set(key, new Map());
+				for (const [field, rule] of Object.entries(value)) {
+					if (rule !== undefined)
+						place(key, field, rule, [...base, key, field], false);
+				}
+			} else if (listed) {
+				// Kept out of the output: it would replace an earlier block's group.
+				issues.push(notAGroup([...base, key], value, 'a type group'));
+			} else {
+				passed.set(key, value);
+			}
+		}
+	});
 	return Object.fromEntries([
 		...[...types].map(
 			([type, fields]) => [type, Object.fromEntries(fields)] as const,

@@ -1,8 +1,13 @@
-import { type Condition, compilePolicy, definePolicy } from '../rules';
+import {
+	type Condition,
+	compilePolicy,
+	definePolicy,
+	type TypedRulesInput,
+} from '../rules';
 import type { Claims } from './claims';
 import type { RelationChecker, RelationQuery } from './relations';
 
-type Document = Parameters<typeof definePolicy>[0];
+type Document = TypedRulesInput;
 
 /** Compiles a document with the conditions a spec registers. */
 export function policyOf(

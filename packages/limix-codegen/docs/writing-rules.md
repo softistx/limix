@@ -141,7 +141,52 @@ Both compile to the same policy and may be mixed in one file, in document order.
 `limix-codegen init --flat` starts a policy in the flat form. The rules format
 (a YAML or JSON file) is nested only: the flat keys exist in `definePolicy`.
 
-## 7. In CI
+## 7. Splitting the policy across files
+
+A long policy can keep each concern in its own file. The generated file exports
+`RestRules` and `GraphqlRules`, so a block is checked where it is written. List
+the condition names `when` may use once, in a file of types, so a block needs no
+import of the conditions' code:
+
+```ts
+// src/policy/conditions.ts
+export type BooksCondition = 'ownsBook'
+
+// src/policy/books.rest.ts
+import type { RestRules } from '../generated/limix'
+import type { BooksCondition } from './conditions'
+
+export const booksRest = {
+  'GET /books': { public: true },
+  '/books/:id': { PUT: { roles: [['editor']], when: ['ownsBook'] } },
+} satisfies RestRules<BooksCondition>
+
+// src/policy/admin.ts: the public health check before the wildcard
+export const adminRest = {
+  'GET /admin/health': { public: true },
+  '* /admin/*': { roles: [['admin']] },
+} satisfies RestRules<never>
+
+// src/policy.ts
+const rules = definePolicy(
+  { limix: 1, global: { unmatched: 'deny' }, rest: [booksRest, adminRest], graphql: booksGraphql },
+  { conditions },
+)
+```
+
+An unknown path, method, role, permission or condition in a block is a compile
+error in that block. List order is first-match order, and a rule written in two
+blocks is refused: see "Splitting a policy across files" in the
+[rules guide](../../limix/docs/rules.md#splitting-a-policy-across-files). A
+variable typed `Rest | readonly Rest[]` matches no `definePolicy` overload:
+narrow it first. A mistake in a block written inline in the list is reported on
+the `rest:` key (`No overload matches this call`, ending with `Index signature
+for type …`): write each block in its own constant or file, `satisfies RestRules`, as
+above, and the error shows in the block (`satisfies` inside the list does not
+move it)
+([troubleshooting](../../limix/docs/troubleshooting.md#index-signature-for-type-stringstring-is-missing-in-type-)). The starter `init` writes stays one file.
+
+## 8. In CI
 
 ```sh
 limix-codegen generate --openapi openapi.yaml --graphql schema.graphql --check

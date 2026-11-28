@@ -29,6 +29,10 @@ Nothing yet.
 
 ## Shipped
 
+- **0.8.0** — rules split across files: `RestRulesInput` and `GraphqlRulesInput`
+  check a block of rules in its own file, and `definePolicy` takes `rest` and
+  `graphql` as a list of blocks, merged in list order. `@softistx/limix-codegen`
+  0.5 exports the ready-made `RestRules` and `GraphqlRules` aliases.
 - **0.7.0** — the rules format is nested only again: a flat key in a rules file
   is refused with the nested spelling to write (`RulesInput` is removed), and the
   flat spelling lives in `definePolicy`, which nests it in document order,

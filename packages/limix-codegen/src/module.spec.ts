@@ -49,6 +49,11 @@ describe('generateModule', () => {
 		});
 		expect(onlyRest).toContain('\t\trest: LimixRest;');
 		expect(onlyRest).not.toContain('graphql:');
+		expect(onlyRest).toContain('export type RestRules<');
+		expect(onlyRest).not.toContain('GraphqlRules');
+		expect(onlyRest).toContain(
+			"import type { ConditionName, Register, RestRulesInput } from '@softistx/limix';",
+		);
 		expect(onlyRest).not.toContain('permission:');
 		const onlyGraphql = generateModule({
 			sources: ['s'],
@@ -56,6 +61,8 @@ describe('generateModule', () => {
 		});
 		expect(onlyGraphql).toContain('\t\tgraphql: LimixGraphql;');
 		expect(onlyGraphql).not.toContain('rest:');
+		expect(onlyGraphql).toContain('export type GraphqlRules<');
+		expect(onlyGraphql).not.toContain('RestRules');
 	});
 
 	it('registers the operations only: no permission, role or condition', () => {

@@ -36,7 +36,7 @@ export const rules = definePolicy({
 | --- | --- |
 | `parseRules(input)` | Validates a value, returns `Rules`, throws a `RulesError` listing every issue with its path |
 | `loadRules(path)` from `@softistx/limix/bun` | Reads a `.yaml`, `.yml` or `.json` file, then `parseRules` |
-| `definePolicy(rules, { conditions })` | Writes the document in code, flat or nested keys: a compile error on a typo, then nests, validates and returns the same `Rules` as `parseRules` ([flat keys](#flat-keys-in-definepolicy)) |
+| `definePolicy(rules, { conditions })` | Writes the document in code, flat or nested keys (`rest` and `graphql` take one block or a [list of blocks](#splitting-a-policy-across-files)): a compile error on a typo, then nests, validates and returns the same `Rules` as `parseRules` ([flat keys](#flat-keys-in-definepolicy)) |
 | `compilePolicy(rules, { conditions })` | Precompiles the route table and the field table into a `CompiledPolicy` |
 
 ```ts
@@ -519,6 +519,61 @@ rules format itself (a YAML or JSON file, `parseRules`, `compilePolicy`,
 A flat key in a rules file is refused by `parseRules`, with the spelling to write
 instead. The `limix-codegen init --flat` command writes a policy in this form.
 
+## Splitting a policy across files
+
+A long policy can live in several files, each type-checked on its own. Write a
+block with `satisfies RestRulesInput` (or `GraphqlRulesInput`), which refuses an
+unregistered path, field, role, permission or condition exactly as an inline
+`rest` does, then give `definePolicy` the blocks as a list:
+
+```ts
+// books.rules.ts
+import type { RestRulesInput } from '@softistx/limix'
+
+export const bookRules = {
+  'GET /books': { public: true },
+  '/books/:id': { GET: { authenticated: true } },
+} satisfies RestRulesInput
+
+// admin.rules.ts
+export const adminRules = {
+  '* /admin/*': { roles: [['admin']] },
+} satisfies RestRulesInput
+
+// policy.ts
+export const rules = definePolicy({
+  limix: 1,
+  global: { unmatched: 'deny' },
+  rest: [bookRules, adminRules],
+})
+```
+
+- **List order is document order**, so it sets the first-match precedence of
+  REST rules: write the specific block before the general one. The check that
+  refuses a flat rule jumping over an earlier rule applies across blocks.
+- `graphql` takes a list the same way. The result is the same nested `Rules`
+  as one block holding every rule.
+- **Do not spread** (`rest: { ...a, ...b }`): a key written in both would be
+  overwritten silently. A list refuses it instead: a rule written twice across
+  blocks, in either spelling, throws a `RulesError` naming both places
+  ([`duplicate rule: rest[0]['/books'].GET and rest[1]['GET /books'] both name GET /books`](troubleshooting.md#duplicate-rule-rest0booksget-and-rest1get-books-both-name-get-books)).
+- A value typed `Rest | readonly Rest[]` matches no `definePolicy` overload:
+  narrow it first (`Array.isArray`), or give the call a block or a list.
+- With `@softistx/limix-codegen`, the generated file exports `RestRules` and
+  `GraphqlRules`, so a block is written `satisfies RestRules<'ownsBook'>` without
+  naming `Register` (see
+  [writing rules](../../limix-codegen/docs/writing-rules.md#7-splitting-the-policy-across-files)).
+- Rules of one path in two blocks join: `'/books': { GET }` in one and
+  `'POST /books'` in the other are one group, at the first block's place. The
+  join is checked like a flat key: a rule that would move above a competing
+  rule of a block between them is refused (naming the block of the first
+  group), nested or flat.
+- A mistake inside an inline list is reported by TypeScript on the `rest:` key
+  (`No overload matches this call`), not on the block that holds it. Write each
+  block in its own constant or file, `satisfies RestRulesInput`, so the error
+  shows where it lives (`satisfies` inside the list does not move it)
+  ([`Index signature for type …`](troubleshooting.md#index-signature-for-type-stringstring-is-missing-in-type-)).
+
 ## Typed operations and names
 
 `definePolicy` reads a `Register` interface, filled in by module augmentation, so
@@ -589,7 +644,9 @@ checked against it. `ConditionMap<R>` is what the `conditions` option takes.
 `GraphqlOperationName` give the registered unions to your own code;
 `TypedRulesInput` (flat and nested keys, what `definePolicy` takes) and
 `TypedRules` (nested keys only, over `Rules`; every `TypedRules` value is a
-`TypedRulesInput`) are the narrowed documents, `DefinePolicyOptions` the options.
+`TypedRulesInput`) are the narrowed documents, `RestRulesInput` and
+`GraphqlRulesInput` the `rest` and `graphql` members of `TypedRulesInput` on
+their own (one block, for `satisfies`), `DefinePolicyOptions` the options.
 Nothing is registered by default: until something is declared, every type is
 what it was (`string`).
 

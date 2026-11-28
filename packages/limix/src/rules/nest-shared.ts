@@ -14,3 +14,15 @@ export const duplicate = (
 	path: formatPath(second),
 	message: `duplicate rule: ${formatPath(first)} and ${formatPath(second)} both name ${name}`,
 });
+
+/** A refusal of a group that is not an object, for a list (a single block leaves it to the schema). */
+export const notAGroup = (
+	where: PropertyKey[],
+	value: unknown,
+	what: string,
+): RulesIssue => ({
+	path: formatPath(where),
+	message: `${what} must be an object, received ${
+		value === null ? 'null' : Array.isArray(value) ? 'an array' : typeof value
+	}`,
+});
