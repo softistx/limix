@@ -172,8 +172,8 @@ describe('definePolicy: conditions', () => {
 				{
 					limix: 1,
 					global: unmatched,
+					// @ts-expect-error `weekend` is not one of the conditions given
 					rest: {
-						// @ts-expect-error `weekend` is not one of the conditions given
 						'GET /a': { when: ['weekend'] },
 					},
 				},
@@ -194,8 +194,8 @@ describe('definePolicy: conditions', () => {
 			definePolicy<typeof conditions>({
 				limix: 1,
 				global: unmatched,
+				// @ts-expect-error `nope` is not in `typeof conditions`
 				rest: {
-					// @ts-expect-error `nope` is not in `typeof conditions`
 					'/a': { GET: { when: ['nope'] } },
 				},
 			}),

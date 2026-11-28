@@ -4,7 +4,9 @@ import { parseRules } from './parse';
 import type {
 	ConditionMap,
 	ConditionName,
+	GraphqlRulesInput,
 	Register,
+	RestRulesInput,
 	TypedRulesInput,
 } from './register';
 import type { Rules } from './schema';
@@ -18,6 +20,26 @@ export interface DefinePolicyOptions<C> {
 	 */
 	conditions?: C;
 }
+
+type Names<C> = [C] extends [never] ? ConditionName : keyof C & string;
+
+/**
+ * What `definePolicy` takes: a `TypedRulesInput` whose `rest` and `graphql` are
+ * each one block or a list of blocks (see `RestRulesInput`).
+ */
+type DefineInput<C> = Omit<
+	TypedRulesInput<Register, Names<C>>,
+	'rest' | 'graphql'
+> & {
+	rest?:
+		| RestRulesInput<Register, Names<C>>
+		| readonly RestRulesInput<Register, Names<C>>[]
+		| undefined;
+	graphql?:
+		| GraphqlRulesInput<Register, Names<C>>
+		| readonly GraphqlRulesInput<Register, Names<C>>[]
+		| undefined;
+};
 
 /**
  * Writes a policy in code. A flat key (`"POST /users/:id"`, `"Query.me"`,
@@ -37,14 +59,16 @@ export interface DefinePolicyOptions<C> {
  * (or an explicit `definePolicy<typeof conditions>(...)`), else from
  * `Register`. A key with a wildcard (`* /x`, `/a/*`) or an optional group stays
  * unchecked.
+ *
+ * `rest` and `graphql` may each be a list of blocks, so that a policy's rules
+ * live in several files, each checked on its own with `satisfies
+ * RestRulesInput`. The list is read in order, as one document: list order is
+ * document order, so it is the first-match precedence. A rule written in two
+ * blocks throws, naming both (`rest[0]['/a'].GET` and `rest[1]['GET /a']`);
+ * a spread would overwrite silently.
  */
 export function definePolicy<const C extends ConditionMap = never>(
-	rules: NoInfer<
-		TypedRulesInput<
-			Register,
-			[C] extends [never] ? ConditionName : keyof C & string
-		>
-	>,
+	rules: NoInfer<DefineInput<C>>,
 	// Types only: the argument is never read.
 	_options?: DefinePolicyOptions<C>,
 ): Rules {

@@ -254,6 +254,27 @@ a duplicate: the first takes every path of the second, and coverage reports the
 second as stale.)
 **Fix:** keep one, or give them different patterns.
 
+## duplicate rule: rest[0]['/books'].GET and rest[1]['GET /books'] both name GET /books
+
+**When:** `definePolicy` takes `rest` (or `graphql`) as a list of blocks and a
+rule is written in two of them: the same path and method, in either spelling
+(`'/books': { GET }` in one block, `'GET /books'` in another), or for GraphQL
+`graphql[0]['Query.me'] and graphql[1].Query.me both name Query.me`. The paths
+carry the block's index in the list.
+**Why:** the two blocks are one document, and which rule applies would depend
+on their order. A spread (`{ ...a, ...b }`) would drop one of them silently;
+the list refuses it.
+**Fix:** keep the rule in one block. To let a later block refine an earlier
+one, give it a different method or pattern:
+
+```ts
+definePolicy({
+  limix: 1,
+  global: { unmatched: 'deny' },
+  rest: [{ 'GET /books': { public: true } }, { 'POST /books': { roles: [['admin']] } }],
+})
+```
+
 ## `GET /a` would move above `GET /b`: nest it under `/a`, or write `/b` after it
 
 **When:** `definePolicy` is given a flat key whose path was written earlier, with

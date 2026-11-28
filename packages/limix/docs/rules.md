@@ -36,7 +36,7 @@ export const rules = definePolicy({
 | --- | --- |
 | `parseRules(input)` | Validates a value, returns `Rules`, throws a `RulesError` listing every issue with its path |
 | `loadRules(path)` from `@softistx/limix/bun` | Reads a `.yaml`, `.yml` or `.json` file, then `parseRules` |
-| `definePolicy(rules, { conditions })` | Writes the document in code, flat or nested keys: a compile error on a typo, then nests, validates and returns the same `Rules` as `parseRules` ([flat keys](#flat-keys-in-definepolicy)) |
+| `definePolicy(rules, { conditions })` | Writes the document in code, flat or nested keys (`rest` and `graphql` take one block or a [list of blocks](#splitting-a-policy-across-files)): a compile error on a typo, then nests, validates and returns the same `Rules` as `parseRules` ([flat keys](#flat-keys-in-definepolicy)) |
 | `compilePolicy(rules, { conditions })` | Precompiles the route table and the field table into a `CompiledPolicy` |
 
 ```ts
@@ -518,6 +518,47 @@ rules format itself (a YAML or JSON file, `parseRules`, `compilePolicy`,
 
 A flat key in a rules file is refused by `parseRules`, with the spelling to write
 instead. The `limix-codegen init --flat` command writes a policy in this form.
+
+## Splitting a policy across files
+
+A long policy can live in several files, each type-checked on its own. Write a
+block with `satisfies RestRulesInput` (or `GraphqlRulesInput`), which refuses an
+unregistered path, field, role, permission or condition exactly as an inline
+`rest` does, then give `definePolicy` the blocks as a list:
+
+```ts
+// books.rules.ts
+import type { RestRulesInput } from '@softistx/limix'
+
+export const bookRules = {
+  'GET /books': { public: true },
+  '/books/:id': { GET: { authenticated: true } },
+} satisfies RestRulesInput
+
+// admin.rules.ts
+export const adminRules = {
+  '* /admin/*': { roles: [['admin']] },
+} satisfies RestRulesInput
+
+// policy.ts
+export const rules = definePolicy({
+  limix: 1,
+  global: { unmatched: 'deny' },
+  rest: [bookRules, adminRules],
+})
+```
+
+- **List order is document order**, so it sets the first-match precedence of
+  REST rules: write the specific block before the general one. The check that
+  refuses a flat rule jumping over an earlier rule applies across blocks.
+- `graphql` takes a list the same way. The result is the same nested `Rules`
+  as one block holding every rule.
+- **Do not spread** (`rest: { ...a, ...b }`): a key written in both would be
+  overwritten silently. A list refuses it instead: a rule written twice across
+  blocks, in either spelling, throws a `RulesError` naming both places
+  ([`duplicate rule: rest[0]['/books'].GET and rest[1]['GET /books'] both name GET /books`](troubleshooting.md#duplicate-rule-rest0books-get-and-rest1get-books-both-name-get-books)).
+- Rules of one path in two blocks join: `'/books': { GET }` in one and
+  `'POST /books'` in the other are one group, at the first block's place.
 
 ## Typed operations and names
 
