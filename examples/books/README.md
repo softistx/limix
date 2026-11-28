@@ -31,7 +31,7 @@ From the repository root:
 ```sh
 bun install
 bun run build          # the packages: the example imports their dist
-bun install            # again, to link the limix-codegen bin `generate` needs
+bun install            # again: links the limix-codegen bin now that it is built
 cd examples/books
 bun run start          # http://localhost:3000, PORT=8080 to change it
 bun run test           # generated-file check, then the specs
@@ -122,8 +122,8 @@ order.
    Rules apply in document order, first match wins: `GET /admin/health` is
    public and written before the `* /admin/*` wildcard, which would otherwise
    take it and ask for an admin. Blocks keep their order in the list:
-   `admin.ts` comes last, so its wildcard sees only what the others left. (`/health` is a path of its own, no wildcard
-   reaches it.)
+   `admin.ts` comes last, so its wildcard sees only what the others left.
+   (`/health` is a path of its own, no wildcard reaches it.)
 3. **Nested and flat REST keys.** `'/books': { GET }` with its methods under
    it, and `'POST /books'` as one key, mean the same thing and mix freely;
    choose by what reads best. A flat key joins the nested path written just

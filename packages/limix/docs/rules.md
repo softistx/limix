@@ -564,7 +564,14 @@ export const rules = definePolicy({
   naming `Register` (see
   [writing rules](../../limix-codegen/docs/writing-rules.md#7-splitting-the-policy-across-files)).
 - Rules of one path in two blocks join: `'/books': { GET }` in one and
-  `'POST /books'` in the other are one group, at the first block's place.
+  `'POST /books'` in the other are one group, at the first block's place. The
+  join is checked like a flat key: a rule that would move above a competing
+  rule of a block between them is refused (naming the block of the first
+  group), nested or flat.
+- A mistake inside an inline list is reported by TypeScript on the `rest:` key
+  (`No overload matches this call`), not on the block that holds it. Write each
+  block `satisfies RestRulesInput`, so the error shows where it lives
+  ([`Index signature for type …`](troubleshooting.md#index-signature-for-type-stringstring-is-missing-in-type-)).
 
 ## Typed operations and names
 

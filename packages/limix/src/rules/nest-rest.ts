@@ -1,7 +1,7 @@
 import { normalisePattern } from './compile/entries';
 import { formatPath, type RulesIssue } from './error';
 import { FLAT_REST_KEY, REST_METHODS, splitFlatRest } from './keys';
-import { duplicate, isObject, type Origin } from './nest-shared';
+import { duplicate, isObject, notAGroup, type Origin } from './nest-shared';
 
 /**
  * Whether a rule of method `a` and one of method `b` could answer the same
@@ -39,6 +39,10 @@ type State = {
 	origins: Origin[];
 	/** The rules come as a list of blocks: paths carry the block index. */
 	listed: boolean;
+	/** The block each group was first written in, to name it in a refusal. */
+	openedIn: Map<string, number>;
+	/** The block being read. */
+	block: number;
 };
 
 /** The first rule written after `pattern`'s group that could answer the same request as `method`. */
@@ -78,7 +82,9 @@ function place(
 			message: `\`${method} ${pattern}\` would move above \`${jumped[1]} ${jumped[0]}\`: ${
 				flat
 					? `nest it under \`${pattern}\``
-					: `write it with the first \`${pattern}\` rules`
+					: `write it with the first \`${pattern}\` rules${
+							state.listed ? `, in rest[${state.openedIn.get(pattern)}]` : ''
+						}`
 			}, or write \`${jumped[0]}\` after it`,
 		});
 		return;
@@ -89,7 +95,10 @@ function place(
 		origins.push([formatPath(['rest', pattern, method]), formatPath(where)]);
 	}
 	if (existing) existing.rules.set(method, rule);
-	else groups.set(pattern, { rules: new Map([[method, rule]]) });
+	else {
+		groups.set(pattern, { rules: new Map([[method, rule]]) });
+		state.openedIn.set(pattern, state.block);
+	}
 }
 
 /** The refusal of a key that looks flat and is not, or `undefined`. */
@@ -122,9 +131,12 @@ export function nestRest(
 		issues,
 		origins,
 		listed,
+		openedIn: new Map(),
+		block: 0,
 	};
 	const passed = new Map<string, unknown>();
 	blocks.forEach((rest, index) => {
+		state.block = index;
 		if (!isObject(rest)) {
 			if (listed) {
 				issues.push({
@@ -145,11 +157,17 @@ export function nestRest(
 				place(state, pattern, method, value, [...base, key], true);
 			} else if (isObject(value)) {
 				// A group is registered even when empty, so that a later flat key joins it.
-				if (!state.groups.has(key)) state.groups.set(key, { rules: new Map() });
+				if (!state.groups.has(key)) {
+					state.groups.set(key, { rules: new Map() });
+					state.openedIn.set(key, index);
+				}
 				for (const [method, rule] of Object.entries(value)) {
 					if (rule === undefined) continue;
 					place(state, key, method, rule, [...base, key, method], false);
 				}
+			} else if (listed) {
+				// Kept out of the output: it would replace an earlier block's group.
+				issues.push(notAGroup([...base, key], value, 'a path group'));
 			} else {
 				passed.set(key, value);
 			}
